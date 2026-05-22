@@ -11,14 +11,15 @@
      │
      │  HTTPS + JWT
      ▼
-[Supabase Edge Functions]    ← Kakao OAuth · Gemini Vision · F1-F5 push · votes_aggregate
+[Supabase Edge Functions]    ← Gemini Vision (OCR) · F1-F5 push · votes_aggregate · group_confirm · click_log · attribution_match · calendar_push
      │
      ├── [Postgres + RLS + Realtime broadcast]    ← 18 tables (D3 partnerships only)
      ├── [Auth (Kakao OIDC + signInWithIdToken)]  ← D29
      └── [Storage]                                ← 프로필 이미지 (Phase 3)
      │
      └── 외부 API:
-         ├── Kakao OAuth + Local API (D1 + Q-A1)
+         ├── Kakao Local API (D1 + Q-A2 — 지도용)
+         ├── Kakao OIDC (D29 — Supabase Auth via signInWithIdToken)
          ├── Naver Map SDK
          ├── Google Calendar API
          ├── Gemini Vision (OCR — D2 keep)
