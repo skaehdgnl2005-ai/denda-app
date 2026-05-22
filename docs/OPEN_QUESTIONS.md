@@ -7,13 +7,13 @@
 
 ## A. Pre-build 필수 (Sprint 0 이전 또는 W1 deadline)
 
-### Q-A1 — Kakao 비즈앱 우회 OAuth 정책 답변
+### Q-A1 — Kakao 비즈앱 우회 OAuth 정책 답변 ✅ Closed by D29 (2026-05-22)
 - **출처**: V2_PRD §16-1, OFFICE_HOURS §13, ENG_REVIEW §1.2
 - **질문**: synthetic email + HMAC OAuth가 Kakao 정책 위반 아닌지 서면 확인
 - **소유자**: Founder
-- **마감**: 2026-05-28 (D1 W1 deadline)
-- **해결 시**: D21 확정 / 미수신 시 → Apple ID OAuth eager fallback (S16)
-- **상태**: 진행 중 (Kakao 디벨로퍼스 1:1 문의 발송)
+- **마감**: 2026-05-28 (D1 W1 deadline) — 무의미해짐
+- **해결**: D29 채택으로 비즈앱 우회 OAuth 자체를 사용하지 않음. 표준 OIDC + Supabase `signInWithIdToken` 사용. 카카오 정책 답변 의존 해소. S01 BLOCKED 해소
+- **상태**: Closed (2026-05-22)
 
 ### Q-A2 — Kakao Local API 약관 (외부 지도 SDK 위 표시)
 - **출처**: V2_PRD §16-6, OFFICE_HOURS §13, ENG_REVIEW §1.2

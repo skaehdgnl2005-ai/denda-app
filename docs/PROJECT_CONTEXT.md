@@ -22,7 +22,7 @@
 4탭 + FAB: **홈 | 친구 | [+] FAB(모임 만들기) | 지도 | 프로필**
 
 P0 (v1.0 필수, Phase 1+2):
-- 카카오 OAuth (D21 synthetic email + HMAC)
+- 카카오 OAuth ([D29](DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede) OIDC + Supabase signInWithIdToken)
 - 시간 그리드 15분 슬롯 + 드래그 멀티셀렉트 (60fps)
 - 모임 → 시간 투표 → 확정 → 장소 flow
 - 네이버 지도 + 카카오 Local API (반경·카테고리·제휴 마커)
@@ -107,7 +107,7 @@ Tech Stack (Phase 1+2):
 - 🔒 Phase 3 deferred: 토스 / 통신판매업 / 변호사 약관 / 식당 인프라
 
 주요 테이블 (Phase 1+2):
-- `users` (kakao_id, synthetic_email)
+- `users` (kakao_id, email — nullable, Phase 3 비즈앱 후 채움)
 - `groups` (host_id, confirmed_at, **f4_sent_at**)
 - `votes` (group_id, **start_minute CHECK %15=0**)
 - `places` (kakao_place_id, **lat/lng WGS84**, partnership_id?)

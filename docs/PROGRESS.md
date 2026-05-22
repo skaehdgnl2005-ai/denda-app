@@ -30,7 +30,7 @@ Progress: █▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ 1 / 17 (5
 
 | Lane | TODO | IN_PROGRESS | DONE | BLOCKED |
 |---|---|---|---|---|
-| **A (Foundation·Auth·Time grid·OCR)** | 4 | 0 | 1 | 1 (S01) |
+| **A (Foundation·Auth·Time grid·OCR)** | 5 | 0 | 1 | 0 |
 | **B (Map·Click-through·지도-일정)** | 2 | 0 | 0 | 1 (S10) |
 | **C (Web guest)** | 2 | 0 | 0 | 0 |
 | **D (Cross-cutting)** | 6 | 0 | 0 | 1 (S16) |
@@ -41,13 +41,13 @@ Progress: █▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ 1 / 17 (5
 
 ## 🎯 Active Gates
 
-### D1 — Kakao 정책 답변 (W1 deadline)
+### D1 — Kakao Local API 정책 답변 (W1 deadline, auth 부분은 D29로 해소)
 - **마감**: 2026-05-28 (D-6)
-- **상태**: 답변 대기 중 (문의 발송: 2026-05-21)
-- **블록 대상**: S01, S10, S16 활성 여부
-- **No-answer 시 액션**: 즉시 S16 (backup providers) eager 활성. Sprint 2 일정 재조정
+- **상태**: 지도 부분(Q-A2)만 답변 대기 중. Auth 부분(Q-A1)은 D29 채택으로 closed (2026-05-22)
+- **블록 대상**: S10, S16 (지도) 활성 여부. S01은 D29로 BLOCKED 해소
+- **No-answer 시 액션**: S16의 NaverSearchProvider eager 활성. S01은 영향 없음
 
-→ [DECISIONS.md#d1](DECISIONS.md#d1--kakao-oauth--local-api-정책-verify-track--lazy-backup) | [OPEN_QUESTIONS.md#q-a1](OPEN_QUESTIONS.md#q-a1--kakao-비즈앱-우회-oauth-정책-답변)
+→ [DECISIONS.md#d1](DECISIONS.md#d1--kakao-oauth--local-api-정책-verify-track--lazy-backup) | [OPEN_QUESTIONS.md#q-a2](OPEN_QUESTIONS.md#q-a2--kakao-local-api-약관-외부-지도-sdk-위-표시) | [DECISIONS.md#d29](DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede)
 
 ---
 

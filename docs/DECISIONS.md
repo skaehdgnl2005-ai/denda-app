@@ -16,14 +16,14 @@
 
 | 항목 | 내용 |
 |---|---|
-| 결정 | Kakao 비즈앱 우회 OAuth (synthetic email + HMAC) + Kakao Local API on Naver Maps를 baseline으로 진행하되, 동시에 backup 인터페이스를 추상화 |
+| 결정 | Kakao OIDC native OAuth (Supabase `signInWithIdToken` — [D29](#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede)) + Kakao Local API on Naver Maps를 baseline으로 진행하되, 동시에 backup 인터페이스를 추상화 |
 | 근거 | 정책 위반 시 auth/지도 둘 다 무너짐 (CRITICAL). 1주 안에 Kakao 디벨로퍼스 서면 답변 확보 + 답변 없으면 즉시 eager fallback |
 | 대안 | (a) eager fallback (Apple ID + Naver Search API)부터 시작 — 거부: backup이 핵심 UX 열화 (지도 카테고리 빈약) (b) 정책 답변 대기만 — 거부: 출시 timeline 위협 |
 | 소유자 | Founder |
 | 결정일 | 2026-05-21 |
 | 마감 게이트 | **2026-05-28 (W1 deadline)** — Kakao 답변 미수신 시 즉시 Step 16 (backup providers) lane eager 활성 |
 | 의존 | OPEN: Kakao 디벨로퍼스 1:1 문의 2건 답변 |
-| 결과 영향 | S01 (Auth) baseline 가능. Step 16은 lazy interface 추상화만. Apple 심사 시 Apple ID 추가는 Phase 3 |
+| 결과 영향 | S01 (Auth) baseline = D29 OIDC 표준 (Q-A1 closed). S10 (Map) baseline = Kakao Local API (Q-A2 답변 대기). Step 16은 lazy interface 추상화만. Apple 심사 시 Apple ID 추가는 Phase 3 |
 | 출처 | ENG_REVIEW §1.2 |
 
 ---
@@ -565,7 +565,9 @@ for (const group of pending) {
 
 ---
 
-## D21 — Kakao OAuth synthetic email + HMAC (베타는 카카오 only)
+## D21 — Kakao OAuth synthetic email + HMAC (베타는 카카오 only) ⚠️ Superseded by D29 (2026-05-22)
+
+> **이 결정은 폐기되었습니다.** 카카오 비즈앱 우회 OAuth 대신 표준 OIDC + `supabase.auth.signInWithIdToken`을 채택. 본문은 이력 보존을 위해 그대로 둠.
 
 | 항목 | 내용 |
 |---|---|
@@ -712,6 +714,21 @@ const BranchAttribution = lazy(() => import('@/lib/branch/attribution'));
 | 의존 | [D27](#d27--attribution-saas--singular-베타-한정-phase-3-재평가) supersede. Q-A6 재정의 (자체 구축 정확도 PoC). |
 | 결과 영향 | (1) ARCHITECTURE.md §3.5 재작성 (자체 구축 spec). (2) S15 자체 구축 acceptance — Singular SDK 통합 → 자체 fingerprint 매칭 + 4자리 코드 fallback 의무. (3) `branch_attributions` table 이름 유지 (schema 변경 cost 회피, 의미적으로 generic attribution id 저장). (4) `.env.example`에서 Singular 변수 제거. (5) Sprint 4 일정 1-2주 추가 가능 — S05 (회사 운명 60fps) critical path 보호 필요. (6) `denda.vercel.app/g/<token>` URL pattern — web-guest (S14)가 이 endpoint 처리. (7) AASA (`apple-app-site-association`) + Android `assetlinks.json` 직접 작성 + Vercel public hosting. |
 | 출처 | 본 세션 (2026-05-22) — Singular work email 정책 발견 + 사용자 자체 구축 선택. 4가지 risk 명시적 수용 |
+
+---
+
+## D29 — Kakao OIDC OAuth via Supabase signInWithIdToken (D21 supersede)
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | 카카오 OIDC 표준 OAuth + `supabase.auth.signInWithIdToken({ provider: 'kakao', token: id_token, nonce })`. 베타는 `scope=openid profile_nickname`만 요청 (비-비즈앱 가능). 비즈앱 등록 + `account_email` scope 추가는 Phase 3 진입 시점 (Gate #2 ≥ 25% 통과). D21 (synthetic email + HMAC) 폐기, `supabase/functions/kakao_login/` 삭제, `users.synthetic_email` 컬럼 제거. |
+| 근거 | (1) Supabase가 카카오를 native id_token provider로 공식 지원 — 자체 검증·HMAC 구현 제거 (2) 카카오 OIDC 표준 flow는 정책 회색지대 없음 — Q-A1 답변 의존 해소 (3) `account_email` consent만 비즈앱 제약이라 베타에서 이메일 미수신 trade-off로 비즈앱 신청을 Phase 3에 align (사업자등록·토스 가맹 심사와 동기) (4) D21 채택 결정일(2026-05-21) 이후 1일 만에 사용자가 정석 경로 선호 명시 |
+| 대안 | (a) D21 유지 — Q-A1 답변 지연·표준 이탈 risk (b) 베타에서 비즈앱 즉시 등록 — 사업자등록 timing 압박·launch 1-2주 지연 risk |
+| 의존 | Sprint 0 인프라 체크리스트: 카카오 디벨로퍼스 portal에서 OpenID Connect 활성화 + Supabase Auth dashboard에서 Kakao provider Enable. 둘 다 수동 작업, founder 소유 |
+| 결정일 | 2026-05-22 |
+| 영향 | S01 BLOCKED → TODO, Q-A1 Closed, D1 결정 본문 (auth 부분만) update, `supabase/functions/kakao_login/` 삭제, `users.synthetic_email` DROP (migration 0003), HMAC secret 용도 변경 (D21 → D28 fingerprint salt) |
+| Phase 3 전환 | 비즈앱 신청 → 승인 → `account_email` scope 추가 → 기존 user 재로그인 시 `auth.users.email` 자동 채움. Schema 변경 불필요 (`email` 이미 nullable) |
+| 출처 | docs/superpowers/specs/2026-05-22-kakao-oidc-design.md, 사용자 결정 2026-05-22 |
 
 ---
 
