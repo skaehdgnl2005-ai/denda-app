@@ -14,7 +14,7 @@
 [Supabase Edge Functions]    ← Kakao OAuth · Gemini Vision · F1-F5 push · votes_aggregate
      │
      ├── [Postgres + RLS + Realtime broadcast]    ← 18 tables (D3 partnerships only)
-     ├── [Auth (synthetic email + HMAC)]          ← D21
+     ├── [Auth (Kakao OIDC + signInWithIdToken)]  ← D29
      └── [Storage]                                ← 프로필 이미지 (Phase 3)
      │
      └── 외부 API:
@@ -37,7 +37,7 @@
 
 | 테이블 | 핵심 컬럼 | 비고 |
 |---|---|---|
-| `users` | id, kakao_id, synthetic_email, nickname, phone, created_at | [D21](DECISIONS.md#d21--kakao-oauth-synthetic-email--hmac-베타는-카카오-only) synthetic email |
+| `users` | id, kakao_id, email (nullable), nickname, phone, created_at | [D29](DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede) OIDC. email은 Phase 3 비즈앱 등록 + `account_email` scope 후 채움 |
 | `friendships` | user_id, friend_id, created_at | |
 | `friend_requests` | from_user_id, to_user_id, status, created_at | |
 | `groups` | id, host_id, name, dates, **confirmed_at**, **confirmed_place_id (FK places)**, **f4_sent_at (timestamp nullable — D17)**, **invite_code (CHAR(4))** | f4_sent_at = push F4 idempotency. invite_code = 자체 attribution fallback ([D28](DECISIONS.md#d28--자체-deferred-deep-link-구축-attribution-saas-회피-도메인-구매-회피)) |
@@ -69,40 +69,70 @@ groups + reservation_id (FK nullable, 추가)
 
 ## 3. 외부 통합 (External Integrations)
 
-### 3.1. Kakao OAuth (synthetic email + HMAC) — [D21](DECISIONS.md#d21--kakao-oauth-synthetic-email--hmac-베타는-카카오-only)
+### 3.1. Kakao OIDC OAuth — [D29](DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede)
 
-→ 의존: [Q-A1](OPEN_QUESTIONS.md#q-a1--kakao-비즈앱-우회-oauth-정책-답변) (D1 W1 deadline)
+→ D21 (synthetic email + HMAC) supersede. Q-A1 closed by D29.
 
 ```
 [클라이언트 카카오 로그인]
     │
     ▼
-카카오 SDK → access_token + user_info (id, nickname, profile_image)
+Kakao SDK login(scope=['openid','profile_nickname']) + nonce
     │
-    │   ※ "이메일" 권한 비즈앱만 — 일반 앱 사용 불가
+    │   ※ scope=openid 으로 id_token 발급 받음
+    │   ※ account_email은 비즈앱 한정 → Phase 3로 이연
     ▼
-백엔드 (Supabase Edge Function)
-    │
-    ├── access_token 검증 (카카오 /v2/user/me)
-    ├── id (Kakao 고유 ID) 추출
-    └── synthetic email 생성:
-        ├── email = f"kakao_{id}@denda.synthetic"
-        └── HMAC(secret, id) = signature (검증용)
+KakaoLoginResponse { idToken, accessToken (사용 안 함), ... }
     │
     ▼
-Supabase Auth signUp({ email: synthetic, password: HMAC })
-    │   ※ 일반 user처럼 동작, 그러나 외부 발송 불가
+supabase.auth.signInWithIdToken({
+    provider: 'kakao',
+    token: idToken,
+    nonce: <원본 nonce>     // replay 방지
+})
+    │
+    ▼
+Supabase Auth (서버 측 검증)
+    │
+    ├── issuer = 'https://kauth.kakao.com'
+    ├── audience = Kakao REST API key
+    ├── signature (Kakao JWKS)
+    ├── nonce 매칭
+    ├── exp 미만료
+    │
+    ├── auth.users 행 자동 생성/매칭
+    │   - id = uuid (Supabase 생성)
+    │   - email = null (베타, account_email scope 없음)
+    │   - raw_user_meta_data 에 id_token claims 저장
+    │     (sub = 카카오 user_id, nickname, picture)
+    │
+    └── on_auth_user_created trigger (handle_new_auth_user 함수)
+        → public.users INSERT
+           - kakao_id = raw_user_meta_data->>'sub'
+           - nickname = raw_user_meta_data->>'nickname' (fallback 'name','익명')
+           - email = NEW.email (null in 베타)
+    │
+    ▼
+session JWT 발급 + 클라이언트 SecureStore 저장
+    │
     ▼
 앱 사용
-
-정책 risk:
-  - Kakao "이메일 없는 OAuth"는 비즈앱 한정.
-  - synthetic email은 카카오 정책 위반 아님 (이메일 권한 요청 X)
-  - Apple 심사: Apple ID 로그인 동등 제공 강제 (App Store guideline 4.8)
-    → 베타는 카카오 only로 시작 + 정식 출시 시 Apple ID 추가
 ```
 
-**Fallback (D1 답변 미수신 시):** `AppleAuthProvider` eager 활성 (S16). `AuthProvider` interface 추상화 미리 ([S01 acceptance](TASK_BACKLOG.md#s01--kakao-oauth-synthetic-email--hmac)).
+**삭제된 항목** (D21 잔재):
+- `supabase/functions/kakao_login/` Edge Function 전체 — Supabase Auth가 검증·user 생성 모두 담당
+- `users.synthetic_email` 컬럼 — migration 0003에서 DROP
+- HMAC secret의 D21 용도 — D28 fingerprint salt로 용도 변경 (secret 자체는 유지)
+- `_lib/hmac.ts::syntheticEmail()` 함수만 삭제 (`hmacSha256()` 등 utility는 D28 재사용)
+
+**Phase 3 전환 (Gate #2 ≥ 25%)**:
+1. 카카오 디벨로퍼스 비즈앱 신청 (사업자등록증 제출, 1-2주)
+2. 승인 후 카카오 portal에서 `account_email` consent 활성화
+3. 앱 코드: `KakaoOIDCProvider`의 scope에 `account_email` 추가
+4. 기존 user 재로그인 시 신규 scope 동의 → 새 id_token으로 `auth.users.email` 자동 채워짐
+5. Schema 변경 불필요 (`email` 이미 nullable)
+
+**Fallback (Apple 심사 — Phase 3)**: `AppleAuthProvider` 추가 (App Store guideline 4.8). `AuthProvider` interface 추상화는 S01에서 미리 구현 (S16 lazy 대비).
 
 ### 3.2. Kakao Local API (장소 검색)
 
@@ -301,7 +331,7 @@ useSharedValue (Reanimated) 업데이트
 [새 사용자]                            [기존 호스트]
     │                                        │
     ▼                                        ▼
-카카오 OAuth (synthetic email + HMAC)         홈 화면
+카카오 OIDC (signInWithIdToken)               홈 화면
     │                                        │
 약관 동의 모달                                 (+) FAB → 모임 만들기
     │                                        │
