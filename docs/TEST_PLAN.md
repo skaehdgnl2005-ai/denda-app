@@ -231,81 +231,187 @@ Decisions reflected: D1 verify-track + lazy backup, D2 다크 디테일만 reduc
 
 ## Test Framework Examples
 
-> `.claude/rules/testing.md`가 이 절을 참조한다. framework별 본문은 여기에만 둔다.
+이 절의 예제들은 `.claude/rules/testing.md`가 참조한다. 코드 예제의 SSoT 위치. framework별 본문은 여기에만 둔다.
 
 ### §3.1 Jest + RN testing-library
 
+Unit / Integration 테스트의 기본 패턴.
+
 ```tsx
+// src/components/TimeGrid/TimeGrid.test.tsx
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import { TimeGrid } from '@/components/TimeGrid';
+import { tokens } from '@/design/tokens';
 
 describe('TimeGrid', () => {
-  it('drag sweeps multi-select cells', async () => {
-    render(<TimeGrid />);
+  it('drag sweeps multi-select cells (D12)', async () => {
+    render(<TimeGrid groupId="test-group" />);
     const cell0 = screen.getByTestId('cell-09-00');
+
     // Reanimated worklet은 unit test에서 mock 필요
     fireEvent(cell0, 'gestureStart');
     fireEvent(cell0, 'gestureUpdate', { x: 0, y: 100 }); // sweep down
     fireEvent(cell0, 'gestureEnd');
+
     // 본인 슬롯 = brand-50 + 보더 (DESIGN §10.1)
     expect(cell0).toHaveStyle({ backgroundColor: tokens.light.brand[50] });
+  });
+
+  it('cell touch is idempotent on double tap', async () => {
+    render(<TimeGrid groupId="test-group" />);
+    const cell = screen.getByTestId('cell-19-30');
+    fireEvent.press(cell);
+    fireEvent.press(cell);
+    // 같은 슬롯 vote insert는 1회만 (D14 + idempotency)
+    expect(mockSupabaseInsert).toHaveBeenCalledTimes(1);
   });
 });
 ```
 
-### §3.2 Maestro E2E
+**Reanimated worklet mock**: `jest-setup.ts`에 `jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'))` 필수.
+
+### §3.2 Maestro E2E (모바일)
+
+User flow 단위 E2E. iOS·Android 양쪽.
 
 ```yaml
 # maestro/host_create_group.yaml
 appId: com.denda.app
 ---
 - launchApp
-- tapOn: "(+)" # FAB
+- tapOn: "(+)"  # FAB
 - inputText:
     id: "group-name-input"
     text: "팀플 모임"
 - tapOn: "다음"
+
+# 시간 그리드 드래그 sweep
 - tapOn:
-    id: "cell-2026-05-22-1900" # KST
-- # drag sweep
+    id: "cell-2026-05-22-1900"  # KST
 - swipe:
     from: { id: "cell-2026-05-22-1900" }
     to: { id: "cell-2026-05-22-2030" }
+
+# 선택 확인
 - assertVisible:
     id: "selected-count"
     text: "6 슬롯 선택"
+
+# 모임 확정 (호스트 액션)
+- tapOn: "모임 확정"
+- assertVisible:
+    id: "confirmed-banner"
+    text: "확정됨"
 ```
 
+**Critical paths (Gate 측정에 직접 영향)**:
+1. `host_create_group.yaml` — 모임 생성 funnel
+2. `member_vote.yaml` — 멤버 투표 (히트맵 60fps)
+3. `place_select_click_through.yaml` — Gate #2 측정 ("예약하기" click)
+4. `kakao_oauth.yaml` — D21 synthetic email + HMAC flow
+
 ### §3.3 Deno test (Supabase Edge Function)
+
+Edge Function unit test는 Supabase 공식 Deno test로.
 
 ```ts
 // supabase/functions/votes_aggregate/test.ts
 import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
 import { aggregate } from "./aggregate.ts";
 
-Deno.test("votes aggregate sums per slot", () => {
+Deno.test("votes aggregate sums per slot (D11)", () => {
   const votes = [
-    { user_id: 'a', start_minute: 540 },
+    { user_id: 'a', start_minute: 540 },  // 09:00
     { user_id: 'b', start_minute: 540 },
-    { user_id: 'c', start_minute: 555 },
+    { user_id: 'c', start_minute: 555 },  // 09:15
   ];
   const result = aggregate(votes);
-  assertEquals(result.find(s => s.minute === 540).count, 2);
-  assertEquals(result.find(s => s.minute === 555).count, 1);
+  assertEquals(result.find(s => s.minute === 540)?.count, 2);
+  assertEquals(result.find(s => s.minute === 555)?.count, 1);
+});
+
+Deno.test("F4 push idempotent (D17)", async () => {
+  // 1st call: f4_sent_at IS NULL → UPDATE 성공 → push 발송
+  const r1 = await callF4Function('test-group-id');
+  assertEquals(r1.pushed, true);
+
+  // 2nd call: f4_sent_at NOT NULL → UPDATE 0 rows → no-op
+  const r2 = await callF4Function('test-group-id');
+  assertEquals(r2.pushed, false);
 });
 ```
 
+**실행**:
+```bash
+supabase functions test
+# 또는 specific:
+deno test supabase/functions/votes_aggregate/test.ts
+```
+
+**금지**: DB mock. Supabase LOCAL test instance 사용 (`supabase start` → `supabase functions test`).
+
 ### §3.4 OCR ground truth (D2 keep)
 
-`tests/ocr/ground_truth/` 폴더에 ~20장 에브리타임 스크린샷 + 기대 JSON:
+에브리타임 OCR 정확도 측정 (Gemini Vision).
+
+**디렉토리 구조**:
 ```
-tests/ocr/ground_truth/
-├── case_01.png
-├── case_01.expected.json   # { "courses": [{"name": "선형대수", "day": "MON", "start": "10:00", ...}] }
-├── case_02.png
-└── ...
+tests/ocr/
+├── ground_truth/
+│   ├── case_01.png                  # 에브리타임 스크린샷
+│   ├── case_01.expected.json        # 기대 결과
+│   ├── case_02.png
+│   ├── case_02.expected.json
+│   └── ... (~20장)
+└── ocr_eval.test.ts                 # Jest로 실행
 ```
-Eval pass 기준: 정확도 ≥ 90% (slot 단위), 학기 명시 추출 100%.
+
+**Expected JSON 형식**:
+```json
+{
+  "courses": [
+    {
+      "name": "선형대수",
+      "day": "MON",
+      "start": "10:00",
+      "end": "11:30",
+      "room": "공학관 401"
+    },
+    {
+      "name": "프로그래밍 입문",
+      "day": "WED",
+      "start": "13:00",
+      "end": "14:30",
+      "room": "정보관 205"
+    }
+  ]
+}
+```
+
+**Eval 기준**: 정확도 ≥ 90% (course별 name·day·start·end·room 5개 필드 매치), 학기 명시 추출 100%.
+
+```ts
+// tests/ocr/ocr_eval.test.ts
+import { parseEverytimeOCR } from '@/lib/ocr/everytime';
+import { readFileSync, readdirSync } from 'fs';
+
+describe('Gemini Vision OCR accuracy', () => {
+  const cases = readdirSync('tests/ocr/ground_truth')
+    .filter(f => f.endsWith('.png'))
+    .map(f => f.replace('.png', ''));
+
+  cases.forEach(name => {
+    it(`${name} matches expected`, async () => {
+      const image = readFileSync(`tests/ocr/ground_truth/${name}.png`);
+      const expected = JSON.parse(
+        readFileSync(`tests/ocr/ground_truth/${name}.expected.json`, 'utf-8')
+      );
+      const actual = await parseEverytimeOCR(image);
+      expect(diffAccuracy(actual, expected)).toBeGreaterThanOrEqual(0.9);
+    });
+  });
+});
+```
 
 ## Regression Test
 
