@@ -39,9 +39,10 @@ globs:
 **Lazy load** (route 진입 시 `import()`):
 - `@mj-studio/react-native-naver-map` — 지도 탭 진입 시
 - `expo-calendar` — 모임 확정 + Calendar push 시점
-- 자체 attribution_match Edge Function 호출 — 첫 진입 deferred deep link check ([D28](../../docs/DECISIONS.md#d28--자체-deferred-deep-link-attribution-saas-회피-도메인-회피))
 - Gemini Vision — OCR 진입
 - 토스 webview — 🔒 Phase 3 (현재 미import)
+
+D28 (자체 deferred deep link)은 클라이언트 SDK 없음 — `supabase-js` (always load)로 attribution_match Edge Function 호출. lazy load 대상 아님.
 
 `lazy(() => import(...))` 예제: [DECISIONS.md#d25](../../docs/DECISIONS.md#d25--cold-start-target--2초--lazy-loading)
 
