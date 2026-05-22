@@ -1,7 +1,7 @@
 # Decisions Log
 
 > **이 문서는 된다 앱 모든 결정의 진실의 단일 위치(SSoT)다.**
-> D1~D26, G1·G2의 본문은 오직 여기에만 존재한다.
+> D1~D27, G1·G2의 본문은 오직 여기에만 존재한다.
 > 다른 파일(`CLAUDE.md`, `.claude/rules/*.md`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`, `docs/PROJECT_CONTEXT.md`)은 결정 ID(`D{N}`, `G{N}`)와 1줄 요약 + 이 문서의 해당 절 링크만 가질 수 있다.
 >
 > 본문(근거·대안·코드 예제 등)을 복제하는 행위는 금지한다.
@@ -581,7 +581,7 @@ for (const group of pending) {
 
 | 항목 | 내용 |
 |---|---|
-| 결정 | RN + Expo SDK 53+ · Supabase (Postgres + Realtime + Edge Functions + Auth) · `@mj-studio/react-native-naver-map` · Kakao Local API · expo-calendar (iOS) + Google Calendar API · Branch.io · Expo Push · zustand · Pretendard Variable · Lucide. **Toss Payments는 Phase 3**. Web guest: Next.js + Vercel |
+| 결정 | RN + Expo SDK 53+ · Supabase (Postgres + Realtime + Edge Functions + Auth) · `@mj-studio/react-native-naver-map` · Kakao Local API · expo-calendar (iOS) + Google Calendar API · **Singular** (Attribution — [D27](#d27--attribution-saas--singular-베타-한정-phase-3-재평가)에서 Branch.io에서 변경) · Expo Push · zustand · Pretendard Variable · Lucide. **Toss Payments는 Phase 3**. Web guest: Next.js + Vercel |
 | 근거 | OFFICE_HOURS §9.1 채택 |
 | 결정일 | 2026-05-21 |
 | 출처 | OFFICE_HOURS §9.1 |
@@ -679,6 +679,21 @@ const BranchAttribution = lazy(() => import('@/lib/branch/attribution'));
 | 추정 | 베타 1000 DAU × 평균 10회 viewport = 10000 호출/일 < 30만 무료 한도 |
 | 결정일 | 2026-05-21 |
 | 출처 | ENG_REVIEW §4.2 |
+
+---
+
+## D27 — Attribution SaaS = Singular (베타 한정, Phase 3 재평가)
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | Phase 1+2 attribution SaaS = **Singular** (free tier). Branch.io 거부 사유 = 개인 이메일 도메인 차단 (Gmail/Naver 차단, 회사 도메인 강제) → 솔로 개발자 마찰. Singular = Gmail OK + free tier. Phase 3 진입 시 광고 채널 운영 여부 결정 후 재평가 (필요 시 AppsFlyer/Branch 마이그레이션). |
+| 근거 | (1) 베타는 광고 acquisition 없음 — 카톡 viral funnel + organic만. SaaS의 광고 채널 통합 기능 무관. (2) BM (식당 commission, 거래당 ₩1000 수준) ↔ install 광고비 (₩3000+/install) — LTV/CAC 회수 어려워 Phase 3에서도 광고 사용 가능성 낮음. (3) Singular 한국 시장 데이터 부족은 광고 채널 통합 영역만 — deferred deep link 자체 동작에는 무관. |
+| 대안 | (A) Branch.io + 도메인 구매 — 거부: 도메인 마케팅 가치는 있으나 단순 attribution 위한 외부 도메인 셋업 마찰. (C) 자체 deferred deep link 구축 — 거부: iOS Universal Links + AASA + IDFA 운영 부담 + G2 게이트 측정 노이즈 위험 (Q-A6 정확도 50% 이하 가능, viral funnel UX 마찰). |
+| 소유자 | Founder |
+| 결정일 | 2026-05-22 |
+| 의존 | Q-A6 closure (이 결정이 close) |
+| 결과 영향 | (1) D22 stack의 "Branch.io" → "Singular". (2) Q-A6 PoC 대상 변경 (Singular의 한국 NAT 정확도). (3) S15 SDK 이름 + setup 변경 (logical flow 동일). (4) Phase 3 진입 시점 재평가 trigger — 광고 launch 결정 동시. (5) `.env.example` 변수명 `EXPO_PUBLIC_BRANCH_KEY` → `EXPO_PUBLIC_SINGULAR_API_KEY`. |
+| 출처 | 본 세션 (2026-05-22) — Branch.io Gmail 차단 발견 후 평가 |
 
 ---
 

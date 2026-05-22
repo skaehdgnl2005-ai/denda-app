@@ -19,7 +19,7 @@
 - `expo-notifications` (Expo Push)
 - `expo-font` + Pretendard Variable 셀프호스팅 ([D7](DECISIONS.md#d7--typography-pretendard-variable-단일-패밀리-셀프호스팅))
 - `lucide-react-native` + `react-native-svg`
-- Branch SDK (deferred deep link)
+- Singular SDK (deferred deep link)
 
 **백엔드**
 - Supabase (Postgres + Realtime + Edge Functions + Auth + Storage)
@@ -136,32 +136,32 @@ Supabase Auth signUp({ email: synthetic, password: HMAC })
 - Partial push fail (10명 중 3명): 호스트에게 "일부 멤버 추가 실패" + 멤버 list
 - Background queue (pg_cron + retry max 3) — [D20](DECISIONS.md#d20--calendar-push-fan-out--background-queue)
 
-### 3.5. Branch.io (게스트→회원 attribution)
+### 3.5. Singular (게스트→회원 attribution)
 
 → PoC: [Q-A6](OPEN_QUESTIONS.md#q-a6--branchio-한국-nat-attribution-정확도-poc) (W1 병렬)
 
 ```
-W0 - 카톡 모임 초대 링크 (Branch.io 단축 URL)
+W0 - 카톡 모임 초대 링크 (Singular 단축 URL)
     │
     ▼
 사용자 브라우저 클릭 → 웹 게스트 페이지 (Vercel)
     │
     ├── localStorage: guest_token = UUID
     ├── DB INSERT: group_guests (guest_token, group_id, nickname)
-    └── Branch.io: track_event('guest_voted', { guest_token, group_id })
+    └── Singular: track_event('guest_voted', { guest_token, group_id })
     │
     ▼
 투표 완료 → "결과 알림 받으려면 →" CTA
     │
     ▼
-Branch.io 링크 → App Store / Play Store
+Singular 링크 → App Store / Play Store
     │
     │  (앱 설치, install + open)
     ▼
 W0+δ - 앱 첫 실행
     │
     ▼
-Branch SDK init → getLatestReferringParams()
+Singular SDK init → getLatestReferringParams()
     │
     └── { guest_token, group_id, ... }
     │
@@ -181,7 +181,7 @@ WHERE branch_link_id = ...
 
 ⚠️ Attribution miss (한국 NAT 환경 정확도 < 70% 가능):
   - 카톡 인앱 브라우저 → 외부 브라우저 → App Store install
-  - IP 매칭 실패, Branch.io fingerprint matching도 실패
+  - IP 매칭 실패, Singular fingerprint matching도 실패
   → fallback: 앱 내 "초대받은 모임 코드 입력" 수동 입력
 ```
 
@@ -304,7 +304,7 @@ useSharedValue (Reanimated) 업데이트
 **Lazy load (route 진입 시):**
 - `@mj-studio/react-native-naver-map` — 지도 탭
 - `expo-calendar` — 모임 확정 + Calendar push
-- Branch SDK — 첫 진입 attribution check (단 SDK init은 startup)
+- Singular SDK — 첫 진입 attribution check (단 SDK init은 startup)
 - Gemini Vision — OCR 진입
 - 토스 webview — Phase 3 (현재 미사용)
 
@@ -334,7 +334,7 @@ useSharedValue (Reanimated) 업데이트
   - 같은 모임 멤버 = 이미 참여 중이면 표시 유지 + 코멘트 hidden + 푸시 silent
 - **synthetic email**은 일반 user처럼 동작하지만 외부 발송 불가 (보호)
 - **HMAC secret**은 Edge Function 환경변수 (EAS secret + Supabase secret)
-- **Branch.io key**는 클라 + 서버 양쪽
+- **Singular key**는 클라 + 서버 양쪽
 - **Kakao key / Naver key / Gemini key**는 모두 서버 (Edge Function) 통과
 
 ---
@@ -422,7 +422,7 @@ ENG_REVIEW §8 (12개 분석, 4개 critical):
 | 1 | Kakao synthetic email OAuth 정책 변경 | **CRITICAL** — D1 verify-track + S16 Apple ID fallback |
 | 2 | Kakao Local API 약관 위반 takedown | **CRITICAL** — D1 + S16 Naver Search fallback |
 | 3 | Supabase Realtime disconnect during vote | HIGH — info-bg 칩 "실시간 갱신 일시 중단" (DESIGN §11.4, [Q-B6](OPEN_QUESTIONS.md#q-b6--realtime-disconnect-ui)) |
-| 4 | Branch.io attribution miss (한국 NAT) | **CRITICAL** — W1 PoC ([Q-A6](OPEN_QUESTIONS.md#q-a6--branchio-한국-nat-attribution-정확도-poc)) + 수동 fallback ("초대받은 모임 코드") |
+| 4 | Singular attribution miss (한국 NAT) | **CRITICAL** — W1 PoC ([Q-A6](OPEN_QUESTIONS.md#q-a6--branchio-한국-nat-attribution-정확도-poc)) + 수동 fallback ("초대받은 모임 코드") |
 | 5 | 호스트 "확정" 더블 탭 race | HIGH — Idempotency ([D17](DECISIONS.md#d17--push-f4-idempotency-groupsf4_sent_at-column) + S04 lock) |
 | 6 | Calendar push partial fail (silent) | HIGH — 호스트 알림 ([D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시)) |
 | 7 | Kakao Local API rate limit hit | HIGH — fallback "잠시 후 다시" + 캐시 우선 ([D26](DECISIONS.md#d26--kakao-local-api-quota-client-debounce--viewport-cache)) |
@@ -439,7 +439,7 @@ ENG_REVIEW §8 (12개 분석, 4개 critical):
 본 문서에 포함된 5개 다이어그램:
 
 1. **§3.1** Kakao OAuth synthetic email + HMAC flow
-2. **§3.5** Branch.io 게스트→회원 attribution timeline
+2. **§3.5** Singular 게스트→회원 attribution timeline
 3. **§4** Realtime 히트맵 propagation (Edge Function aggregation)
 4. **§5** Phase 1+2 핵심 funnel (Gate 측정 지점)
 5. **§9** Phase 1+2 → Phase 3 schema migration

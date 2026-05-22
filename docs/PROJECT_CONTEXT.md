@@ -15,7 +15,7 @@
 
 - **P1 ★ 베타 핵심**: 20대 전반 대학생. 3-6명 1-2주 모임. 에브리타임 OCR. 야간/주말 비중↑.
 - **P2**: 20대 후반-30대 직장인. 회식·동호회 호스트. Google/네이버 캘린더.
-- **P3**: 게스트 비회원. 카톡 링크 일회성. 웹 fallback → Branch.io 앱 전환.
+- **P3**: 게스트 비회원. 카톡 링크 일회성. 웹 fallback → Singular deferred deep link 앱 전환 ([D27](DECISIONS.md#d27--attribution-saas--singular-베타-한정-phase-3-재평가)).
 
 ## §3. 정보 구조 + P0 기능 (WHAT)
 
@@ -101,7 +101,7 @@ Tech Stack (Phase 1+2):
 - 모바일: RN + Expo SDK 53+ / zustand / expo-secure-store / Reanimated worklet
 - 지도/검색: @mj-studio/react-native-naver-map + Kakao Local API
 - 캘린더: expo-calendar (iOS 17+ write-only) + Google Calendar API
-- 푸시: expo-notifications / OCR: Gemini Vision / Attribution: Branch SDK
+- 푸시: expo-notifications / OCR: Gemini Vision / Attribution: Singular SDK ([D27](DECISIONS.md#d27--attribution-saas--singular-베타-한정-phase-3-재평가))
 - 백엔드: Supabase (Postgres + Realtime + Edge + Auth + Storage)
 - 웹 게스트: Next.js + Vercel (별도 codebase)
 - 🔒 Phase 3 deferred: 토스 / 통신판매업 / 변호사 약관 / 식당 인프라

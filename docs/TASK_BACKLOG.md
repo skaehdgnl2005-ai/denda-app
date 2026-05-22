@@ -199,20 +199,20 @@
 - **Files**: `web-guest/` (별도 git repo 또는 monorepo subdir — founder 선택)
 - **Worktree 분기**: 완전 독립 (별도 codebase)
 
-### S15 — Branch.io 통합 (게스트→회원 전환)
+### S15 — Singular 통합 (게스트→회원 전환) — D27
 
 - **Status**: TODO | **Owner**: Backend + Mobile + Web | **Sprint**: 4 | **Lane**: C → A 합류
-- **Depends**: S01 (auth complete), S14 (guest page complete), Q-A6 (NAT PoC 결과)
+- **Depends**: S01 (auth complete), S14 (guest page complete), Q-A6 (Singular NAT PoC 결과), [D27](DECISIONS.md#d27--attribution-saas--singular-베타-한정-phase-3-재평가)
 - **Acceptance**:
-  - Branch SDK setup (mobile + web)
-  - Deferred deep link handler (앱 첫 실행 시 `getLatestReferringParams()`)
+  - Singular SDK setup (mobile + web)
+  - Deferred deep link handler (앱 첫 실행 시 Singular API로 referring params 조회)
   - 카카오 OAuth 완료 → attribution 매칭 Edge Function
-  - `branch_attributions` UPDATE `SET converted_user_id, converted_at WHERE branch_link_id = ...`
+  - `branch_attributions` table UPDATE (table명은 호환 유지 — schema 변경 cost ↓) `SET converted_user_id, converted_at WHERE branch_link_id = ...` (`branch_link_id` 컬럼은 Singular link id 저장으로 사용)
   - `group_guests.converted_user_id` 설정 (또는 group_members 마이그레이션)
   - 모임 자동 합류 + 모임 list에 표시
-  - Attribution miss 시 수동 fallback ("초대받은 모임 코드 입력") — Q-A6 결과 < 70% 시 의무
-- **Files**: `src/lib/branch/`, `supabase/functions/branch_attribution/`
-- **Notes**: 7.4 ASCII flow 참조
+  - Attribution miss 시 수동 fallback ("초대받은 모임 코드 입력") — Q-A6 결과 < 70% 시 의무. Singular는 한국 사례 데이터 부족으로 정확도 미지수 → fallback 의무 활성 가능성 ↑
+- **Files**: `src/lib/attribution/` (rename from `branch/`), `supabase/functions/attribution/`
+- **Notes**: 7.4 ASCII flow 참조. ARCHITECTURE.md §3.5 동기화. table·column 이름의 "branch_" prefix는 cost 회피 위해 유지 (의미적으로는 generic attribution id)
 
 ---
 

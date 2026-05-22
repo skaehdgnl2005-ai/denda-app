@@ -47,13 +47,13 @@
 - **해결 시**: 식당 retention 패키지 (OFFICE_HOURS §9.3) 완성
 - **상태**: 미작성
 
-### Q-A6 — Branch.io 한국 NAT attribution 정확도 PoC
+### Q-A6 — Singular 한국 NAT attribution 정확도 PoC (SaaS 선택 Closed by D27 — 정확도 PoC는 활성)
 - **출처**: V2_PRD §16-8, ENG_REVIEW §1.6, §11
-- **질문**: 한국 NAT 환경에서 게스트→회원 attribution 정확도. <70% 시 수동 fallback("초대받은 모임 코드 입력") 추가 여부
+- **질문**: 한국 NAT 환경에서 Singular의 게스트→회원 attribution 정확도. <70% 시 수동 fallback("초대받은 모임 코드 입력") 추가 여부
 - **소유자**: Backend
 - **마감**: Phase 1+2 W1 (build와 병렬 PoC)
-- **해결 시**: S15 (Branch.io 통합) spec 확정 또는 수동 fallback lane 추가
-- **상태**: 미실행
+- **해결 시**: S15 (Singular 통합) spec 확정 또는 수동 fallback lane 추가
+- **상태**: SaaS 선택 = Singular ([D27](DECISIONS.md#d27--attribution-saas--singular-베타-한정-phase-3-재평가)). PoC는 W1 병렬. Singular의 한국 사례 데이터 부족으로 PoC 결과 자체가 critical (Branch보다 정확도 미지수 ↑)
 
 ---
 
