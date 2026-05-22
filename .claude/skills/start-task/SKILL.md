@@ -95,7 +95,7 @@ NOW.md 항목 추가만 하고 `git add`는 하지 말 것 — `/ship-task` 시�
 | 태스크 | 우선 읽기 |
 |---|---|
 | S00 (Backend foundation) | ARCHITECTURE.md §2 데이터 모델, rules/supabase.md |
-| S01 (Kakao OAuth) | ARCHITECTURE.md §3.1, D1, D21, rules/supabase.md |
+| S01 (Kakao OIDC OAuth) | ARCHITECTURE.md §3.1, D1, D29, rules/supabase.md |
 | S05 (시간 그리드) | DESIGN.md §10.1, ARCHITECTURE.md §4, D11, D12, rules/react-native.md |
 | S10 (지도) | ARCHITECTURE.md §3.2-3.3, D18, D26 |
 | S14 (Web guest) | DESIGN.md, D23, rules/testing.md (Playwright) |

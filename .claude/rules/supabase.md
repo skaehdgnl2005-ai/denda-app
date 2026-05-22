@@ -64,19 +64,20 @@ Calendar push(S06) + Push 알림(S12) 둘 다 모임 확정 trigger를 듣는다
 
 ## 디렉토리 구조
 
-상세 트리: [ARCHITECTURE.md §3](../../docs/ARCHITECTURE.md) (supabase/migrations, functions/_lib·kakao_login·votes_aggregate·group_confirm·notify_f1~f5·calendar_push·click_log·branch_attribution·ocr_everytime, tests)
+상세 트리: [ARCHITECTURE.md §3](../../docs/ARCHITECTURE.md) (supabase/migrations, functions/_lib·votes_aggregate·group_confirm·notify_f1~f5·calendar_push·click_log·attribution_match·ocr_everytime, tests)
 
 ## API key 보안
 
 | Key | 위치 |
 |---|---|
-| Kakao OAuth secret (HMAC) | Edge Function only |
+| Kakao REST API key | Supabase Auth dashboard (Kakao OIDC provider 설정). 클라이언트는 `EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY`만 |
+| Kakao Native app key | 클라이언트 (`EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY` — Kakao SDK 초기화용, public 인정) |
+| Kakao Admin key | Edge Function only (`KAKAO_ADMIN_KEY` — Local API server proxy 도입 시. Phase 1+2 미사용) |
 | Kakao Local API key | Edge Function only (proxy Phase 1+2 미도입 — [Q-B8](../../docs/OPEN_QUESTIONS.md#q-b8)) |
 | Naver Map SDK key | 클라이언트 (SDK 한계, public expose 인정) |
 | Gemini Vision key | Edge Function only |
 | Google Calendar OAuth | 클라이언트 동의 후 token은 SecureStore |
-| Branch.io key | 클라이언트 + 서버 양쪽 |
-| HMAC secret | Supabase secret (환경변수) |
+| HMAC secret (D28 fingerprint salt) | Supabase secret (환경변수). [D29](../../docs/DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede) 이후 D21 용도 종료, D28 자체 deferred deep link fingerprint 해시에 재사용 |
 
 ## RLS Policy 패턴
 

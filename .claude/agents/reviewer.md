@@ -39,7 +39,7 @@ model: sonnet
 ### 4. Secret / API key 노출
 - 클라이언트 코드에 secret/key 직접 작성 없음
 - `.env`, `app.json`에 비밀 노출 없음
-- HMAC·Kakao OAuth·Gemini key = Edge Function only
+- Kakao REST/Admin·Gemini·HMAC secret = Edge Function only. 예외: Naver Map SDK key, Kakao Native app key
 - 예외: Naver Map SDK key (SDK 한계, public 인정)
 
 ## 다른 곳에서 처리되는 영역 (이 reviewer 범위 외)
