@@ -1,0 +1,31 @@
+{
+  "name": "denda",
+  "version": "0.1.0",
+  "main": "expo-router/entry",
+  "private": true,
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "test": "jest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --ext .ts,.tsx --cache"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.106.1",
+    "@types/luxon": "^3.7.1",
+    "expo": "~56.0.3",
+    "expo-router": "~56.2.5",
+    "expo-status-bar": "~56.0.4",
+    "luxon": "^3.7.2",
+    "react": "19.2.3",
+    "react-native": "0.85.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "4.25.1"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "typescript": "~6.0.3"
+  }
+}

@@ -42,9 +42,36 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S00 — Backend Foundation (Supabase + DB schema + RLS) (2026-05-22) — DONE
+- Depends: D3 (partnerships only), D14 (15min CHECK), D16 (is_blocked helper) — 모두 충족
+- Changes:
+  - supabase/migrations/0001_initial.sql (+390 lines, 18 tables + CHECK + FK + triggers)
+  - supabase/migrations/0002_rls.sql (+260 lines, RLS + is_blocked helper)
+  - supabase/functions/_lib/{supabase,kst,hmac,dispatcher,http}.ts (+150 lines scaffolding)
+  - supabase/config.toml (+38 lines)
+  - package.json, app.json, tsconfig.json (denda 이름 + strict mode)
+  - app/_layout.tsx, app/index.tsx (+25 lines, expo-router entry)
+  - src/lib/supabase/client.ts (+18 lines, anon client)
+  - src/lib/time/kst.ts (+30 lines, luxon wrapper — D13)
+  - .env.example (+25 lines)
+  - .eslintrc.cjs, .prettierrc (+18 lines)
+  - .gitignore (+15 lines, Expo SDK 56 패턴 append)
+  - .claude/hooks/design-guard.sh (+2 lines, Windows backslash 정규화)
+  - .gitkeep × 14 (빈 src/* + tests/ 디렉토리)
+- Tests: typecheck 0 errors. SQL은 deploy 시 검증 (local DB 미실행).
+- Next: S11 (다크 토큰) + S13 (EAS skeleton) Sprint 1 병행. S01·S10은 Q-A1 답변 (D-6) 후.
+- Notes:
+  - Supabase project deploy는 사용자가 외부에서: `supabase link` + `supabase db push` 필요. URL/key는 .env.local에.
+  - Sprint 0 #7 (Expo init) 동시 진행: Expo SDK 56 install + expo-router/supabase-js/luxon/safe-area-context/screens 의존성 추가. EAS는 S13에서.
+  - **Deviation**: ARCHITECTURE.md §3의 `src/app` 컨벤션 vs expo-router default `app/` 충돌 → root `app/` 사용. ARCHITECTURE.md update 또는 expo-router config로 src/app 등록 필요 (추후 결정).
+  - **Hook 수정**: design-guard.sh에 Windows `\` → `/` 정규화 1줄 추가 (case-glob skip 매칭 fix). 차단 정책 변경 아님 — 크로스플랫폼 호환 버그 수정.
+  - 미설치 의존성: zustand, gesture-handler, reanimated, flash-list, naver-map, expo-calendar, expo-notifications, expo-font, lucide-react-native, react-native-svg → 사용 시점 lazy install (D25).
+
+---
+
 ## 로그 시작점 (2026-05-22)
 
-(아직 완료된 태스크 없음. Sprint 0 인프라 셋업 진행 중)
+(이전 항목 없음. S00가 첫 완료)
 
 ---
 

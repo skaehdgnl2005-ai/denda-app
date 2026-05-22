@@ -11,8 +11,8 @@
 
 | Sprint | 기간 | 계획 deliverable | 실제 진행 | 상태 |
 |---|---|---|---|---|
-| **Sprint 0** | W-1 (2026-05-22 ~ 2026-05-28) | 12 인프라 항목 + 디자인 자산 | (진행 중) | ON_TRACK |
-| **Sprint 1** | W0 | S00, S11, S13 skeleton | 미시작 | — |
+| **Sprint 0** | W-1 (2026-05-22 ~ 2026-05-28) | 12 인프라 항목 + 디자인 자산 | Expo init + Supabase scaffolding 완료 | ON_TRACK |
+| **Sprint 1** | W0 | S00, S11, S13 skeleton | S00 ✅ (DONE) | IN_PROGRESS |
 | **Sprint 2** | W1 | S01 + S10 + S14 병행 (★ Kakao 답변 review) | 미시작 | — |
 | **Sprint 3** | W2 | S05 + S07 + S03 + S08 (baseline 시작) | 미시작 | — |
 | **Sprint 4** | W3 | S04 + S06 + S12 + S15 (TestFlight) | 미시작 | — |
@@ -25,12 +25,12 @@
 **총 17 태스크 (S00 ~ S16) + S17 QA**
 
 ```
-Progress: ████████████████████░ 0 / 17 (0%)
+Progress: █▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ 1 / 17 (5.9%)
 ```
 
 | Lane | TODO | IN_PROGRESS | DONE | BLOCKED |
 |---|---|---|---|---|
-| **A (Foundation·Auth·Time grid·OCR)** | 5 | 0 | 0 | 1 (S01) |
+| **A (Foundation·Auth·Time grid·OCR)** | 4 | 0 | 1 | 1 (S01) |
 | **B (Map·Click-through·지도-일정)** | 2 | 0 | 0 | 1 (S10) |
 | **C (Web guest)** | 2 | 0 | 0 | 0 |
 | **D (Cross-cutting)** | 6 | 0 | 0 | 1 (S16) |
@@ -123,7 +123,7 @@ Progress: ████████████████████░ 0 / 17
 
 | 주차 | 완료 태스크 | 누적 | 비고 |
 |---|---|---|---|
-| W-1 (Sprint 0) | — | 0 | 인프라 셋업 only |
+| W-1 (Sprint 0) | S00 | 1 | 인프라 셋업 + Backend foundation |
 | W0 (Sprint 1) | — | — | |
 | W1 (Sprint 2) | — | — | ★ Kakao gate |
 | W2 (Sprint 3) | — | — | baseline 시작 |
@@ -135,5 +135,5 @@ Progress: ████████████████████░ 0 / 17
 ## 📅 마지막 업데이트
 
 - **날짜**: 2026-05-22
-- **업데이트한 사람**: harness 재구성 (init)
-- **다음 update**: Sprint 0 완료 시
+- **업데이트한 사람**: S00 ship-task (Backend Foundation)
+- **다음 update**: S11 또는 S13 ship 시

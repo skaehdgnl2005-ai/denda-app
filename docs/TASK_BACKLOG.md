@@ -9,9 +9,9 @@
 ## 진행 현황 요약
 
 - **총 17 태스크** (S00 ~ S16)
-- **DONE**: 0
+- **DONE**: 1 (S00)
 - **IN_PROGRESS**: 0
-- **TODO**: 17
+- **TODO**: 14
 - **BLOCKED**: 2 (S01, S10 — D1 답변 대기)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
@@ -35,7 +35,7 @@
 
 ### S00 — Backend Foundation (Supabase project + DB schema + RLS)
 
-- **Status**: TODO | **Owner**: Backend | **Sprint**: 1 | **Lane**: A
+- **Status**: DONE (2026-05-22) | **Owner**: Backend | **Sprint**: 1 | **Lane**: A
 - **Depends**: D3 (partnerships only schema), D14 (15분 슬롯 CHECK), D16 (차단 helper)
 - **Acceptance**:
   - 새 Supabase project 생성
@@ -305,12 +305,12 @@
 이 12개는 Sprint 1 시작 전 완료. **태스크 코드 부여 X (인프라 셋업)**.
 
 - [ ] **Kakao 정책 재확인 2건** (Q-A1, Q-A2 — D1 답변 대기) **CRITICAL BLOCKER**
-- [ ] 새 Supabase project 생성 + RLS skeleton (S00 prep)
+- [x] 새 Supabase project 생성 + RLS skeleton (S00 prep) — schema·RLS·scaffolding 코드 완료 (deploy는 사용자)
 - [ ] Naver Map SDK key 발급
 - [ ] Kakao Developers app 등록 (Local API key)
 - [ ] Google Cloud Console (Gemini API for OCR + Google Calendar API)
 - [ ] Branch.io account + Phase 1+2 deep link spec
-- [ ] Expo 프로젝트 init + EAS 셋업 (S13 prep)
+- [x] Expo 프로젝트 init (SDK 56) — EAS는 S13에서
 - [ ] Apple Developer + Google Play Console 가입 (Q-B20) — **W-2 시작** (Apple 심사 buffer)
 - [ ] Vercel project (S14 prep)
 - [ ] 디자인 자산: FAB 글리프 (Q-B9), 로고 (Q-B10), 제휴 마커 PNG (Q-B13)

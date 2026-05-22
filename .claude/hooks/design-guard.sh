@@ -27,6 +27,9 @@ if [ -z "${FILE_PATH:-}" ]; then
   exit 0
 fi
 
+# Normalize Windows backslash to forward slash so case-glob skip rules match cross-platform.
+FILE_PATH="${FILE_PATH//\\//}"
+
 # Skip non-source files (docs, archives, node_modules, hook itself).
 if ! is_source_file "$FILE_PATH"; then
   exit 0

@@ -65,3 +65,19 @@ Desktop.ini
 # Supabase local
 supabase/.branches/
 supabase/.temp/
+
+# === Expo SDK 56 template additions ===
+expo-env.d.ts
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.metro-health-check*
+*.pem
+*.tsbuildinfo
+# Generated native folders (managed workflow uses prebuild output)
+/ios
+/android
