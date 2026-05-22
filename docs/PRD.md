@@ -840,7 +840,7 @@ v1.0 출시는 **`@mj-studio/react-native-naver-map` (2.4+, 네이티브 SDK)**.
 
 **클라이언트 (포함):**
 - RN/Expo SDK 53+
-- 카카오 OAuth (synthetic email + HMAC) — [D21](DECISIONS.md#d21--kakao-oauth-synthetic-email--hmac-베타는-카카오-only). [D1](DECISIONS.md#d1--kakao-oauth--local-api-정책-verify-track--lazy-backup) verify-track 진행 중
+- 카카오 OIDC OAuth (Supabase signInWithIdToken) — [D29](DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede). [D21](DECISIONS.md#d21--kakao-oauth-synthetic-email--hmac-베타는-카카오-only) supersede (2026-05-22). 비즈앱 등록 + `account_email`은 Phase 3
 - 시간 그리드 + 실시간 히트맵 — 60fps Reanimated worklet, Edge Function aggregation ([D11](DECISIONS.md#d11--realtime-히트맵--edge-function-합산-후-broadcast-옵션-b), [D12](DECISIONS.md#d12--60fps-시간-그리드-구현-spec))
 - 캘린더 동기화 (Google + Apple iOS via expo-calendar) — 단방향, 부분 실패 명시 ([D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시))
 - 네이버 지도 SDK + 카카오 Local API + 카테고리 필터·반경·동적 매장 검색·제휴 마커 강조

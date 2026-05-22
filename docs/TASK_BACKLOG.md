@@ -11,8 +11,8 @@
 - **총 17 태스크** (S00 ~ S16)
 - **DONE**: 1 (S00)
 - **IN_PROGRESS**: 0
-- **TODO**: 14
-- **BLOCKED**: 2 (S01, S10 — D1 답변 대기)
+- **TODO**: 15
+- **BLOCKED**: 1 (S10 — D1 지도 부분 답변 대기. S01은 D29 채택으로 unblocked)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
 
@@ -24,7 +24,7 @@
 |---|---|---|---|
 | **Sprint 0** | W-1 | §10 dev infra 12 항목 + Kakao 정책 문의 발송 + 디자인 자산 (FAB·로고·마커) | Infra readiness |
 | **Sprint 1** | W0 | S00 backend foundation, S11 다크 토큰, S13 EAS skeleton | Foundation ready |
-| **Sprint 2** | W1 | S01 (auth) + S10 (map) + S14 (web guest) 병행 시작. Branch.io PoC | **★ W1 deadline: Kakao 답변 review. No-answer → S16 eager 활성** |
+| **Sprint 2** | W1 | S01 (auth, D29 OIDC) + S10 (map) + S14 (web guest) 병행 시작. Attribution 자체 구축 PoC | **★ W1 deadline: Kakao Local API 답변 review (auth는 D29로 해소). No-answer → NaverSearchProvider eager 활성** |
 | **Sprint 3** | W2 | S05 (time grid) + S08 (friends) + S03 (OCR) Lane A worktree 3개 병행. S10 continuation. S14 continuation | Baseline 측정 시작 |
 | **Sprint 4** | W3 | S04 (confirm) + S06 (calendar sync) + S12 (push F1-F3). S15 (지도-일정 mode). S14 → S15 (Branch.io 통합) | TestFlight Internal 시작 |
 | **W3.5** | W3.5 | S17 QA 종합 + 안암 invite-only | Launch |
@@ -49,20 +49,22 @@
 - **Files**: `supabase/migrations/0001_initial.sql`, `supabase/functions/_lib/`
 - **Worktree 분기**: 불가 (모든 후속 태스크 의존)
 
-### S01 — Kakao OAuth (synthetic email + HMAC)
+### S01 — Kakao OIDC OAuth (Supabase signInWithIdToken)
 
-- **Status**: BLOCKED (Q-A1) | **Owner**: Backend + Mobile | **Sprint**: 2 | **Lane**: A
-- **Depends**: S00, **D1 W1 deadline** (2026-05-28)
+- **Status**: TODO | **Owner**: Backend + Mobile | **Sprint**: 2 | **Lane**: A
+- **Depends**: S00 (auth.users + on_auth_user_created trigger), [D29](DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede), Sprint 0 §10 (카카오 portal OIDC 활성화 + Supabase Auth dashboard Kakao provider Enable)
 - **Acceptance**:
-  - Kakao SDK 통합 + access_token 받기
-  - Edge Function: `kakao_login` (validate token → synthetic email `kakao_{id}@denda.synthetic` → HMAC → `supabase.auth.signUp`)
+  - `@mj-studio/react-native-kakao` (또는 `@react-native-seoul/kakao-login`) 통합. Sprint 0 PoC 결과로 패키지 확정
+  - OIDC login flow with `scope=['openid', 'profile_nickname']` + cryptographically random nonce (`expo-crypto::randomUUID()`)
+  - `supabase.auth.signInWithIdToken({ provider: 'kakao', token: response.idToken, nonce })` 호출
   - 약관·개인정보 동의 모달 (V2_PRD §5.1)
   - 3-슬라이드 온보딩
-  - 재로그인 (기존 user 매칭) + Token refresh
-  - `AuthProvider` interface 추상화 (S16 fallback 대비)
-- **Files**: `src/lib/auth/kakao.ts`, `src/lib/auth/AuthProvider.ts`, `supabase/functions/kakao_login/`, `src/screens/onboarding/`
+  - 재로그인 = Supabase가 자동 매칭 (provider_id = id_token.sub). Token refresh = Supabase 자동 (client SecureStore via `expo-secure-store`)
+  - `AuthProvider` interface 추상화 (S16 Apple ID fallback 대비)
+  - `public.users` 동기화 = `on_auth_user_created` Postgres trigger (migration 0003에서 재작성)
+- **Files**: `src/lib/auth/AuthProvider.ts`, `src/lib/auth/KakaoOIDCProvider.ts`, `src/screens/onboarding/`
 - **Worktree 분기**: 가능 (S03 OCR + S07 친구는 S01과 병행 worktree 가능)
-- **Notes**: 7.2 ASCII flow 참조
+- **Notes**: ARCHITECTURE.md §3.1 (D29 flow 다이어그램) 참조. 삭제 완료된 코드 — `supabase/functions/kakao_login/`, `_lib/hmac.ts::syntheticEmail`, `users.synthetic_email` (migration 0003)
 
 ### S02 — Web Guest Page Sketch (별도 codebase 시작 — Sprint 2)
 
@@ -307,7 +309,8 @@
 
 이 12개는 Sprint 1 시작 전 완료. **태스크 코드 부여 X (인프라 셋업)**.
 
-- [ ] **Kakao 정책 재확인 2건** (Q-A1, Q-A2 — D1 답변 대기) **CRITICAL BLOCKER**
+- [ ] **Kakao Local API 정책 답변 1건** (Q-A2 — D1 W1 deadline) **CRITICAL BLOCKER**. Q-A1 (auth)는 [D29](DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede) closed.
+- [ ] **Kakao OIDC + Supabase Auth provider 활성화** ([D29](DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede)) — 카카오 portal: 앱 설정 → 카카오 로그인 → OpenID Connect 활성화 ON + `profile_nickname` 동의항목 필수. Supabase dashboard: Authentication → Providers → Kakao Enable + REST API key. 스모크 테스트로 1회 로그인 → `auth.users` 행 생성 확인
 - [x] 새 Supabase project 생성 + RLS skeleton (S00 prep) — schema·RLS·scaffolding 코드 완료 (deploy는 사용자)
 - [ ] Naver Map SDK key 발급
 - [ ] Kakao Developers app 등록 (Local API key)

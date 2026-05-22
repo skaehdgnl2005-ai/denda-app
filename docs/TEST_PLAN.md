@@ -308,7 +308,7 @@ appId: com.denda.app
 1. `host_create_group.yaml` — 모임 생성 funnel
 2. `member_vote.yaml` — 멤버 투표 (히트맵 60fps)
 3. `place_select_click_through.yaml` — Gate #2 측정 ("예약하기" click)
-4. `kakao_oauth.yaml` — D21 synthetic email + HMAC flow
+4. `kakao_oauth.yaml` — D29 OIDC + Supabase signInWithIdToken flow (scope=openid+profile_nickname, nonce 검증, `on_auth_user_created` trigger를 통한 public.users 동기화)
 
 ### §3.3 Deno test (Supabase Edge Function)
 
