@@ -1,7 +1,8 @@
 -- ============================================================================
 -- 된다 (DenDa) — RLS Policies (Phase 1+2 skeleton)
 -- 출처: docs/ARCHITECTURE.md (§3-§4), docs/DECISIONS.md
--- 결정 의존: D16 (is_blocked helper 모든 SELECT 통과), D21 (auth.uid() = users.id)
+-- 결정 의존: D16 (is_blocked helper 모든 SELECT 통과)
+-- 구조: auth.uid() = public.users.id (Supabase Auth 1:1 매핑 — D29 OIDC trigger)
 --
 -- 패턴:
 --   SELECT: 본인 + (is_blocked 통과)
