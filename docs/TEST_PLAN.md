@@ -8,7 +8,7 @@ Decisions reflected: D1 verify-track + lazy backup, D2 다크 디테일만 reduc
 ## Affected Pages/Routes
 
 ### Mobile app (RN + Expo)
-- **`/(auth)/login`** — 카카오 OIDC OAuth 진입. Supabase `signInWithIdToken` 흐름 ([D29](../DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede)). `AuthProvider` interface로 Apple ID fallback 추상화 (S16)
+- **`/(auth)/login`** — 카카오 OIDC OAuth 진입. Supabase `signInWithIdToken` 흐름 ([D29](DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede)). `AuthProvider` interface로 Apple ID fallback 추상화 (S16)
 - **`/(auth)/onboarding`** — 3 슬라이드 + 약관 동의 모달
 - **`/(tabs)/home`** — 캘린더 (월/주), 일정, 모임, "지도로 보기" 토글 (D2: Phase 1+2 유지)
 - **`/schedule/everytime-import`** — 에브리타임 OCR 진입 (D2: Phase 1+2 유지), 스크린샷 업로드 + 학기 시작·종료 입력 + 미리보기·confirm
