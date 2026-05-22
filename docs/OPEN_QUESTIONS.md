@@ -1,0 +1,300 @@
+# Open Questions
+
+> 미해결 질문 통합 보드. 답이 나오면 [DECISIONS.md](DECISIONS.md)에 옮기고 여기 항목은 `Closed by D{N}`으로 표기.
+> 출처: V2_PRD §16, OFFICE_HOURS §10·§14, DESIGN §14, ENG_REVIEW §11
+
+---
+
+## A. Pre-build 필수 (Sprint 0 이전 또는 W1 deadline)
+
+### Q-A1 — Kakao 비즈앱 우회 OAuth 정책 답변
+- **출처**: V2_PRD §16-1, OFFICE_HOURS §13, ENG_REVIEW §1.2
+- **질문**: synthetic email + HMAC OAuth가 Kakao 정책 위반 아닌지 서면 확인
+- **소유자**: Founder
+- **마감**: 2026-05-28 (D1 W1 deadline)
+- **해결 시**: D21 확정 / 미수신 시 → Apple ID OAuth eager fallback (S16)
+- **상태**: 진행 중 (Kakao 디벨로퍼스 1:1 문의 발송)
+
+### Q-A2 — Kakao Local API 약관 (외부 지도 SDK 위 표시)
+- **출처**: V2_PRD §16-6, OFFICE_HOURS §13, ENG_REVIEW §1.2
+- **질문**: Naver 지도 위에 카카오 Local API 매장 데이터 표시 허용 명시적 확인
+- **소유자**: Founder
+- **마감**: 2026-05-28 (D1 W1 deadline)
+- **해결 시**: D1 확정 / 미수신 시 → Naver Search API eager fallback (S16) + 데이터 quality 열화 수용
+- **상태**: 진행 중
+
+### Q-A3 — 1주 cold read prototype 병렬 실행 여부
+- **출처**: OFFICE_HOURS §10-16, §14-1
+- **질문**: 모바일 빌드 4주 burn 전 Solapi 알림톡 + Next.js + Supabase로 시간 그리드 카톡 link prototype 1주 시도? 정의진 + N=4-9 시나리오 재현으로 coordination-only standalone 가치 falsify
+- **소유자**: Founder
+- **마감**: 모바일 build 시작 결정 시점
+- **해결 시**: 결정 (실행 / 스킵 / 부분 실행). 결과는 Phase 1+2 scope에 feedback
+- **상태**: 미결정 (founder 결정 대기)
+
+### Q-A4 — Baseline 측정 design (W0-W2 데이터 수집 schema)
+- **출처**: OFFICE_HOURS §10-14, §14-2
+- **질문**: Phase 1+2 launch 후 어떤 metric, 어떤 segmentation label(P1 학생/P2 직장인), 어떤 collection point. Gate #1/#2 calibrate 위한 W0-W2 baseline
+- **소유자**: Founder + Data
+- **마감**: W0 (launch 시점)
+- **해결 시**: 측정 instrument spec → S08 (Click-through 측정)
+- **상태**: 미정의
+
+### Q-A5 — Pre-mortem communication script (Gate #2 < 10% 시)
+- **출처**: OFFICE_HOURS §10-13, §14-3
+- **질문**: Gate #2 < 10% 시나리오 시 식당 20곳에 보낼 communication 한 줄. 3-path(coordination-only / timeline 재조정 / P2 retry) 각각 message 초안
+- **소유자**: Founder + Operations
+- **마감**: W2 (Gate 측정 시작 전)
+- **해결 시**: 식당 retention 패키지 (OFFICE_HOURS §9.3) 완성
+- **상태**: 미작성
+
+### Q-A6 — Branch.io 한국 NAT attribution 정확도 PoC
+- **출처**: V2_PRD §16-8, ENG_REVIEW §1.6, §11
+- **질문**: 한국 NAT 환경에서 게스트→회원 attribution 정확도. <70% 시 수동 fallback("초대받은 모임 코드 입력") 추가 여부
+- **소유자**: Backend
+- **마감**: Phase 1+2 W1 (build와 병렬 PoC)
+- **해결 시**: S15 (Branch.io 통합) spec 확정 또는 수동 fallback lane 추가
+- **상태**: 미실행
+
+---
+
+## B. Phase 1+2 진행 중 closure (Sprint 0~4 중)
+
+### Q-B1 — 모임 생성 트랜잭션 통합
+- **출처**: V2_PRD §16-1
+- **질문**: Edge Function 단일 트랜잭션 vs 클라이언트 chain
+- **소유자**: Backend
+- **마감**: S03 (Step 4 모임 확정 + F5 push) 시작 전
+- **상태**: 미결정
+
+### Q-B2 — API 인증 방식 통일
+- **출처**: V2_PRD §16-2
+- **질문**: Supabase Auth JWT가 Google·Apple Calendar 호출 시 매핑 가능 (호출 흐름)
+- **소유자**: Backend
+- **마감**: S05 (Step 5 Calendar sync) 시작 전
+- **상태**: 미결정
+
+### Q-B3 — 푸시 알림 트리거 위치
+- **출처**: V2_PRD §16-3
+- **질문**: Supabase DB trigger vs Edge Function vs Vercel Cron. F4 idempotency는 D17 적용, F1-F3·F5는 미정
+- **소유자**: Backend
+- **마감**: S12 (Step 9 Push F1-F3) 시작 전
+- **상태**: 미결정 (D17으로 F4만 부분 해결)
+
+### Q-B4 — 이미지 업로드 경로
+- **출처**: V2_PRD §16-4
+- **질문**: 식당 photos 등은 Supabase Storage vs CloudFront
+- **소유자**: Backend
+- **마감**: S10 (Step 6 지도) 식당 사진 표시 시점
+- **상태**: 미결정. **권고**: Supabase Storage (단일 vendor 유지)
+
+### Q-B5 — Edge Function 단일 dispatcher
+- **출처**: ENG_REVIEW §9.4, §11
+- **질문**: Calendar push(Step 5) + Push 알림(Step 9) 둘 다 모임 확정 trigger를 듣는데 단일 dispatcher EventBus pattern 적용 여부
+- **소유자**: Backend
+- **마감**: S04 (Step 4 모임 확정) 시작 전
+- **상태**: 미결정. **권고**: 단일 dispatcher 적용
+
+### Q-B6 — Realtime disconnect UI
+- **출처**: ENG_REVIEW §8 #3, §11
+- **질문**: Supabase Realtime disconnect 시 stale heatmap silent → 명시 UI 디자인 (그리드 헤더 info-bg 칩 "실시간 갱신 일시 중단 — 30s 후 폴링", DESIGN §11.4)
+- **소유자**: Design + Frontend
+- **마감**: S07 (Step 3 시간 그리드 + 투표) 마무리 전
+- **상태**: 디자인 명시는 있음, 구현 미정
+
+### Q-B7 — 게스트 토큰 충돌 (같은 브라우저 다른 모임)
+- **출처**: ENG_REVIEW §8 #9
+- **질문**: localStorage key collision 방지 — 모임별 별도 토큰 schema
+- **소유자**: Frontend (Web)
+- **마감**: S14 (Step 10 Web guest) 진행 중
+- **상태**: 미설계
+
+### Q-B8 — 카카오 Local API Server proxy 도입 여부
+- **출처**: ENG_REVIEW §4.2, §11
+- **질문**: Cost·QPS control 위해 server-side proxy. Phase 1+2 미도입 시 quota burst risk
+- **소유자**: Backend
+- **마감**: Gate #1 측정 시작 전 (W2)
+- **상태**: 미결정. D26은 client-side만 결정
+
+### Q-B9 — FAB 글리프 최종 디자인
+- **출처**: DESIGN §14 D-FAB, §16.1.5, V2_PRD §16-5
+- **질문**: 가운데 탭 "모임 만들기" FAB의 커스텀 SVG (캘린더+plus 합성, 16pt 화이트)
+- **소유자**: Design
+- **마감**: Sprint 0
+- **상태**: 미디자인
+
+### Q-B10 — 된다 브랜드 마크 (라이트/다크)
+- **출처**: DESIGN §14 D-LOGO, §9.2.1
+- **질문**: 된다 로고 SVG 라이트·다크 두 버전
+- **소유자**: Design
+- **마감**: Sprint 0
+- **상태**: 미디자인
+
+### Q-B11 — 빈 상태 일러스트 5종
+- **출처**: DESIGN §14 D-EMPTY-ART, §11.2
+- **질문**: 빈 상태 line art 또는 따뜻한 톤 일러스트 (단색 + brand-200). 홈/친구/내 모임/그리드/지도 viewport 비어있음
+- **소유자**: Design
+- **마감**: Sprint 1
+- **상태**: 미작업
+
+### Q-B12 — F1~F7 푸시 알림 마이크로카피
+- **출처**: DESIGN §14 D-PUSH-COPY, V2_PRD §9.1
+- **질문**: F1(친구 요청), F2(친구 수락), F3(모임 초대), F4(전원 투표 완료), F5(시간 확정), F6/F7(Phase 3) 카피
+- **소유자**: Founder + Copy
+- **마감**: Sprint 1
+- **상태**: 미작성
+
+### Q-B13 — 제휴 마커 PNG export
+- **출처**: DESIGN §14 D-PARTNER-MARKER, §9.2.2, §10.2
+- **질문**: 제휴 마커 1.5x/2x/3x PNG (Naver SDK SVG 불가 — D8 명시)
+- **소유자**: Design
+- **마감**: Sprint 0
+- **상태**: 미export
+
+### Q-B14 — 3-슬라이드 온보딩 모션
+- **출처**: DESIGN §14 D-ONBOARD-MOTION
+- **질문**: 실제 앱 화면 모션 캡처 (일러스트 X)
+- **소유자**: Design + Engineering
+- **마감**: Sprint 2
+- **상태**: 미설계
+
+### Q-B15 — 30명 Prior MVP user 전환 방식
+- **출처**: OFFICE_HOURS §10-12
+- **질문**: 카톡 메시지 자동 발송 vs 수동. 첫 push 받을 사람 가치 활용 방식
+- **소유자**: Founder + Operations
+- **마감**: W3 (TestFlight 시점)
+- **상태**: 미결정
+
+### Q-B16 — 베타 지역 최종 선정
+- **출처**: V2_PRD §16-9
+- **질문**: 강남/홍대/건대 중 영업 도달 가능 1~2개 (현재 안암 베타로 default)
+- **소유자**: Founder
+- **마감**: launch 직전
+- **상태**: 안암 default (변경 가능)
+
+### Q-B17 — 식당 영업 자료 패키지
+- **출처**: V2_PRD §16-10
+- **질문**: 소개서·계약서·정산 시뮬레이션 도구. Phase 3 시점 전 준비
+- **소유자**: Founder
+- **마감**: Phase 3 진입 시점
+- **상태**: 미작성
+
+### Q-B18 — 운영팀 카톡 채널 SOP
+- **출처**: V2_PRD §16-11
+- **질문**: 노쇼 신고·환불 분쟁·식당 응대 SOP
+- **소유자**: Founder + Operations
+- **마감**: W3 (TestFlight)
+- **상태**: 미작성 (PRD §17.2에 큰 틀만)
+
+### Q-B19 — Comments 인디케이터 (last_seen_comment_id)
+- **출처**: ENG_REVIEW §2.6, §11
+- **질문**: `group_member_states.last_seen_comment_id` column + 모임 카드 "새 코멘트 N" 배지 (앱 내만, 푸시 X)
+- **소유자**: Frontend
+- **마감**: S07 마무리 시
+- **상태**: 미결정 (정책은 OK, 구현 미정)
+
+### Q-B20 — Apple Developer + Google Play Console 가입 timing
+- **출처**: ENG_REVIEW §10
+- **질문**: 가입 + 인증서 발급 + TestFlight/Internal Testing 셋업. Apple 심사 1주 + 거절 가능성 buffer
+- **소유자**: Founder
+- **마감**: W-2 (Sprint 0 전)
+- **상태**: 미시작
+
+---
+
+## C. Phase 3 deferred (Gate #2 통과 시에만)
+
+### Q-C1 — 토스페이먼츠 분할정산 시뮬레이션
+- **출처**: V2_PRD §16-7
+- **질문**: 실제 호출 흐름 PoC
+- **소유자**: Backend (Phase 3 시점)
+- **상태**: 보류
+
+### Q-C2 — Phase 3 도메인 schema 설계
+- **출처**: D3 + ENG_REVIEW §1.3
+- **질문**: `reservations`, `payments`, `payouts` 테이블 + 수수료율·정산 모델 detail
+- **소유자**: Backend + Founder (Phase 3 진입 시)
+- **상태**: 보류
+
+### Q-C3 — Apple ID 로그인 정식 추가
+- **출처**: ENG_REVIEW §11, §7.2
+- **질문**: 정식 출시 시 Apple ID 등가 제공 (App Store guideline 4.8). 베타는 카카오 only로 가능
+- **소유자**: Backend (Phase 3 / 정식 출시 시)
+- **상태**: 보류
+
+### Q-C4 — 다크모드 디테일 검증
+- **출처**: D2, ENG_REVIEW §0.2 A
+- **질문**: 마커·차트·맵 두 톤 일치 검증
+- **소유자**: Design + QA (Phase 3 시)
+- **상태**: 보류
+
+### Q-C5 — 외부 캘린더 양방향 동기화
+- **출처**: V2_PRD §7.5
+- **질문**: 네이버 캘린더 동기화. Apple Calendar 양방향(현재는 push only)
+- **상태**: 보류
+
+### Q-C6 — Geocoding for external calendar event location
+- **출처**: V2_PRD §16, ENG_REVIEW §0.4
+- **질문**: 외부 캘린더 일정의 위치 자동 geocoding. 베타는 모임 일정만 좌표
+- **상태**: 보류
+
+### Q-C7 — 호스트 위임
+- **출처**: V2_PRD §5.4
+- **질문**: 호스트 권한 위임 UX·schema
+- **상태**: 보류
+
+### Q-C8 — 자동 노쇼 판정
+- **출처**: V2_PRD §17.3
+- **질문**: 알림톡 + 식당 출석 체크 자동화 (베타는 manual)
+- **상태**: 보류
+
+### Q-C9 — 운영 어드민 웹
+- **출처**: V2_PRD §17.3
+- **질문**: 신고 처리 + 환불 처리 + 식당 관리 어드민 (베타는 manual)
+- **상태**: 보류
+
+### Q-C10 — 식당 어드민 웹 + 셀프 가입
+- **출처**: V2_PRD §17.3
+- **상태**: 보류
+
+### Q-C11 — Promoted listing / 프리미엄 구독
+- **출처**: V2_PRD §12 (v1.1+)
+- **상태**: 보류
+
+### Q-C12 — Memories (추억 기록)
+- **출처**: V2_PRD §12.3
+- **질문**: 폐기 결정 — 확정?
+- **상태**: 폐기 default (재확인 필요 시 reopen)
+
+### Q-C13 — 데스크톱 폭 지원 (웹)
+- **출처**: V2_PRD §10.1, DESIGN §12.7
+- **질문**: 모바일·태블릿만 → 데스크톱 확장 여부
+- **상태**: 보류 (모바일만 default)
+
+---
+
+## D. 미분류 / 메타
+
+### Q-D1 — 다중 가설 동시 베팅 시 진단 분리
+- **출처**: OFFICE_HOURS §10-15
+- **질문**: Phase 1+2 launch 후 가장 빨리 죽는 가설 격리 방법
+- **소유자**: Founder + Data
+- **상태**: 미설계 (Q-A4 baseline 측정과 연계)
+
+---
+
+## 새 질문 추가 템플릿
+
+```markdown
+### Q-{카테고리}{N} — {제목}
+- **출처**: (어떤 문서 어떤 섹션)
+- **질문**: (구체적으로)
+- **소유자**: (책임자)
+- **마감**: (날짜 또는 게이트)
+- **해결 시**: (어떤 결정이 만들어지나)
+- **상태**: 미결정 / 진행 중 / 답변 대기
+```
+
+답이 나오면:
+1. [DECISIONS.md](DECISIONS.md)에 새 D{N} 추가
+2. 이 항목을 `Closed by D{N} (YYYY-MM-DD)`로 변경
+3. 일정 시간 뒤 archive 섹션으로 이동 (이 문서 하단에 추가 예정)
