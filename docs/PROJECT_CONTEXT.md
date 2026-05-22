@@ -131,4 +131,5 @@ Tech Stack (Phase 1+2):
 | Edge Function 패턴 | [ARCHITECTURE.md](ARCHITECTURE.md) §4 + supabase/functions |
 | 테스트 47 path | [TEST_PLAN.md](TEST_PLAN.md) |
 | 결정 D1-D26 전체 맥락 | [DECISIONS.md](DECISIONS.md) |
+| 현재 진행 중 (active) | [NOW.md](NOW.md) (활성 작업 라이브 상태판, ≤50줄) |
 | 현재 sprint 진척 | [PROGRESS.md](PROGRESS.md) + [TASK_BACKLOG.md](TASK_BACKLOG.md) |

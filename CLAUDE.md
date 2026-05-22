@@ -6,13 +6,16 @@
 
 ## 새 세션 읽기 순서
 
-### 모든 세션 공통 (필수, 4개)
+### 모든 세션 공통 (필수, 5개)
 1. **이 파일** (CLAUDE.md) — 정책
 2. [docs/PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md) — 제품·페르소나·게이트·금지선·결정 (~105줄)
-3. [docs/SESSION_LOG.md](docs/SESSION_LOG.md) — 최근 완료 3건
-4. [docs/PROGRESS.md](docs/PROGRESS.md) — 활성 게이트
+3. [docs/NOW.md](docs/NOW.md) — 활성 작업 라이브 상태판 (≤50줄, 빈 상태 ~10줄)
+4. [docs/SESSION_LOG.md](docs/SESSION_LOG.md) — 최근 완료 3건
+5. [docs/PROGRESS.md](docs/PROGRESS.md) — 활성 게이트
 
 `docs/TASK_BACKLOG.md`는 `/start-task` 호출 시 lazy 로드.
+
+NOW.md는 중단된 세션 재개 시 컨텍스트 복원의 단일 위치. 비어 있을 때 비용 미미, 활성 작업이 있을 때 진실의 위치.
 
 ### 역할별 추가
 | 작업 종류 | 추가로 읽기 |
@@ -71,4 +74,4 @@
 
 ---
 
-**Last updated**: 2026-05-22 (SSoT 격상 + 역할 분리)
+**Last updated**: 2026-05-22 (SSoT 격상 + 역할 분리 + NOW.md 도입)
