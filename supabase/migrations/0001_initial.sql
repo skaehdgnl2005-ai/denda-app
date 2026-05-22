@@ -3,7 +3,8 @@
 -- 출처: docs/ARCHITECTURE.md §2, docs/DECISIONS.md
 -- 결정 의존: D3 (partnerships only), D13 (TIMESTAMPTZ UTC), D14 (15분 슬롯),
 --           D15 (schedules.source enum), D16 (is_blocked helper), D17 (f4_sent_at),
---           D18 (좌표 WGS84), D21 (synthetic email)
+--           D18 (좌표 WGS84)
+-- 주의: D21 (synthetic email)은 supersede됨 — 0003_kakao_oidc_amend.sql 참조 (D29)
 -- ============================================================================
 
 -- 확장 활성화
@@ -46,8 +47,9 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ============================================================================
--- 3. users — 카카오 synthetic email 사용자 프로필 (auth.users 확장)
--- 결정: D21 synthetic email + HMAC. Supabase auth.users.id를 PK로 1:1 연결.
+-- 3. users — 카카오 OIDC 사용자 프로필 (auth.users 확장)
+-- 결정: [D29] OIDC + signInWithIdToken. auth.users.id를 PK로 1:1 연결.
+--       synthetic_email 컬럼은 0003에서 DROP, email로 대체.
 -- ============================================================================
 
 CREATE TABLE public.users (
