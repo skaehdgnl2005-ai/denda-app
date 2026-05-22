@@ -35,12 +35,12 @@ React Native (Expo) 기반으로 iOS·Android 양대 플랫폼에 배포되며, 
 2. **예약금 BM 도입** — 호스트가 모임당 20,000원 보증금 결제, 우리 1,500원/건 (7.5%), 식당 정산 18,500원 (92.5%, 토스페이먼츠 분할정산). 베타~Phase 1은 의도적 저마진, 정식 수익은 차기 버전 다층 BM에서. **🔒 Phase 3 — Gate #2 통과 후 활성**.
 3. **"지도로 내 일정 보기"** — 캘린더를 지도 모드로 전환, 일정 위치를 숫자 마커 + 폴리라인 동선으로 시각화
 4. **시간 그리드 정밀도** — 15분 슬롯, 시간 범위 09:00~24:00 (60슬롯/일), 드래그 멀티 셀렉트 + 실시간 히트맵
-5. **소셜 모바일 네이티브 가치** — 카카오 비즈앱 우회 OAuth, 카톡 공유, 푸시 알림, 양방향 캘린더 동기화, 다크모드
+5. **소셜 모바일 네이티브 가치** — 카카오 OIDC OAuth ([D29](DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede)), 카톡 공유, 푸시 알림, 양방향 캘린더 동기화, 다크모드
 
 ### 0.2. 핵심 메커니즘 6가지
 
 1. **15분 슬롯 드래그 멀티 셀렉트 + 실시간 히트맵** — 꾹 누르고 sweep 제스처
-2. **카카오 비즈앱 우회 OAuth** — synthetic email + HMAC, 일반 OAuth 앱 한정 정책 우회
+2. **카카오 OIDC OAuth** — Supabase `signInWithIdToken` 표준 flow. 비즈앱 등록 + `account_email` scope은 Phase 3로 이연 ([D29](DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede))
 3. **게스트 투표** — 브라우저 토큰 기반, 시간 투표는 웹 fallback으로 가능 (비회원 마찰 0)
 4. **에브리타임 시간표 OCR** — Google Gemini Vision으로 학교 시간표 자동 등록
 5. **부분 양방향 캘린더 동기화** — 외부 → 앱 (Read) + 모임 확정 시 외부 캘린더에 자동 Push
@@ -57,7 +57,7 @@ React Native (Expo) 기반으로 iOS·Android 양대 플랫폼에 배포되며, 
 | 영역 | 명세 |
 |---|---|
 | **플랫폼** | React Native (Expo SDK 53+), iOS + Android. 웹은 게스트 투표 fallback 페이지로 유지 (Vercel) |
-| **인증** | 카카오 OAuth (비즈앱 우회 — synthetic email + HMAC). [D1](DECISIONS.md#d1--kakao-oauth--local-api-정책-verify-track--lazy-backup) verify-track 진행 중 |
+| **인증** | 카카오 OIDC OAuth (Supabase `signInWithIdToken`). 비즈앱 등록 + `account_email` scope은 Phase 3 ([D29](DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede)) |
 | **시간 그리드** | 15분 단위, 09:00~24:00 (60슬롯/일, 7일 후보 시 420셀). 60fps Reanimated worklet ([D12](DECISIONS.md#d12--60fps-시간-그리드-구현-spec)) |
 | **장소·지도** | 네이버 지도 SDK (`@mj-studio/react-native-naver-map`) + 카카오 Local API (동적 매장 검색) |
 | **장소 기능** | 카테고리 필터 (제휴·음식점·술집·파티룸·지하철역), 반경 조절 바, 제휴 마커 강조 (E2: 색+크기) |
@@ -353,7 +353,7 @@ React Native (Expo) 기반으로 iOS·Android 양대 플랫폼에 배포되며, 
 ### 5.8. 로그인 / 프로필 / 온보딩
 
 #### 로그인 흐름
-- 카카오 OAuth (비즈앱 우회 — synthetic email + HMAC)
+- 카카오 OIDC OAuth (Supabase `signInWithIdToken` — [D29](DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede))
 - **약관/개인정보 동의 모달** (필수) + 마케팅·위치 동의 (선택)
 - 첫 로그인 시 온보딩으로 자동 진입
 
@@ -386,7 +386,7 @@ React Native (Expo) 기반으로 iOS·Android 양대 플랫폼에 배포되며, 
 ### 6.1. 코어 도메인
 
 #### `users`
-- 사용자 기본 정보, 카카오 OAuth synthetic email 포함
+- 사용자 기본 정보, 카카오 OIDC `sub` claim(`kakao_id`) + `email` nullable (베타 미수집, Phase 3 비즈앱 후 채움 — [D29](DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede))
 - 노쇼 페널티 카운터 (`no_show_count`)
 
 #### `friendships`, `friend_requests`
@@ -556,7 +556,7 @@ converted_user_id uuid FK → users (nullable)
 
 | 용도 | 처리 |
 |---|---|
-| 카카오 OAuth (비즈앱 우회) | synthetic email + HMAC, 일반 OAuth 정책 우회 |
+| 카카오 OIDC OAuth | Supabase `signInWithIdToken` 표준 flow. 비즈앱·이메일 권한은 Phase 3 ([D29](DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede)) |
 | 카카오톡 공유 | 모임 초대·결과 공유 + OG 미리보기 (Vercel 웹) |
 | **카카오 Local API** | 단독 사용 — 네이버 지도 위에 마커 그리기 (좌표만 활용, 매장 데이터 한국 최강) |
 
@@ -769,7 +769,7 @@ v1.0 출시는 **`@mj-studio/react-native-naver-map` (2.4+, 네이티브 SDK)**.
 ### 12.1. P0 (v1.0 출시 시점 동작 필수)
 
 #### 사용자·인증
-- 카카오 OAuth (비즈앱 우회)
+- 카카오 OIDC OAuth ([D29](DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede))
 - 약관/개인정보 동의 모달 (필수 + 마케팅·위치 선택)
 - 탈퇴 흐름 (30일 deactivate → 자동 삭제)
 - 신고/차단 (운영팀 카톡 채널 수신)

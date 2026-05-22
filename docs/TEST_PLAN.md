@@ -8,7 +8,7 @@ Decisions reflected: D1 verify-track + lazy backup, D2 다크 디테일만 reduc
 ## Affected Pages/Routes
 
 ### Mobile app (RN + Expo)
-- **`/(auth)/login`** — 카카오 OAuth 진입. synthetic email + HMAC 흐름 (D1 verify-track: Step 16 backup interface로 추상화)
+- **`/(auth)/login`** — 카카오 OIDC OAuth 진입. Supabase `signInWithIdToken` 흐름 ([D29](../DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede)). `AuthProvider` interface로 Apple ID fallback 추상화 (S16)
 - **`/(auth)/onboarding`** — 3 슬라이드 + 약관 동의 모달
 - **`/(tabs)/home`** — 캘린더 (월/주), 일정, 모임, "지도로 보기" 토글 (D2: Phase 1+2 유지)
 - **`/schedule/everytime-import`** — 에브리타임 OCR 진입 (D2: Phase 1+2 유지), 스크린샷 업로드 + 학기 시작·종료 입력 + 미리보기·confirm
@@ -43,7 +43,7 @@ Decisions reflected: D1 verify-track + lazy backup, D2 다크 디테일만 reduc
 
 ### 카카오 OAuth
 - 첫 로그인 시 약관 모달 노출 (필수 동의 강제)
-- 재로그인 시 기존 user 매칭 (HMAC deterministic 동작)
+- 재로그인 시 기존 user 매칭 (Supabase Auth가 `id_token.sub` 기반 자동 매칭)
 - 동시에 두 디바이스에서 같은 사용자 로그인 (정상 동작)
 - 토큰 만료 시 silent refresh 시도 + 실패 시 재로그인 안내
 
@@ -139,8 +139,8 @@ Decisions reflected: D1 verify-track + lazy backup, D2 다크 디테일만 reduc
 - 7일 전부 0개 슬롯 (투표 안 함 → vote row INSERT 0개)
 - 7일 전부 모든 슬롯 (vote row 매우 많음 → 성능)
 
-### 카카오 OAuth
-- HMAC 충돌 (deterministic 검증) — 두 다른 카카오 id → 다른 synthetic email
+### 카카오 OIDC OAuth
+- `id_token.sub` claim 유일성 (Supabase Auth가 provider_id로 unique 보장. 두 다른 카카오 id → 다른 user)
 - 카카오 nickname 특수문자 (이모지, 유니코드 RTL)
 - 같은 카카오 user가 다른 디바이스에서 첫 로그인 → 단일 user_id 유지
 
