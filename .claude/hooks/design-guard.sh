@@ -116,6 +116,35 @@ case "$FILE_PATH" in
     ;;
 esac
 
+# --- Phase 3 코드 누출 검출 (PROJECT_CONTEXT.md §6 절대 금지) ---
+# Gate #2 ≥25% 통과 전까지 다음 패턴은 모두 차단.
+# reviewer.md가 이 책임을 hook으로 이관함.
+case "$FILE_PATH" in
+  *.test.*|*.spec.*|*tests/*|*.md|*archive/*) ;;  # 테스트·문서·archive 제외
+  *)
+    # 1. 토스페이먼츠 SDK / 위젯 코드
+    check '@tosspayments|tosspayments|TossPayments' \
+      "🔒 Phase 3: 토스페이먼츠 SDK import 금지 (PROJECT_CONTEXT §6). Gate #2 ≥25% 후 commit."
+
+    # 2. 금지 테이블 schema 참조 (D3 — Phase 3 schema lock-in 회피)
+    # 두 가지 패턴: ORM quoted (`from('reservations')`) + SQL 키워드 + 공백
+    check "['\"\`](reservations|payments|payouts)['\"\`]|(FROM|JOIN|INSERT INTO|UPDATE)[[:space:]]+(reservations|payments|payouts)[^a-zA-Z_]" \
+      "🔒 Phase 3: reservations/payments/payouts 테이블 참조 금지 (D3). Phase 1+2은 partnerships만."
+
+    # 3. groups.reservation_id column (Phase 3에서 추가) — group./groups. 양쪽 잡음
+    check 'groups?\.reservation_id|reservation_id[[:space:]]*:' \
+      "🔒 Phase 3: groups.reservation_id column은 Phase 3에서 추가 (D3)."
+
+    # 4. F6/F7 push 알림 (Phase 1+2은 F1~F5만)
+    check 'notify_f6|notify_f7|F6_|F7_|"f6"|"f7"|'\''f6'\''|'\''f7'\''' \
+      "🔒 Phase 3: F6/F7 푸시 알림 금지 (Phase 1+2은 F1~F5)."
+
+    # 5. 캐치테이블 직결 (D2 폐기)
+    check 'catchtable|캐치테이블' \
+      "🔒 폐기 결정 (D2): 캐치테이블 직결 금지."
+  ;;
+esac
+
 # --- Non-Korean UI labels (Phase 1+2 한국어 only) ---
 # Match common English UI words that frequently slip in. Allow in code comments and tests.
 case "$FILE_PATH" in

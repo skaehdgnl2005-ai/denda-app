@@ -78,6 +78,7 @@ Gate #2 통과 시 Phase 3 진입 6단계:
 - Memories(추억) / 캐치테이블 직결 (폐기)
 
 위반 시 → 사용자 즉시 확인. PROGRESS.md Gate KPI 진척 없으면 작성 보류.
+**자동 차단**: `.claude/hooks/design-guard.sh`가 토스페이먼츠·reservations/payments/payouts·groups.reservation_id·F6/F7·캐치테이블 import/참조를 grep으로 차단 (exit 2).
 
 ## §7. Cardinal 결정 — AI가 모르면 잘못 짤 10가지
 
