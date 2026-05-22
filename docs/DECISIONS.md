@@ -178,6 +178,39 @@
 | 결과 영향 | Step 3 (시간 그리드 + 투표) Edge Function 추가. rules/supabase.md에 명시 |
 | 출처 | ENG_REVIEW §1.4 |
 
+### 구현 예제
+
+**Edge Function (합산 + broadcast)**:
+
+```ts
+// supabase/functions/votes_aggregate/index.ts
+// votes INSERT trigger → 합산 → broadcast
+const { data: counts } = await supabase
+  .from('votes')
+  .select('start_minute, count(*)')
+  .eq('group_id', groupId)
+  .group('start_minute');
+
+await supabase.channel(`group:${groupId}`).send({
+  type: 'broadcast',
+  event: 'heatmap_update',
+  payload: { slots: counts },
+});
+```
+
+**클라이언트 (broadcast만 listen)**:
+
+```ts
+// src/lib/supabase/realtime.ts
+supabase.channel(`group:${groupId}`)
+  .on('broadcast', { event: 'heatmap_update' }, ({ payload }) => {
+    heatmapSharedValue.value = payload.slots; // useSharedValue (D12)
+  })
+  .subscribe();
+```
+
+**금지 패턴**: 클라이언트가 `votes` 테이블에서 raw row를 받아 직접 합산. 7명 × 60슬롯 × 7일 = 2,940 rows를 매번 transfer + 합산하면 60fps 무너짐 + 배터리 손실.
+
 ---
 
 ## D12 — 60fps 시간 그리드 구현 spec
@@ -191,6 +224,45 @@
 | 결과 영향 | rules/react-native.md에 Reanimated worklet 의무 명시 |
 | 출처 | ENG_REVIEW §4.1 |
 
+### 구현 예제
+
+**❌ 금지 패턴 (JS thread 폭파)**:
+
+```tsx
+const [cells, setCells] = useState<Record<string, boolean>>({});
+const onCellTouch = (id: string) =>
+  setCells(prev => ({ ...prev, [id]: true }));
+// 매 cell touch → setState → 전체 grid re-render → 16ms 예산 초과
+```
+
+**✅ 의무 패턴 (UI thread worklet)**:
+
+```tsx
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { useSharedValue } from 'react-native-reanimated';
+
+const cellState = useSharedValue<Record<string, boolean>>({});
+
+const gesture = Gesture.Pan()
+  .onUpdate((e) => {
+    'worklet'; // UI thread, JS 영향 0
+    const id = computeCellId(e.x, e.y);
+    cellState.value = { ...cellState.value, [id]: true };
+  })
+  .onEnd(() => {
+    'worklet';
+    // drag 종료 시 1회만 JS로 commit (100ms debounce)
+    runOnJS(commitVotes)(cellState.value);
+  });
+```
+
+**가상화 (420 cells)**:
+
+```tsx
+import { FlashList } from '@shopify/flash-list';
+// 또는 React.memo로 셀별 memoization
+```
+
 ---
 
 ## D13 — KST 강제, DB는 TIMESTAMPTZ (UTC)
@@ -203,6 +275,53 @@
 | 결과 영향 | rules/ko-kr.md에 KST 강제 + design-guard hook이 `new Date(` (timezone 미명시) 적중 시 차단 |
 | 출처 | ENG_REVIEW §2.5 |
 
+### 구현 예제
+
+**❌ 금지 (timezone 미명시)**:
+
+```ts
+const now = new Date();
+const formatted = now.toLocaleString(); // 기기 로케일에 의존 — 해외 사용자에게 KST 아님
+```
+
+**✅ 클라이언트 (luxon)**:
+
+```ts
+import { DateTime } from 'luxon';
+
+const now = DateTime.now().setZone('Asia/Seoul');
+const formatted = now.toFormat('yyyy-MM-dd HH:mm', { locale: 'ko-KR' });
+
+// 시간 그리드 슬롯 (15분 단위, D14)
+const slot = DateTime.fromObject(
+  { year: 2026, month: 5, day: 22, hour: 19, minute: 30 },
+  { zone: 'Asia/Seoul' }
+);
+```
+
+**✅ Edge Function (Deno)**:
+
+```ts
+// supabase/functions/_lib/kst.ts
+export function nowKstISO(): string {
+  return new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' });
+}
+
+// 또는 luxon Deno port
+import { DateTime } from 'https://esm.sh/luxon@3.4.4';
+const kst = DateTime.now().setZone('Asia/Seoul');
+```
+
+**DB schema (필수)**:
+
+```sql
+-- 모든 시간 column은 TIMESTAMPTZ (UTC 정규화 저장)
+ALTER TABLE groups ADD COLUMN confirmed_at TIMESTAMPTZ;
+-- TIMESTAMP (without time zone) 사용 금지
+```
+
+해외 사용자도 모든 시간 KST로 표시 + 작은 라벨 `"KST 기준으로 표시 중"` 의무.
+
 ---
 
 ## D14 — 시간 슬롯 단위 강제: 15분 + DB CHECK constraint
@@ -213,6 +332,31 @@
 | 근거 | type system + DB 없이는 30분 슬롯 데이터가 들어오면 UI 깨짐 |
 | 결정일 | 2026-05-21 |
 | 출처 | ENG_REVIEW §2.1 |
+
+### 구현 예제
+
+**DB constraint (필수)**:
+
+```sql
+-- supabase/migrations/0003_slot_constraint.sql
+ALTER TABLE votes ADD CONSTRAINT slot_15min
+  CHECK (start_minute % 15 = 0);
+
+-- start_minute은 09:00=540, 09:15=555, ..., 23:45=1425
+-- 화면 09:00~24:00 (60 슬롯/일 × 7일 = 420 cells)
+```
+
+**Application constant (server + client 공유)**:
+
+```ts
+// src/lib/constants.ts (+ supabase/functions/_lib/constants.ts에 동일하게)
+export const SLOT_DURATION_MINUTES = 15;
+export const SLOTS_PER_DAY = 60;     // 09:00~24:00
+export const DAYS_PER_GROUP = 7;
+export const CELLS_PER_GROUP = SLOTS_PER_DAY * DAYS_PER_GROUP; // 420
+```
+
+**금지**: 30분·60분 슬롯 데이터가 votes에 들어가면 UI grid가 깨진다. CHECK constraint가 INSERT 시점에 거부.
 
 ---
 
@@ -237,6 +381,41 @@
 | 결정일 | 2026-05-21 |
 | 출처 | ENG_REVIEW §2.4 |
 
+### 구현 예제
+
+**Helper function**:
+
+```sql
+-- supabase/migrations/_lib/blocking.sql
+CREATE OR REPLACE FUNCTION is_blocked(viewer_id UUID, target_id UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS(
+    SELECT 1 FROM blocks
+    WHERE (blocker_id = viewer_id AND blocked_id = target_id)
+       OR (blocker_id = target_id AND blocked_id = viewer_id)
+  );
+$$ LANGUAGE sql STABLE;
+```
+
+**RLS policy 패턴 (모든 SELECT에 적용)**:
+
+```sql
+-- friendships
+CREATE POLICY "friends_no_blocked" ON friendships
+  FOR SELECT USING (NOT is_blocked(auth.uid(), friend_id));
+
+-- group_members
+CREATE POLICY "members_no_blocked" ON group_members
+  FOR SELECT USING (
+    auth.uid() = user_id
+    OR NOT is_blocked(auth.uid(), user_id)
+  );
+
+-- 친구 검색·추천·모임 멤버·초대 모든 query에 동일 패턴
+```
+
+**적용 대상**: 친구 검색, 친구 추천, 모임 멤버 목록, 모임 초대 가능 친구 목록, schedules 공유 목록.
+
 ---
 
 ## D17 — Push F4 idempotency: `groups.f4_sent_at` column
@@ -247,6 +426,42 @@
 | 근거 | trigger보다 명시적 → 디버깅 ↑. race condition 회피 |
 | 결정일 | 2026-05-21 |
 | 출처 | ENG_REVIEW §1.8 |
+
+### 구현 예제
+
+**Edge Function (트랜잭션 내 조건부 UPDATE)**:
+
+```ts
+// supabase/functions/notify_f4/index.ts
+const { data, error } = await supabase
+  .from('groups')
+  .update({ f4_sent_at: new Date().toISOString() })
+  .eq('id', groupId)
+  .is('f4_sent_at', null)  // 이미 발송됐으면 0 rows 반환
+  .select()
+  .single();
+
+if (!data) {
+  console.log(`F4 already sent for group ${groupId}, skip`);
+  return new Response(null, { status: 204 });
+}
+
+// 0 rows 반환되지 않은 경우에만 push 발송 진행
+await sendExpoPush({
+  to: tokens,
+  title: '전 멤버가 투표를 끝냈어요',
+  body: `${groupName} — 호스트가 시간을 확정해주세요`,
+});
+```
+
+**DB schema**:
+
+```sql
+ALTER TABLE groups ADD COLUMN f4_sent_at TIMESTAMPTZ;
+-- NULL = 미발송, NOT NULL = 발송 완료
+```
+
+**Race condition 방지**: 두 멤버가 거의 동시에 마지막 vote를 INSERT해도, UPDATE의 `IS NULL` 조건이 단 1회만 매칭되어 idempotent.
 
 ---
 
@@ -280,6 +495,73 @@
 | 근거 | Edge Function 60s timeout + Google Calendar QPS limit |
 | 결정일 | 2026-05-21 |
 | 출처 | ENG_REVIEW §4.4 |
+
+### 구현 예제
+
+**호스트 액션 (즉시 응답)**:
+
+```ts
+// supabase/functions/group_confirm/index.ts
+await supabase
+  .from('groups')
+  .update({ confirmed_at: new Date().toISOString() })
+  .eq('id', groupId);
+
+// 호스트에게 즉시 200 응답
+return new Response(JSON.stringify({ ok: true }), { status: 200 });
+// Calendar push는 pg_cron이 백그라운드로 처리 (아래)
+```
+
+**pg_cron queue 처리**:
+
+```sql
+-- supabase/migrations/0010_calendar_queue.sql
+SELECT cron.schedule(
+  'process_calendar_queue',
+  '*/1 * * * *',  -- 1분마다
+  $$ SELECT net.http_post(
+    url := 'https://{project}.supabase.co/functions/v1/calendar_push_worker',
+    headers := jsonb_build_object('Authorization', 'Bearer ' || current_setting('app.cron_secret'))
+  ); $$
+);
+```
+
+**Worker (retry max 3)**:
+
+```ts
+// supabase/functions/calendar_push_worker/index.ts
+const { data: pending } = await supabase
+  .from('groups')
+  .select('id, member_ids, retry_count')
+  .not('confirmed_at', 'is', null)
+  .is('calendar_pushed_at', null)
+  .lt('retry_count', 3)
+  .limit(50);
+
+for (const group of pending) {
+  const failedMembers: string[] = [];
+  for (const memberId of group.member_ids) {
+    try {
+      await pushToMemberCalendar(memberId, group);
+    } catch (e) {
+      failedMembers.push(memberId);
+    }
+  }
+
+  if (failedMembers.length === 0) {
+    await supabase.from('groups').update({
+      calendar_pushed_at: new Date().toISOString(),
+    }).eq('id', group.id);
+  } else {
+    await supabase.from('groups').update({
+      retry_count: group.retry_count + 1,
+      partial_fail_list: failedMembers,
+    }).eq('id', group.id);
+  }
+}
+```
+
+**Partial fail 처리**: `groups.partial_fail_list` JSON column에 실패 멤버 list 기록. 3회 retry 후 호스트에게 알림 (D19 단방향 부분 실패).
 
 ---
 
@@ -337,6 +619,55 @@
 | 결정 | **Always load:** expo-router, react-native, supabase-js, zustand, expo-secure-store. **Lazy:** naver-map (지도 탭 진입), expo-calendar (모임 확정), Branch SDK (첫 진입 attribution), Gemini Vision (OCR 진입), 토스 webview (Phase 3). Target: cold start < 2초 (EAS production binary, iOS/Android × 저사양/중사양) |
 | 결정일 | 2026-05-21 |
 | 출처 | ENG_REVIEW §4.3 |
+
+### 구현 예제
+
+**Always load (앱 startup)**:
+
+```ts
+// src/app/_layout.tsx
+import { Stack } from 'expo-router';
+import { createClient } from '@supabase/supabase-js';
+import { create as createStore } from 'zustand';
+import * as SecureStore from 'expo-secure-store';
+// 위 5개는 즉시 로드 — cold start 핵심 path
+```
+
+**Lazy load (route 진입 시)**:
+
+```tsx
+// src/app/(tabs)/map.tsx
+import { lazy, Suspense } from 'react';
+const MapScreen = lazy(() => import('@/screens/MapScreen'));
+// @mj-studio/react-native-naver-map는 MapScreen 내부에서 import
+
+export default function MapTab() {
+  return (
+    <Suspense fallback={<MapSkeleton />}>
+      <MapScreen />
+    </Suspense>
+  );
+}
+```
+
+**나머지 lazy 대상**:
+
+```ts
+// 모임 확정 + Calendar push 시점
+const CalendarSync = lazy(() => import('@/lib/calendar/sync'));
+
+// OCR 진입
+const OCRScreen = lazy(() => import('@/screens/OCRScreen'));
+// Gemini Vision SDK는 OCRScreen 내부에서 동적 import
+
+// 첫 진입 attribution check (단 SDK init은 startup)
+const BranchAttribution = lazy(() => import('@/lib/branch/attribution'));
+
+// 🔒 Phase 3 — 현재 import하지 않음
+// const TossPayment = lazy(() => import('@tosspayments/widget-sdk'));
+```
+
+**측정**: production binary로 cold start 측정 의무 (Hermes profile + Flipper). dev mode 측정 금지.
 
 ---
 
