@@ -36,6 +36,22 @@ description: TASK_BACKLOG에서 다음 태스크 시작. 의존성 확인 → �
 - **테스트 작성**: [TEST_PLAN.md](../../../docs/TEST_PLAN.md) + `.claude/rules/testing.md`
 - **모든 작업**: 해당 태스크의 `Notes` 필드, 관련 [DECISIONS.md](../../../docs/DECISIONS.md) 참조
 
+### 3.5. NOW.md에 활성 작업 항목 추가
+
+[NOW.md](../../../docs/NOW.md)의 `## 🟢 활성 작업` 절에 새 항목 추가 (또는 같은 태스크의 기존 항목 update):
+
+```markdown
+### S{NN} {태스크 제목}
+- **상태**: 시작
+- **다음 단계**: {acceptance criteria 첫 항목}
+- **블로커**: 없음
+- **마지막 update**: {YYYY-MM-DD HH:MM KST}
+```
+
+이미 같은 태스크 항목이 있으면 **새로 추가하지 말고 update** (작업 전환·재개의 경우).
+
+NOW.md 항목 추가만 하고 `git add`는 하지 말 것 — `/ship-task` 시점에 다른 변경과 함께 commit.
+
 ### 4. TodoWrite로 sub-task 분해
 큰 태스크는 sub-task로 쪼개기:
 ```

@@ -35,6 +35,14 @@ description: 태스크 완료 처리. SESSION_LOG·PROGRESS·TASK_BACKLOG 업데
 
 날짜는 KST 오늘 (Asia/Seoul 기준 yyyy-MM-dd).
 
+### 2.5. NOW.md에서 활성 항목 제거 (promote 완료)
+
+[NOW.md](../../../docs/NOW.md)의 `## 🟢 활성 작업` 절에서 방금 완료된 태스크 항목을 **삭제**한다.
+
+이유: 정보는 이미 SESSION_LOG에 promote됐다. NOW.md는 활성 상태만 유지. 중복하면 무한 누적.
+
+검증: 삭제 후 `grep "S{NN}" docs/NOW.md`가 비어 있어야 함.
+
 ### 3. PROGRESS.md 업데이트
 [PROGRESS.md](../../../docs/PROGRESS.md):
 - Build Burn-down 표의 현재 sprint 진척
@@ -60,9 +68,18 @@ description: 태스크 완료 처리. SESSION_LOG·PROGRESS·TASK_BACKLOG 업데
   - **이동**: 30일+ 된 항목 (날짜가 오늘 KST - 30일 이전) 잘라내 `docs/archive/SESSION_LOG_archived.md` 하단에 append → 현재 commit에 함께 staging
   - **유보**: 다음 ship 때 다시 알림
 
+### 5.6. NOW.md 길이 체크 (50줄 soft limit)
+
+`wc -l docs/NOW.md`로 줄 수 측정:
+- **50줄 초과** 시 사용자에게 알림:
+  > "NOW.md가 {N}줄입니다. 활성 작업은 50줄 이하 유지가 권장됩니다. 오래된 활성 항목이 있다면 SESSION_LOG로 promote 또는 명시 삭제. 정리할까요?"
+- 사용자 결정에 따라 정리 또는 유보.
+
+50줄을 넘는 NOW.md는 컨텍스트 부하만 늘리고 라이브 상태판의 효용이 떨어진다.
+
 ### 6. git commit (변경 파일만 명시적으로)
 ```bash
-git add {구체적 파일 경로} {SESSION_LOG.md} {PROGRESS.md} {TASK_BACKLOG.md} [DECISIONS.md] [OPEN_QUESTIONS.md]
+git add {구체적 파일 경로} {SESSION_LOG.md} {PROGRESS.md} {TASK_BACKLOG.md} {NOW.md} [DECISIONS.md] [OPEN_QUESTIONS.md]
 git commit -m "$(cat <<'EOF'
 ship: S{NN} — {태스크 제목}
 
@@ -113,6 +130,8 @@ git revert + Status: TODO 유지.
 - [ ] 테스트 모두 그린
 - [ ] typecheck 0, lint 0
 - [ ] SESSION_LOG.md 항목 추가
+- [ ] NOW.md에서 완료된 활성 항목 제거 (promote)
+- [ ] NOW.md 50줄 이하 유지
 - [ ] PROGRESS.md 카운트 +1
 - [ ] TASK_BACKLOG.md Status 변경
 - [ ] git commit (specific files)
