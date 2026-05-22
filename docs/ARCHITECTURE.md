@@ -1,40 +1,35 @@
-# Architecture — Phase 1+2 (β-compact)
+# Architecture — 된다 (DenDa) Phase 1+2
 
-> 된다 앱의 시스템 아키텍처. 데이터 모델·외부 통합·성능 spec.
-> 출처: ENG_REVIEW §1·§2·§4·§7 (ASCII 다이어그램 포함)
-> 결정 사항은 모두 [DECISIONS.md](DECISIONS.md)에 별도 기록. 본 문서는 그 결정들의 **시스템 그림**.
+> 시스템 다이어그램·데이터 모델·외부 통합·성능 spec. 결정 본문은 [DECISIONS.md](DECISIONS.md). 본 문서는 구현 진입 시 참조.
 
 ---
 
-## 1. Phase 1+2 Tech Stack
+## 1. 시스템 전체 구성
 
-→ 결정: [D22](DECISIONS.md#d22--phase-12-tech-stack)
+```
+[모바일 앱 (RN + Expo)]
+     │
+     │  HTTPS + JWT
+     ▼
+[Supabase Edge Functions]    ← Kakao OAuth · Gemini Vision · F1-F5 push · votes_aggregate
+     │
+     ├── [Postgres + RLS + Realtime broadcast]    ← 18 tables (D3 partnerships only)
+     ├── [Auth (synthetic email + HMAC)]          ← D21
+     └── [Storage]                                ← 프로필 이미지 (Phase 3)
+     │
+     └── 외부 API:
+         ├── Kakao OAuth + Local API (D1 + Q-A1)
+         ├── Naver Map SDK
+         ├── Google Calendar API
+         ├── Gemini Vision (OCR — D2 keep)
+         └── (Phase 3) 토스 결제
 
-**모바일 (RN/Expo)**
-- React Native + Expo SDK 53+
-- `expo-router`, `zustand` (state), `expo-secure-store` (token)
-- `react-native-gesture-handler` + `react-native-reanimated` (시간 그리드 60fps worklet — [D12](DECISIONS.md#d12--60fps-시간-그리드-구현-spec))
-- `@mj-studio/react-native-naver-map` (지도)
-- `expo-calendar` (iOS 17+ write-only)
-- `expo-notifications` (Expo Push)
-- `expo-font` + Pretendard Variable 셀프호스팅 ([D7](DECISIONS.md#d7--typography-pretendard-variable-단일-패밀리-셀프호스팅))
-- `lucide-react-native` + `react-native-svg`
-- Singular SDK (deferred deep link)
-
-**백엔드**
-- Supabase (Postgres + Realtime + Edge Functions + Auth + Storage)
-- Kakao Local API (장소 검색 — D1 verify-track)
-- Google Calendar API (events.insert)
-- Gemini Vision API (OCR — [D2](DECISIONS.md#d2--phase-12-scope-reduction-다크-디테일만-reduce) keep)
-
-**Web Guest**
-- Next.js + Vercel ([D23](DECISIONS.md#d23--web-guest-page--nextjs-별도-codebase))
-
-**Phase 3 deferred** (현재 NOT in scope):
-- Toss Payments SDK
-- 통신판매업 신고 / 변호사 약관 / 식당 활성화 인프라
-
----
+[Web Guest (Next.js + Vercel)]    ← S14 — 별도 codebase, D23
+     │
+     │  공통: Supabase (anon key)
+     ▼
+[Supabase Edge Functions]
+```
 
 ## 2. 데이터 모델 (Phase 1+2 schema)
 
@@ -45,7 +40,7 @@
 | `users` | id, kakao_id, synthetic_email, nickname, phone, created_at | [D21](DECISIONS.md#d21--kakao-oauth-synthetic-email--hmac-베타는-카카오-only) synthetic email |
 | `friendships` | user_id, friend_id, created_at | |
 | `friend_requests` | from_user_id, to_user_id, status, created_at | |
-| `groups` | id, host_id, name, dates, **confirmed_at**, **confirmed_place_id (FK places)**, **f4_sent_at (timestamp nullable — D17)** | f4_sent_at = push F4 idempotency |
+| `groups` | id, host_id, name, dates, **confirmed_at**, **confirmed_place_id (FK places)**, **f4_sent_at (timestamp nullable — D17)**, **invite_code (CHAR(4))** | f4_sent_at = push F4 idempotency. invite_code = 자체 attribution fallback ([D28](DECISIONS.md#d28--자체-deferred-deep-link-구축-attribution-saas-회피-도메인-구매-회피)) |
 | `group_members` | group_id, user_id, joined_at | |
 | `group_guests` | guest_token, group_id, nickname, **converted_user_id (FK users nullable)**, voted_at | Web 게스트 |
 | `group_invitations` | group_id, inviter_id, invitee_id, status | |
@@ -59,7 +54,7 @@
 | `notification_settings` | user_id, f1_enabled, ..., f5_enabled | F6·F7는 Phase 3 |
 | `reports` | reporter_id, target_id, reason, created_at | 운영팀 카톡 manual |
 | `blocks` | blocker_id, blocked_id, created_at | [D16](DECISIONS.md#d16--차단신고-일관성-helper-function--rls) helper |
-| `branch_attributions` | branch_link_id, group_id, guest_token, **converted_user_id**, **converted_at** | 게스트→회원 전환 |
+| `branch_attributions` | branch_link_id (= short URL token), group_id, guest_token, **converted_user_id**, **converted_at**, **ip_hash**, **ua_hash**, **clicked_at** | 자체 deferred deep link ([D28](DECISIONS.md#d28--자체-deferred-deep-link-구축-attribution-saas-회피-도메인-구매-회피)). table 이름 prefix `branch_`는 cost 회피 위해 유지 (의미적으로 generic). ip_hash·ua_hash·clicked_at는 fingerprint 매칭용 추가 |
 
 **Phase 3 migration (Gate 통과 시):**
 ```
@@ -136,34 +131,59 @@ Supabase Auth signUp({ email: synthetic, password: HMAC })
 - Partial push fail (10명 중 3명): 호스트에게 "일부 멤버 추가 실패" + 멤버 list
 - Background queue (pg_cron + retry max 3) — [D20](DECISIONS.md#d20--calendar-push-fan-out--background-queue)
 
-### 3.5. Singular (게스트→회원 attribution)
+### 3.5. 자체 deferred deep link (게스트→회원 attribution) — [D28](DECISIONS.md#d28--자체-deferred-deep-link-구축-attribution-saas-회피-도메인-구매-회피)
 
-→ PoC: [Q-A6](OPEN_QUESTIONS.md#q-a6--branchio-한국-nat-attribution-정확도-poc) (W1 병렬)
+→ 정확도 PoC: [Q-A6](OPEN_QUESTIONS.md#q-a6) (W1 병렬)
+
+**아키텍처 결정**:
+- 단축 URL host = **Vercel default subdomain** `denda.vercel.app/g/<short_token>` (별도 도메인 구매 회피)
+- web-guest (S14, Next.js)가 `/g/<token>` route 처리
+- AASA + assetlinks.json은 Vercel public hosting (`/.well-known/apple-app-site-association` 등)
+- iOS Universal Links + Android App Links 모두 `denda.vercel.app` 도메인으로 verification
 
 ```
-W0 - 카톡 모임 초대 링크 (Singular 단축 URL)
+W0 - 호스트가 모임 생성 → 단축 토큰 발급 (8자 random)
+    │
+    │   group_token = uuid_short(8)
+    │   group invite_code = 4자리 numeric (fallback용 — 모든 게스트에게 노출)
     │
     ▼
-사용자 브라우저 클릭 → 웹 게스트 페이지 (Vercel)
+W0 - 카톡 모임 초대 링크 공유
+    │
+    │   URL: https://denda.vercel.app/g/<short_token>
+    │   카톡 메시지에 invite_code도 함께 표시 (예: "초대 코드: 4829")
+    │
+    ▼
+사용자 브라우저 클릭 → web-guest (Vercel) `/g/<token>` route
     │
     ├── localStorage: guest_token = UUID
     ├── DB INSERT: group_guests (guest_token, group_id, nickname)
-    └── Singular: track_event('guest_voted', { guest_token, group_id })
+    ├── DB INSERT: branch_attributions (
+    │     branch_link_id = short_token,
+    │     group_id, guest_token,
+    │     ip_hash = sha256(req.ip + salt),
+    │     ua_hash = sha256(req.user_agent + salt),
+    │     clicked_at = NOW()
+    │   )
+    └── 투표 그리드 표시 → 게스트 투표 완료
     │
     ▼
-투표 완료 → "결과 알림 받으려면 →" CTA
+"결과 알림 받으려면 → 앱 받기" CTA
     │
-    ▼
-Singular 링크 → App Store / Play Store
+    │   Universal Link: https://denda.vercel.app/g/<short_token>
+    │   (앱 설치 시 자동 open, 미설치 시 App Store/Play Store)
     │
-    │  (앱 설치, install + open)
     ▼
 W0+δ - 앱 첫 실행
     │
-    ▼
-Singular SDK init → getLatestReferringParams()
-    │
-    └── { guest_token, group_id, ... }
+    │   1) Universal Link 매칭 (best case 정확도 ≈ 80%)
+    │   2) Fingerprint 매칭 (Universal Link miss 시)
+    │      - IP hash + UA hash + install 시점이 최근 클릭과 일치
+    │      - Supabase Edge Function: GET /api/attribution/match
+    │      - 매칭 성공률 한국 NAT 환경에서 50% 이하 (예상)
+    │   3) 명시적 fallback (앞 둘 모두 miss 시)
+    │      - 앱 첫 화면에서 "초대받은 모임 코드 입력" 모달 강제 노출
+    │      - 4자리 invite_code 입력 → 그룹 매칭
     │
     ▼
 카카오 OAuth → user_id 확보
@@ -171,19 +191,44 @@ Singular SDK init → getLatestReferringParams()
     ▼
 DB UPDATE: branch_attributions
 SET converted_user_id = X, converted_at = NOW()
-WHERE branch_link_id = ...
+WHERE branch_link_id = ... (또는 invite_code 매칭)
     │
     └── group_guests → group_members 마이그레이션
         (또는 둘 다 유지하고 group_guests.converted_user_id 설정)
     │
     ▼
 모임 자동 합류 + 모임 list에 표시
-
-⚠️ Attribution miss (한국 NAT 환경 정확도 < 70% 가능):
-  - 카톡 인앱 브라우저 → 외부 브라우저 → App Store install
-  - IP 매칭 실패, Singular fingerprint matching도 실패
-  → fallback: 앱 내 "초대받은 모임 코드 입력" 수동 입력
 ```
+
+**iOS Universal Links 셋업**:
+- `app.json` ios.associatedDomains: `["applinks:denda.vercel.app"]`
+- AASA 파일을 Vercel에 호스팅 (Next.js의 `public/.well-known/apple-app-site-association`)
+- AASA에 `paths: ["/g/*"]` 명시
+- Apple 캐시 24-48시간 — TestFlight build로 실제 device 검증 의무
+
+**Android App Links 셋업**:
+- `app.json` android.intentFilters: scheme `https`, host `denda.vercel.app`, pathPattern `/g/.*`
+- `public/.well-known/assetlinks.json` Vercel hosting
+- `package_name` + sha256 cert fingerprint 명시
+- `adb shell pm verify-app-links` 검증
+
+**Fingerprint 매칭 알고리즘**:
+- ip_hash: sha256(IP + HMAC_SECRET)
+- ua_hash: sha256(User-Agent + HMAC_SECRET)
+- Install 시점 (`clicked_at` 이후 24시간 이내) + IP/UA 매칭
+- 한국 NAT 환경에서 같은 IP 수천 명 → IP만으로는 정확도 낮음 → UA 추가 매칭
+- ATT 동의 거부 시 IDFA 없음 → IP+UA만 → 정확도 ↓
+
+**ATT / PIPA 대응**:
+- iOS 14+ App Tracking Transparency 모달: 앱 첫 실행 시 표시 (선택 가능)
+- 한국 PIPA: 개인정보처리방침에 "IP 해시 + User-Agent 해시 수집 (모임 자동 합류 목적)" 명시
+- 동의 없을 시 fingerprint 매칭 skip → 명시적 코드 입력 fallback만
+
+**Risk acknowledgement** ([D28](DECISIONS.md#d28--자체-deferred-deep-link-구축-attribution-saas-회피-도메인-구매-회피) 명시):
+- G2 게이트 측정 노이즈 (정확도 50% 이하)
+- viral funnel UX 마찰 (코드 입력 강제)
+- 1-2주 추가 개발 시간
+- Phase 3 광고 launch 시 SaaS 추가 도입 필요
 
 ### 3.6. Expo Push Notifications
 
@@ -304,7 +349,6 @@ useSharedValue (Reanimated) 업데이트
 **Lazy load (route 진입 시):**
 - `@mj-studio/react-native-naver-map` — 지도 탭
 - `expo-calendar` — 모임 확정 + Calendar push
-- Singular SDK — 첫 진입 attribution check (단 SDK init은 startup)
 - Gemini Vision — OCR 진입
 - 토스 webview — Phase 3 (현재 미사용)
 
@@ -316,140 +360,3 @@ useSharedValue (Reanimated) 업데이트
 - Client debounce 300-500ms + 5분 viewport 격자 캐싱
 - Server proxy 미도입 (Phase 1+2)
 - 베타 1000 DAU × 평균 10회 = 10000 호출/일 → 안전. Viral burst만 risk
-
-### 6.4. Calendar push fan-out
-
-- 호스트 1회 액션 → 외부 API 15개 호출 (10 Google + 5 Apple)
-- Background queue (Supabase Function Hook + pg_cron)
-- 호스트 액션은 즉시 응답 (비동기)
-- Retry max 3
-- Partial fail report
-
----
-
-## 7. RLS & 보안
-
-- **차단 일관성** ([D16](DECISIONS.md#d16--차단신고-일관성-helper-function--rls)): `is_blocked(viewer, target)` helper 함수 + RLS policy. 모든 SELECT 통과
-  - 친구 검색, 추천, 모임 멤버, 초대 모두 일관 적용
-  - 같은 모임 멤버 = 이미 참여 중이면 표시 유지 + 코멘트 hidden + 푸시 silent
-- **synthetic email**은 일반 user처럼 동작하지만 외부 발송 불가 (보호)
-- **HMAC secret**은 Edge Function 환경변수 (EAS secret + Supabase secret)
-- **Singular key**는 클라 + 서버 양쪽
-- **Kakao key / Naver key / Gemini key**는 모두 서버 (Edge Function) 통과
-
----
-
-## 8. Implementation Notes (Code Quality)
-
-### 8.1. 시간 슬롯 단위 fragmentation 방지 — [D14](DECISIONS.md#d14--시간-슬롯-단위-강제-15분--db-check-constraint)
-- DB CHECK `start_minute % 15 = 0` AND `(end_minute - start_minute) % 15 = 0`
-- Constant `SLOT_DURATION_MINUTES = 15` (server + client 공유)
-- Prior MVP 30분 데이터 미이전 (fresh DB)
-
-### 8.2. `schedules.source` enum semantic — [D15](DECISIONS.md#d15--schedulessource-enum--phase-12은-provider-구분-포기)
-- `'manual' | 'google' | 'apple_ios' | 'everytime'`
-- apple_ios = iOS 디바이스 통합 (iCloud + Google iOS + Outlook + 네이버 iOS)
-- UX: "Apple Calendar (iOS 디바이스 모든 일정 통합)"으로 표시
-- Provider 구분은 차기 ([Q-C5](OPEN_QUESTIONS.md#q-c5--외부-캘린더-양방향-동기화) 영역)
-
-### 8.3. KST timezone 강제 — [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc)
-- DB = TIMESTAMPTZ (UTC 정규화)
-- Client = `luxon` or `date-fns-tz` + `Asia/Seoul` 강제
-- 시간 그리드 09:00~24:00 = 항상 KST
-- 해외 사용자: "KST 기준으로 표시 중" 작은 라벨
-- `new Date()` 직접 사용 금지 (rules/ko-kr.md + design-guard hook)
-
-### 8.4. 차단 RLS helper — [D16](DECISIONS.md#d16--차단신고-일관성-helper-function--rls)
-- `is_blocked(viewer_id UUID, target_id UUID) RETURNS BOOLEAN`
-- 모든 SELECT가 통과
-- 차단한 사람이 새 모임 만들고 초대 = 초대 hidden 또는 "차단된 사용자로부터" 라벨
-
-### 8.5. F4 idempotency — [D17](DECISIONS.md#d17--push-f4-idempotency-groupsf4_sent_at-column)
-- `groups.f4_sent_at` (timestamp nullable) column
-- Edge Function: UPDATE WHERE `f4_sent_at IS NULL AND all_member_voted` 트랜잭션 내
-
-### 8.6. Comments 인디케이터 (deferred) — [Q-B19](OPEN_QUESTIONS.md#q-b19--comments-인디케이터-last_seen_comment_id)
-- 정책: 코멘트 푸시 알림 발송 안 함 (의도적)
-- 모임 카드 "새 코멘트 N" 배지 (앱 내 only). `group_member_states.last_seen_comment_id` 추적 — Q-B19 closure 시 구현
-
----
-
-## 9. Phase 1+2 → Phase 3 Migration Path
-
-```
-Phase 1+2 (출시)              Phase 3 (Gate 통과 후)
-─────────────────────         ─────────────────────
-users                          users (변경 없음)
-friendships                    friendships (변경 없음)
-friend_requests                friend_requests (변경 없음)
-groups                         groups + reservation_id (FK 추가)
-  - confirmed_at                  - confirmed_at
-  - confirmed_place_id            - confirmed_place_id
-  - f4_sent_at                    - f4_sent_at
-                                  - reservation_id (NEW, nullable)
-group_members                  group_members (변경 없음)
-group_guests                   group_guests (변경 없음)
-group_invitations              group_invitations (변경 없음)
-votes                          votes (변경 없음)
-places                         places (변경 없음)
-  - partnership_id (FK,            - partnership_id (변경 없음)
-    nullable)
-schedules                      schedules (변경 없음)
-comments                       comments (변경 없음)
-partnerships                   partnerships (변경 없음)
-push_tokens                    push_tokens (변경 없음)
-notification_settings          notification_settings (변경 없음)
-reports                        reports (변경 없음)
-blocks                         blocks (변경 없음)
-branch_attributions            branch_attributions (변경 없음)
-                               ┌─ reservations (NEW)
-                               ├─ payments (NEW)
-                               └─ payouts (NEW)
-
-Migration cost: 3 tables ADD + groups에 1 column ADD = 작음
-```
-
-→ Phase 3 진입 시 schema 설계: [Q-C2](OPEN_QUESTIONS.md#q-c2--phase-3-도메인-schema-설계)
-
----
-
-## 10. Failure Modes (Critical Gaps)
-
-ENG_REVIEW §8 (12개 분석, 4개 critical):
-
-| # | Failure mode | Mitigation |
-|---|---|---|
-| 1 | Kakao synthetic email OAuth 정책 변경 | **CRITICAL** — D1 verify-track + S16 Apple ID fallback |
-| 2 | Kakao Local API 약관 위반 takedown | **CRITICAL** — D1 + S16 Naver Search fallback |
-| 3 | Supabase Realtime disconnect during vote | HIGH — info-bg 칩 "실시간 갱신 일시 중단" (DESIGN §11.4, [Q-B6](OPEN_QUESTIONS.md#q-b6--realtime-disconnect-ui)) |
-| 4 | Singular attribution miss (한국 NAT) | **CRITICAL** — W1 PoC ([Q-A6](OPEN_QUESTIONS.md#q-a6--branchio-한국-nat-attribution-정확도-poc)) + 수동 fallback ("초대받은 모임 코드") |
-| 5 | 호스트 "확정" 더블 탭 race | HIGH — Idempotency ([D17](DECISIONS.md#d17--push-f4-idempotency-groupsf4_sent_at-column) + S04 lock) |
-| 6 | Calendar push partial fail (silent) | HIGH — 호스트 알림 ([D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시)) |
-| 7 | Kakao Local API rate limit hit | HIGH — fallback "잠시 후 다시" + 캐시 우선 ([D26](DECISIONS.md#d26--kakao-local-api-quota-client-debounce--viewport-cache)) |
-| 8 | OCR 오인식 → 잘못된 학기 반복 일정 | (D2 keep) Confirm step + ground truth eval (S03) |
-| 9 | 게스트 토큰 충돌 (다른 모임) | MEDIUM — 모임별 별도 토큰 ([Q-B7](OPEN_QUESTIONS.md#q-b7--게스트-토큰-충돌-같은-브라우저-다른-모임)) |
-| 10 | iOS Calendar 권한 회수 후 모임 확정 | MEDIUM — 미리 모달 안내 (D19) |
-| 11 | Push F4 race | MEDIUM — D17 트랜잭션 |
-| 12 | 사용자 시간대 (해외) | MEDIUM — D13 KST 강제 |
-
----
-
-## 11. ASCII Diagrams Index
-
-본 문서에 포함된 5개 다이어그램:
-
-1. **§3.1** Kakao OAuth synthetic email + HMAC flow
-2. **§3.5** Singular 게스트→회원 attribution timeline
-3. **§4** Realtime 히트맵 propagation (Edge Function aggregation)
-4. **§5** Phase 1+2 핵심 funnel (Gate 측정 지점)
-5. **§9** Phase 1+2 → Phase 3 schema migration
-
----
-
-**관련 문서:**
-- [PRD.md](PRD.md) — 제품 기획 본체
-- [DESIGN.md](DESIGN.md) — 시각 시스템
-- [DECISIONS.md](DECISIONS.md) — 모든 결정의 단일 진실
-- [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) — 미해결 질문
-- [TASK_BACKLOG.md](TASK_BACKLOG.md) — 빌드 태스크 (17 steps, 4 lanes)
-- [TEST_PLAN.md](TEST_PLAN.md) — 테스트 plan

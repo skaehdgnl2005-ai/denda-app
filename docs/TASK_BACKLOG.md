@@ -199,20 +199,23 @@
 - **Files**: `web-guest/` (별도 git repo 또는 monorepo subdir — founder 선택)
 - **Worktree 분기**: 완전 독립 (별도 codebase)
 
-### S15 — Singular 통합 (게스트→회원 전환) — D27
+### S15 — 자체 deferred deep link (게스트→회원 전환) — D28
 
 - **Status**: TODO | **Owner**: Backend + Mobile + Web | **Sprint**: 4 | **Lane**: C → A 합류
-- **Depends**: S01 (auth complete), S14 (guest page complete), Q-A6 (Singular NAT PoC 결과), [D27](DECISIONS.md#d27--attribution-saas--singular-베타-한정-phase-3-재평가)
+- **Depends**: S01 (auth complete), S14 (guest page complete + Vercel hosting), Q-A6 (자체 구축 정확도 PoC), [D28](DECISIONS.md#d28--자체-deferred-deep-link-구축-attribution-saas-회피-도메인-구매-회피)
 - **Acceptance**:
-  - Singular SDK setup (mobile + web)
-  - Deferred deep link handler (앱 첫 실행 시 Singular API로 referring params 조회)
-  - 카카오 OAuth 완료 → attribution 매칭 Edge Function
-  - `branch_attributions` table UPDATE (table명은 호환 유지 — schema 변경 cost ↓) `SET converted_user_id, converted_at WHERE branch_link_id = ...` (`branch_link_id` 컬럼은 Singular link id 저장으로 사용)
+  - 단축 URL host = `denda.vercel.app/g/<short_token>` (Vercel default subdomain)
+  - **iOS Universal Links**: app.json `associatedDomains: ["applinks:denda.vercel.app"]` + AASA 파일 Vercel hosting (`public/.well-known/apple-app-site-association`)
+  - **Android App Links**: app.json intent filters (scheme=https, host=denda.vercel.app, pathPattern=/g/.*) + assetlinks.json Vercel hosting (`public/.well-known/assetlinks.json`)
+  - **Fingerprint 매칭 Edge Function**: 단축 URL 클릭 시 ip_hash + ua_hash + clicked_at 기록 → 앱 첫 실행 시 매칭 query
+  - **4자리 invite_code fallback**: groups에 invite_code (CHAR(4) numeric) 추가. 모든 게스트 카톡 메시지에 표시. 앱 첫 화면 "초대받은 모임 코드 입력" 모달 강제 (Universal Link + fingerprint 둘 다 miss 시)
+  - **ATT 모달** (iOS 14+) + 한국 PIPA 처리방침 명시
+  - **`branch_attributions` 확장**: ip_hash, ua_hash, clicked_at 컬럼 추가 (table 이름 유지 — schema 변경 cost ↓)
   - `group_guests.converted_user_id` 설정 (또는 group_members 마이그레이션)
   - 모임 자동 합류 + 모임 list에 표시
-  - Attribution miss 시 수동 fallback ("초대받은 모임 코드 입력") — Q-A6 결과 < 70% 시 의무. Singular는 한국 사례 데이터 부족으로 정확도 미지수 → fallback 의무 활성 가능성 ↑
-- **Files**: `src/lib/attribution/` (rename from `branch/`), `supabase/functions/attribution/`
-- **Notes**: 7.4 ASCII flow 참조. ARCHITECTURE.md §3.5 동기화. table·column 이름의 "branch_" prefix는 cost 회피 위해 유지 (의미적으로는 generic attribution id)
+  - Q-A6 PoC 결과 정확도 측정 — <70% 시 fallback 의무 활성 default ON
+- **Files**: `src/lib/attribution/`, `supabase/functions/attribution_match/`, `web-guest/pages/g/[token].tsx`, `web-guest/public/.well-known/apple-app-site-association`, `web-guest/public/.well-known/assetlinks.json`
+- **Notes**: ARCHITECTURE.md §3.5 자체 구축 spec 참조. Sprint 4 일정 1-2주 추가 가능성 — S05 (회사 운명 60fps) critical path 보호 priority. table·column "branch_" prefix는 의미적으로 generic. Phase 3 광고 launch 시 SKAdNetwork 미지원으로 SaaS 추가 도입 필요 (D28 명시 risk)
 
 ---
 

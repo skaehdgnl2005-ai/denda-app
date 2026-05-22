@@ -1,7 +1,7 @@
 # Decisions Log
 
 > **이 문서는 된다 앱 모든 결정의 진실의 단일 위치(SSoT)다.**
-> D1~D27, G1·G2의 본문은 오직 여기에만 존재한다.
+> D1~D28, G1·G2의 본문은 오직 여기에만 존재한다.
 > 다른 파일(`CLAUDE.md`, `.claude/rules/*.md`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`, `docs/PROJECT_CONTEXT.md`)은 결정 ID(`D{N}`, `G{N}`)와 1줄 요약 + 이 문서의 해당 절 링크만 가질 수 있다.
 >
 > 본문(근거·대안·코드 예제 등)을 복제하는 행위는 금지한다.
@@ -581,7 +581,7 @@ for (const group of pending) {
 
 | 항목 | 내용 |
 |---|---|
-| 결정 | RN + Expo SDK 53+ · Supabase (Postgres + Realtime + Edge Functions + Auth) · `@mj-studio/react-native-naver-map` · Kakao Local API · expo-calendar (iOS) + Google Calendar API · **Singular** (Attribution — [D27](#d27--attribution-saas--singular-베타-한정-phase-3-재평가)에서 Branch.io에서 변경) · Expo Push · zustand · Pretendard Variable · Lucide. **Toss Payments는 Phase 3**. Web guest: Next.js + Vercel |
+| 결정 | RN + Expo SDK 53+ · Supabase (Postgres + Realtime + Edge Functions + Auth) · `@mj-studio/react-native-naver-map` · Kakao Local API · expo-calendar (iOS) + Google Calendar API · **자체 deferred deep link** (Attribution SaaS 회피 — [D28](#d28--자체-deferred-deep-link-구축-attribution-saas-회피-도메인-구매-회피)) · Expo Push · zustand · Pretendard Variable · Lucide. **Toss Payments는 Phase 3**. Web guest: Next.js + Vercel |
 | 근거 | OFFICE_HOURS §9.1 채택 |
 | 결정일 | 2026-05-21 |
 | 출처 | OFFICE_HOURS §9.1 |
@@ -684,6 +684,8 @@ const BranchAttribution = lazy(() => import('@/lib/branch/attribution'));
 
 ## D27 — Attribution SaaS = Singular (베타 한정, Phase 3 재평가)
 
+> **Status**: ❌ Superseded by [D28](#d28--자체-deferred-deep-link-구축-attribution-saas-회피-도메인-구매-회피) (2026-05-22). Singular도 work email 강제 정책 발견 → "Gmail OK" 근거 invalid. 본 결정 무효.
+
 | 항목 | 내용 |
 |---|---|
 | 결정 | Phase 1+2 attribution SaaS = **Singular** (free tier). Branch.io 거부 사유 = 개인 이메일 도메인 차단 (Gmail/Naver 차단, 회사 도메인 강제) → 솔로 개발자 마찰. Singular = Gmail OK + free tier. Phase 3 진입 시 광고 채널 운영 여부 결정 후 재평가 (필요 시 AppsFlyer/Branch 마이그레이션). |
@@ -694,6 +696,22 @@ const BranchAttribution = lazy(() => import('@/lib/branch/attribution'));
 | 의존 | Q-A6 closure (이 결정이 close) |
 | 결과 영향 | (1) D22 stack의 "Branch.io" → "Singular". (2) Q-A6 PoC 대상 변경 (Singular의 한국 NAT 정확도). (3) S15 SDK 이름 + setup 변경 (logical flow 동일). (4) Phase 3 진입 시점 재평가 trigger — 광고 launch 결정 동시. (5) `.env.example` 변수명 `EXPO_PUBLIC_BRANCH_KEY` → `EXPO_PUBLIC_SINGULAR_API_KEY`. |
 | 출처 | 본 세션 (2026-05-22) — Branch.io Gmail 차단 발견 후 평가 |
+
+---
+
+## D28 — 자체 deferred deep link 구축 (attribution SaaS 회피, 도메인 구매 회피)
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | Attribution SaaS 사용하지 않음. 게스트→회원 attribution을 자체 구축. 단축 URL host = Vercel default subdomain (`denda.vercel.app/g/<token>`) — 별도 도메인 구매 회피. 명시적 4자리 모임 코드 fallback 의무 활성 (Attribution miss 시 100% 보장 경로). |
+| 근거 | (1) Branch / Singular / AppsFlyer / Adjust 모두 work email 강제 (개인 Gmail/Naver 차단) → 솔로 개발자 가입 자체 차단. (2) 도메인 구매도 회피 의사 (마케팅 사이트는 Phase 3에 결정). (3) 베타 광고 acquisition 0 → SaaS 광고 채널 통합 무관. (4) BM (식당 commission ₩1000/거래 vs install 광고비 ₩3000+/install) — Phase 3 광고 launch 가능성 낮음. SaaS 비용 정당화 어려움. |
+| 수용된 Risk | **명시적으로 acknowledge한 trade-off**: (a) G2 측정 노이즈 — Branch.io 가정 70% → 자체 구축 50% 이하 가능. (b) viral funnel UX 마찰 — 모든 게스트가 명시적 4자리 코드 입력 강제 (자연스러운 deferred deep link UX 손실). (c) 1-2주 추가 개발 시간 (iOS Universal Links + AASA + assetlinks.json + fingerprint 매칭 + ATT/PIPA 직접 대응). (d) Phase 3 광고 launch 시 SKAdNetwork/Play Install Referrer 미지원 → 그때 SaaS 추가 도입 필요. |
+| 대안 | (A) Branch.io + 도메인 구매 — 거부: 도메인 구매 회피 의사. (B) Singular — 거부: [D27](#d27--attribution-saas--singular-베타-한정-phase-3-재평가) 무효 (work email 강제). |
+| 소유자 | Founder |
+| 결정일 | 2026-05-22 |
+| 의존 | [D27](#d27--attribution-saas--singular-베타-한정-phase-3-재평가) supersede. Q-A6 재정의 (자체 구축 정확도 PoC). |
+| 결과 영향 | (1) ARCHITECTURE.md §3.5 재작성 (자체 구축 spec). (2) S15 자체 구축 acceptance — Singular SDK 통합 → 자체 fingerprint 매칭 + 4자리 코드 fallback 의무. (3) `branch_attributions` table 이름 유지 (schema 변경 cost 회피, 의미적으로 generic attribution id 저장). (4) `.env.example`에서 Singular 변수 제거. (5) Sprint 4 일정 1-2주 추가 가능 — S05 (회사 운명 60fps) critical path 보호 필요. (6) `denda.vercel.app/g/<token>` URL pattern — web-guest (S14)가 이 endpoint 처리. (7) AASA (`apple-app-site-association`) + Android `assetlinks.json` 직접 작성 + Vercel public hosting. |
+| 출처 | 본 세션 (2026-05-22) — Singular work email 정책 발견 + 사용자 자체 구축 선택. 4가지 risk 명시적 수용 |
 
 ---
 
