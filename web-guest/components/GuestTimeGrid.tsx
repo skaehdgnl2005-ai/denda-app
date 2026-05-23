@@ -98,7 +98,9 @@ export default function GuestTimeGrid({
     const votePayload = Object.keys(newSelection)
       .filter((key) => newSelection[key])
       .map((key) => {
-        const [day, startMinuteStr] = key.split('_');
+        const parts = key.split('_');
+        const day = parts[0] || '';
+        const startMinuteStr = parts[1] || '0';
         const start_minute = parseInt(startMinuteStr, 10);
         return {
           day,
@@ -183,6 +185,7 @@ export default function GuestTimeGrid({
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 0) return;
     const touch = e.touches[0];
+    if (!touch) return;
     const slot = getSlotFromCoords(touch.clientX, touch.clientY);
     if (!slot) return;
 
@@ -194,6 +197,7 @@ export default function GuestTimeGrid({
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging || !dragMode || e.touches.length === 0) return;
     const touch = e.touches[0];
+    if (!touch) return;
     const slot = getSlotFromCoords(touch.clientX, touch.clientY);
     if (!slot) return;
 
@@ -256,7 +260,9 @@ export default function GuestTimeGrid({
   };
 
   const formatHeaderDate = (dateStr: string) => {
-    const [, month, day] = dateStr.split('-');
+    const parts = dateStr.split('-');
+    const month = parts[1] || '0';
+    const day = parts[2] || '0';
     return `${parseInt(month, 10)}/${parseInt(day, 10)}`;
   };
 
