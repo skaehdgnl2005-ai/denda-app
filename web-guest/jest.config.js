@@ -17,6 +17,11 @@ const customJestConfig = {
     '**/__tests__/**/*.[jt]s?(x)',
     '**/?(*.)+(spec|test).[jt]s?(x)',
   ],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/playwright/',
+    '/.next/',
+  ],
 };
 
 module.exports = createJestConfig(customJestConfig);
