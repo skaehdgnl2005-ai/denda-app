@@ -18,7 +18,8 @@ SplashScreen.preventAutoHideAsync().catch(() => {
 export default function RootLayout() {
   const [fontsLoaded, fontsError] = useFonts({
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    PretendardVariable: require('../assets/fonts/PretendardVariable.woff2'),
+    // RN native는 TTF/OTF만 지원 (woff2는 web 전용). D7 woff2 정책은 S14 웹 게스트에 적용.
+    PretendardVariable: require('../assets/fonts/PretendardVariable.ttf'),
   });
 
   useEffect(() => {

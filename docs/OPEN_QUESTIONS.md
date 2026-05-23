@@ -56,17 +56,13 @@
 - **상태**: SaaS 선택 = 자체 구축 ([D28](DECISIONS.md#d28--자체-deferred-deep-link-구축-attribution-saas-회피-도메인-구매-회피)). 4가지 risk 명시 수용. 정확도 50% 이하 가능 → 4자리 코드 fallback 의무 활성 가능성 ↑
 - **노트**: 이전 Branch.io 대상 → Singular 대상([D27](DECISIONS.md#d27--attribution-saas--singular-베타-한정-phase-3-재평가) invalid) → 자체 구축으로 두 번 재정의
 
-### Q-A7 — Kakao RN 패키지의 native nonce 미지원 → D29 nonce 검증 우회됨
+### Q-A7 — Kakao RN 패키지의 native nonce 미지원 → 베타 수용 (option c)
 - **출처**: S01 구현 중 발견 (2026-05-23)
-- **질문**: `@react-native-kakao/user` 2.4.5의 native login bridge가 `nonce` 인자를 받지 않아 카카오에서 발급된 id_token에 `nonce_hash` claim이 박히지 않는다. 결과적으로 Supabase `signInWithIdToken` 의 nonce 검증이 skip되어 replay attack 방어 약화. (Spec: `login(serviceTerms, prompts, useKakaoAccountLogin, scopes?)` — nonce 인자 없음. iOS/Android Kakao native SDK는 nonce 지원하지만 패키지 wrapper 미노출)
-- **소유자**: Backend
-- **마감**: TestFlight Internal 시작 전 (W3) — 베타 launch 전 결정
-- **선택지**:
-  - (a) 패키지에 PR 제출하여 native bridge에 nonce 인자 추가 (가장 깨끗, mj-studio 응답 시간 의존)
-  - (b) `@react-native-seoul/kakao-login`으로 교체 (D29 spec §3.4 fallback) — native nonce 지원 여부 PoC 확인 필요
-  - (c) 수용 — replay 공격 risk는 id_token 짧은 만료(보통 10분) + Supabase JWT 자체 검증으로 대부분 완화. Phase 1+2 베타에서는 acceptable로 결정 가능
-- **임시 처치**: `src/lib/auth/setup.ts`의 `kakaoLogin` 어댑터가 nonce를 Kakao SDK에 전달하지 않음 (TypeScript 컴파일 가능하도록 `void nonce` 처리). 생성된 nonce는 여전히 Supabase로 전달됨 (Supabase는 nonce_hash 없는 id_token을 받으면 검증 skip)
-- **상태**: PoC 필요 (Sprint 0 §10 인프라 체크리스트에서 패키지 PoC 시 함께 결정)
+- **결정**: 베타 launch까지는 option (c) 수용. `setup.ts`의 supabaseAuth 어댑터에서 Supabase에 nonce 전달 자체를 skip (Supabase 측 "nonce_hash mismatch" 거부 회피). replay 공격 risk는 카카오 id_token 짧은 만료(~10분) + Supabase JWT 자체 검증으로 완화. 결정일: 2026-05-24 (S01 스모크 테스트 통과)
+- **재검토**: W3 (TestFlight Internal 시작 시점) — 다음 옵션 선택:
+  - (a) `@react-native-kakao/user` 패키지에 native bridge nonce 인자 추가 PR
+  - (b) `@react-native-seoul/kakao-login` 교체 (native nonce 지원 PoC)
+- **상태**: 베타 수용 (재검토 W3)
 
 ---
 

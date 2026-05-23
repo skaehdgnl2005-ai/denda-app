@@ -38,7 +38,14 @@ if (!KAKAO_NATIVE_APP_KEY) {
 
 const supabaseAuthAdapter: KakaoOIDCSupabaseAuth = {
   async signInWithIdToken(args) {
-    const { data, error } = await supabase.auth.signInWithIdToken(args);
+    // Q-A7 수용 (option c): @react-native-kakao/user (2.4.5)의 native bridge가 nonce를 받지
+    // 않아 카카오 id_token에 nonce_hash claim이 없다. Supabase에 nonce를 보내면 "Passed nonce
+    // and nonce in id_token should either both exist or not" 에러로 거부됨. 베타에서는 nonce
+    // 검증을 skip하고, replay 공격은 id_token 짧은 만료(~10분) + Supabase JWT 자체 검증으로
+    // 완화. 패키지에 native nonce 지원 PR 또는 react-native-seoul/kakao-login 교체는 W3 결정.
+    const { nonce: _droppedNonce, ...withoutNonce } = args;
+    void _droppedNonce;
+    const { data, error } = await supabase.auth.signInWithIdToken(withoutNonce);
     return {
       data: {
         // supabase-js의 User/Session 타입은 우리 내부 SupabaseUser/SupabaseSession과
@@ -63,14 +70,18 @@ const provider = new KakaoOIDCProvider({
     await initializeKakaoSDK(key);
   },
   kakaoLogin: async ({ scopes, nonce }) => {
-    // @react-native-kakao/user (2.4.5)의 native login bridge는 nonce 인자를 받지 않는다
-    // (spec: `login(serviceTerms, prompts, useKakaoAccountLogin, scopes?)`). 우리는 nonce를 생성해
-    // Supabase signInWithIdToken에는 전달하지만, 카카오 id_token에는 nonce_hash가 박히지 않으므로
-    // Supabase의 nonce_hash 비교는 skip된다. native iOS/Android Kakao SDK는 nonce를 지원하므로
-    // 패키지 patch 또는 react-native-seoul/kakao-login fallback이 필요.
-    // → docs/OPEN_QUESTIONS Q-A1-next 등재 + S01 user-required-actions에 명시.
+    // @react-native-kakao/user (2.4.5)의 native login bridge는 nonce 인자를 받지 않는다.
+    // 우리는 nonce를 생성해 Supabase signInWithIdToken에는 전달하지만, 카카오 id_token에는
+    // nonce_hash가 박히지 않으므로 Supabase의 nonce_hash 비교는 skip된다.
+    // → docs/OPEN_QUESTIONS Q-A7 참조.
+    // @react-native-kakao/user 2.4.5 제약 정리:
+    //   - `scopes` 인자: OIDC scope이 아니라 "추가 동의 요청"용 → 처음 로그인엔 사용 불가
+    //   - `nonce` 인자: native bridge 미노출 → Q-A7 (베타 수용)
+    // OIDC scope·동의항목은 카카오 portal에서 설정 (OpenID Connect 활성화 + 닉네임 동의).
+    // login()을 인자 없이 호출하면 portal 설정이 자동 적용되어 id_token이 응답에 포함된다.
     void nonce;
-    const result = await kakaoLoginNative({ scopes });
+    void scopes;
+    const result = await kakaoLoginNative();
     return {
       idToken: result.idToken ?? '',
       accessToken: result.accessToken,

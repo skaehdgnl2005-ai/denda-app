@@ -11,10 +11,10 @@
 
 | Sprint | 기간 | 계획 deliverable | 실제 진행 | 상태 |
 |---|---|---|---|---|
-| **Sprint 0** | W-1 (2026-05-22 ~ 2026-05-28) | 12 인프라 항목 + 디자인 자산 | Expo init + Supabase scaffolding 완료 | ON_TRACK |
-| **Sprint 1** | W0 | S00, S11, S13 skeleton | S00 ✅ (DONE) | IN_PROGRESS |
-| **Sprint 2** | W1 | S01 + S10 + S14 병행 (★ Kakao 답변 review) | 미시작 | — |
-| **Sprint 3** | W2 | S05 + S07 + S03 + S08 (baseline 시작) | 미시작 | — |
+| **Sprint 0** | W-1 (2026-05-22 ~ 2026-05-28) | 12 인프라 항목 + 디자인 자산 | Expo init + Supabase + EAS Build + 카카오 portal + Supabase Auth Kakao + 키해시 등록 완료 | ON_TRACK |
+| **Sprint 1** | W0 | S00, S11, S13 skeleton | S00 ✅, S11 일부 commit (별도 ship 필요), S13 일부 (eas.json) | IN_PROGRESS |
+| **Sprint 2** | W1 | S01 + S10 + S14 병행 (★ Kakao 답변 review) | **S01 ✅** (D29 OIDC end-to-end 검증 완료 2026-05-24), S14 일부 commit (별도 ship 필요) | IN_PROGRESS |
+| **Sprint 3** | W2 | S05 + S07 + S03 + S08 (baseline 시작) | S05-UI/S07-UI 일부 commit (별도 ship 필요) | — |
 | **Sprint 4** | W3 | S04 + S06 + S12 + S15 (TestFlight) | 미시작 | — |
 | **W3.5** | W3.5 | S17 QA 종합 + 안암 invite-only launch | 미시작 | — |
 
@@ -25,12 +25,12 @@
 **총 17 태스크 (S00 ~ S16) + S17 QA**
 
 ```
-Progress: █▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ 1 / 17 (5.9%)
+Progress: ██▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ 2 / 17 (11.8%)
 ```
 
 | Lane | TODO | IN_PROGRESS | DONE | BLOCKED |
 |---|---|---|---|---|
-| **A (Foundation·Auth·Time grid·OCR)** | 5 | 0 | 1 | 0 |
+| **A (Foundation·Auth·Time grid·OCR)** | 4 | 0 | 2 (S00, S01) | 0 |
 | **B (Map·Click-through·지도-일정)** | 2 | 0 | 0 | 1 (S10) |
 | **C (Web guest)** | 2 | 0 | 0 | 0 |
 | **D (Cross-cutting)** | 6 | 0 | 0 | 1 (S16) |
@@ -134,6 +134,6 @@ Progress: █▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ 1 / 17 (5
 
 ## 📅 마지막 업데이트
 
-- **날짜**: 2026-05-22
-- **업데이트한 사람**: S00 ship-task (Backend Foundation)
-- **다음 update**: S11 또는 S13 ship 시
+- **날짜**: 2026-05-24
+- **업데이트한 사람**: S01 ship-task (Kakao OIDC OAuth + D29 end-to-end 검증)
+- **다음 update**: S11/S13/S14/S05-UI/S07-UI 별도 ship-task 또는 S05 / S07 / S03 본격 진행 시

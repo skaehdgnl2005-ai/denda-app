@@ -9,10 +9,10 @@
 ## 진행 현황 요약
 
 - **총 17 태스크** (S00 ~ S16)
-- **DONE**: 1 (S00)
+- **DONE**: 2 (S00, S01)
 - **IN_PROGRESS**: 0
-- **TODO**: 15
-- **BLOCKED**: 1 (S10 — D1 지도 부분 답변 대기. S01은 D29 채택으로 unblocked)
+- **TODO**: 14
+- **BLOCKED**: 1 (S10 — D1 지도 부분 답변 대기)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
 
@@ -51,7 +51,7 @@
 
 ### S01 — Kakao OIDC OAuth (Supabase signInWithIdToken)
 
-- **Status**: TODO | **Owner**: Backend + Mobile | **Sprint**: 2 | **Lane**: A
+- **Status**: DONE (2026-05-24) | **Owner**: Backend + Mobile | **Sprint**: 2 | **Lane**: A
 - **Depends**: S00 (auth.users + on_auth_user_created trigger), [D29](DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede), Sprint 0 §10 (카카오 portal OIDC 활성화 + Supabase Auth dashboard Kakao provider Enable)
 - **Acceptance**:
   - `@mj-studio/react-native-kakao` (또는 `@react-native-seoul/kakao-login`) 통합. Sprint 0 PoC 결과로 패키지 확정
