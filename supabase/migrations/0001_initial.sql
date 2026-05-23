@@ -8,7 +8,8 @@
 -- ============================================================================
 
 -- 확장 활성화
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- UUID: PostgreSQL 13+ 내장 gen_random_uuid() 사용 (uuid-ossp 불필요).
+-- Supabase에서 uuid-ossp는 extensions 스키마에 설치되어 search_path 안 잡혀 fail함.
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
 -- ============================================================================
@@ -120,7 +121,7 @@ CREATE INDEX friendships_friend_id_idx ON public.friendships(friend_id);
 -- ============================================================================
 
 CREATE TABLE public.friend_requests (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   from_user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   to_user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   status friend_request_status NOT NULL DEFAULT 'pending',
@@ -144,7 +145,7 @@ CREATE TRIGGER friend_requests_set_updated_at
 -- ============================================================================
 
 CREATE TABLE public.partnerships (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   signed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   status partnership_status NOT NULL DEFAULT 'signed',
   contact_kakao_id TEXT,
@@ -163,7 +164,7 @@ CREATE TRIGGER partnerships_set_updated_at
 -- ============================================================================
 
 CREATE TABLE public.places (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   kakao_place_id TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   address TEXT,
@@ -195,7 +196,7 @@ CREATE TRIGGER places_set_updated_at
 -- ============================================================================
 
 CREATE TABLE public.groups (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   host_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   dates DATE[] NOT NULL,
@@ -241,7 +242,7 @@ CREATE INDEX group_members_user_id_idx ON public.group_members(user_id);
 -- ============================================================================
 
 CREATE TABLE public.group_guests (
-  guest_token UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  guest_token UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   group_id UUID NOT NULL REFERENCES public.groups(id) ON DELETE CASCADE,
   nickname TEXT NOT NULL,
   converted_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
@@ -257,7 +258,7 @@ CREATE INDEX group_guests_converted_idx ON public.group_guests(converted_user_id
 -- ============================================================================
 
 CREATE TABLE public.group_invitations (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   group_id UUID NOT NULL REFERENCES public.groups(id) ON DELETE CASCADE,
   inviter_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   invitee_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
@@ -281,7 +282,7 @@ CREATE TRIGGER group_invitations_set_updated_at
 -- ============================================================================
 
 CREATE TABLE public.votes (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   group_id UUID NOT NULL REFERENCES public.groups(id) ON DELETE CASCADE,
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
   guest_token UUID REFERENCES public.group_guests(guest_token) ON DELETE CASCADE,
@@ -312,7 +313,7 @@ CREATE INDEX votes_guest_token_idx ON public.votes(guest_token) WHERE guest_toke
 -- ============================================================================
 
 CREATE TABLE public.schedules (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   source schedule_source NOT NULL,
   title TEXT NOT NULL,
@@ -338,7 +339,7 @@ CREATE TRIGGER schedules_set_updated_at
 -- ============================================================================
 
 CREATE TABLE public.comments (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   group_id UUID NOT NULL REFERENCES public.groups(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
@@ -353,7 +354,7 @@ CREATE INDEX comments_group_id_created_idx ON public.comments(group_id, created_
 -- ============================================================================
 
 CREATE TABLE public.push_tokens (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   token TEXT NOT NULL,
   platform push_platform NOT NULL,
@@ -391,7 +392,7 @@ CREATE TRIGGER notification_settings_set_updated_at
 -- ============================================================================
 
 CREATE TABLE public.reports (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   reporter_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   target_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   reason report_reason NOT NULL,

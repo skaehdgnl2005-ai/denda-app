@@ -1,21 +1,40 @@
-// 홈 화면 placeholder — Sprint 1 S11 (다크 토큰) + 추후 화면들로 교체.
+// 라우팅 게이트 — 인증 상태에 따라 분기. 결정 로직은 src/lib/auth/gate.ts.
 
-import { View, Text } from 'react-native';
+import { Redirect } from 'expo-router';
+import { ActivityIndicator, View } from 'react-native';
 
-export default function HomeScreen() {
-  return (
-    <View
-      style={{
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16,
-      }}
-    >
-      <Text style={{ fontSize: 24, fontWeight: '600' }}>된다</Text>
-      <Text style={{ fontSize: 14, marginTop: 8, opacity: 0.6 }}>
-        준비 중입니다
-      </Text>
-    </View>
+import { decideGate } from '@/lib/auth/gate';
+import { useAuth } from '@/lib/auth/setup';
+
+export default function IndexRoute() {
+  const decision = useAuth((s) =>
+    decideGate({
+      status: s.status,
+      hasAgreedToTerms: s.hasAgreedToTerms,
+      hasCompletedOnboarding: s.hasCompletedOnboarding,
+    }),
   );
+
+  switch (decision.kind) {
+    case 'splash':
+      return (
+        <View
+          style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <ActivityIndicator />
+        </View>
+      );
+    case 'login':
+      return <Redirect href="/(auth)/login" />;
+    case 'terms':
+      return <Redirect href="/(auth)/terms" />;
+    case 'onboarding':
+      return <Redirect href="/(auth)/onboarding" />;
+    case 'home':
+      return <Redirect href="/(tabs)" />;
+  }
 }

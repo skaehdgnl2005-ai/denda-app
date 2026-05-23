@@ -1,0 +1,150 @@
+// authStore — 세션 + 약관 + 온보딩 상태 머신.
+//
+// 책임:
+//   1. Provider.initialize()를 1회 호출 (앱 시작 시 bootstrap)
+//   2. 약관 동의 / 온보딩 완료 플래그를 SecureStore에 영속
+//   3. signIn/signOut 액션 + 상태 전이 (initializing → signed_out → authenticating → signed_in)
+//   4. AuthError를 lastError에 보관 (cancelled는 보관 안 함)
+//
+// 명시적으로 하지 않는 것:
+//   - Supabase 세션 자체의 복원: supabase-js가 자체 SecureStore를 사용 (config 시 supabase.auth
+//     클라이언트에 storage adapter 주입). authStore는 그 위에 UI/온보딩 플래그만 얹는다.
+//   - 토큰 refresh: Supabase가 자동.
+
+import { createStore } from 'zustand/vanilla';
+
+import {
+  AuthError,
+  type AuthProvider,
+  type AuthProviderError,
+  type AuthSession,
+} from './AuthProvider';
+
+const KEY_TERMS_AGREED_AT = 'denda.auth.terms_agreed_at';
+const KEY_ONBOARDED = 'denda.auth.onboarded';
+
+export type AuthStatus = 'initializing' | 'signed_out' | 'authenticating' | 'signed_in';
+
+export type AuthStorage = {
+  getItemAsync(key: string): Promise<string | null>;
+  setItemAsync(key: string, value: string): Promise<void>;
+  deleteItemAsync(key: string): Promise<void>;
+};
+
+export type AuthStoreDeps = {
+  provider: AuthProvider;
+  storage: AuthStorage;
+  // 테스트 시 deterministic time을 위해 주입. 프로덕션은 luxon DateTime.now()→toJSDate.
+  now: () => Date;
+};
+
+export type AuthState = {
+  status: AuthStatus;
+  session: AuthSession | null;
+  hasAgreedToTerms: boolean;
+  termsAgreedAt: string | null;
+  hasCompletedOnboarding: boolean;
+  isNewUser: boolean;
+  lastError: AuthProviderError | null;
+
+  bootstrap: () => Promise<void>;
+  signIn: () => Promise<void>;
+  signOut: () => Promise<void>;
+  agreeToTerms: () => Promise<void>;
+  completeOnboarding: () => Promise<void>;
+  clearError: () => void;
+};
+
+export function createAuthStore(deps: AuthStoreDeps) {
+  let bootstrapPromise: Promise<void> | null = null;
+
+  return createStore<AuthState>((set, get) => ({
+    status: 'initializing',
+    session: null,
+    hasAgreedToTerms: false,
+    termsAgreedAt: null,
+    hasCompletedOnboarding: false,
+    isNewUser: false,
+    lastError: null,
+
+    bootstrap: async () => {
+      if (bootstrapPromise) {
+        return bootstrapPromise;
+      }
+      bootstrapPromise = (async () => {
+        const [termsAgreedAt, onboarded] = await Promise.all([
+          deps.storage.getItemAsync(KEY_TERMS_AGREED_AT),
+          deps.storage.getItemAsync(KEY_ONBOARDED),
+        ]);
+
+        await deps.provider.initialize();
+
+        set({
+          status: 'signed_out',
+          hasAgreedToTerms: termsAgreedAt !== null,
+          termsAgreedAt,
+          hasCompletedOnboarding: onboarded === '1',
+        });
+      })();
+      return bootstrapPromise;
+    },
+
+    signIn: async () => {
+      set({ status: 'authenticating', lastError: null });
+      try {
+        const result = await deps.provider.signIn();
+        set({
+          status: 'signed_in',
+          session: result.session,
+          isNewUser: result.isNewUser,
+        });
+      } catch (error) {
+        const detail = toAuthProviderError(error);
+        set({
+          status: 'signed_out',
+          // 사용자가 모달을 닫은 경우는 UI에 에러로 노출하지 않음
+          lastError: detail.kind === 'cancelled' ? null : detail,
+        });
+        throw error;
+      }
+    },
+
+    signOut: async () => {
+      await deps.provider.signOut();
+      set({
+        session: null,
+        status: 'signed_out',
+        isNewUser: false,
+        lastError: null,
+      });
+    },
+
+    agreeToTerms: async () => {
+      const now = deps.now().toISOString();
+      await deps.storage.setItemAsync(KEY_TERMS_AGREED_AT, now);
+      set({ hasAgreedToTerms: true, termsAgreedAt: now });
+    },
+
+    completeOnboarding: async () => {
+      await deps.storage.setItemAsync(KEY_ONBOARDED, '1');
+      set({ hasCompletedOnboarding: true });
+    },
+
+    clearError: () => {
+      set({ lastError: null });
+    },
+
+    // 내부 helper — getter 시점에 state shape에 영향 안 줌
+    _: get,
+  }));
+}
+
+function toAuthProviderError(error: unknown): AuthProviderError {
+  if (error instanceof AuthError) {
+    return error.detail;
+  }
+  return {
+    kind: 'unknown',
+    message: error instanceof Error ? error.message : '알 수 없는 오류',
+  };
+}
