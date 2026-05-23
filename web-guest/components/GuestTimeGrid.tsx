@@ -1,0 +1,352 @@
+'use client';
+
+import React, { useState, useEffect, useRef } from 'react';
+import { supabase } from '../lib/supabase';
+
+interface Vote {
+  day: string;
+  start_minute: number;
+  end_minute: number;
+  guest_token?: string | null;
+  user_id?: string | null;
+}
+
+interface GuestTimeGridProps {
+  groupId: string;
+  guestToken: string;
+  dates: string[];
+  votes: Vote[];
+  memberCount: number;
+  onVoteStatusChange?: (isSaving: boolean) => void;
+  onVotesUpdated?: () => void;
+}
+
+const START_MINUTE = 540; // 09:00
+const END_MINUTE = 1440;  // 24:00
+const SLOT_SIZE = 15;     // 15 minutes
+const TOTAL_SLOTS = (END_MINUTE - START_MINUTE) / SLOT_SIZE; // 60 slots
+
+export default function GuestTimeGrid({
+  groupId,
+  guestToken,
+  dates,
+  votes: initialVotes,
+  memberCount,
+  onVoteStatusChange,
+  onVotesUpdated,
+}: GuestTimeGridProps) {
+  const [votes, setVotes] = useState<Vote[]>(initialVotes);
+  const [selectedSlots, setSelectedSlots] = useState<{ [key: string]: boolean }>({});
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragMode, setDragMode] = useState<'select' | 'deselect' | null>(null);
+
+  const gridRef = useRef<HTMLDivElement>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Parse initial votes to populate guest's selection state
+  useEffect(() => {
+    setVotes(initialVotes);
+    const initialSelection: { [key: string]: boolean } = {};
+    initialVotes.forEach((vote) => {
+      if (vote.guest_token === guestToken) {
+        const key = `${vote.day}_${vote.start_minute}`;
+        initialSelection[key] = true;
+      }
+    });
+    setSelectedSlots(initialSelection);
+  }, [initialVotes, guestToken]);
+
+  // Aggregate heatmap data (count of voters per slot)
+  const heatmapData = React.useMemo(() => {
+    const counts: { [key: string]: number } = {};
+    votes.forEach((vote) => {
+      const key = `${vote.day}_${vote.start_minute}`;
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    return counts;
+  }, [votes]);
+
+  // Subscribe to real-time updates for heatmap updates
+  useEffect(() => {
+    const channel = supabase
+      .channel(`group:${groupId}`)
+      .on('broadcast', { event: 'heatmap_update' }, () => {
+        // Re-fetch votes on update notification
+        refreshVotes();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [groupId]);
+
+  const refreshVotes = async () => {
+    const { data } = await supabase
+      .from('votes')
+      .select('day, start_minute, end_minute, guest_token, user_id')
+      .eq('group_id', groupId);
+    if (data) {
+      setVotes(data);
+    }
+  };
+
+  // Safe DB commit using RPC save_guest_votes
+  const commitVotes = async (newSelection: { [key: string]: boolean }) => {
+    if (onVoteStatusChange) onVoteStatusChange(true);
+
+    const votePayload = Object.keys(newSelection)
+      .filter((key) => newSelection[key])
+      .map((key) => {
+        const [day, startMinuteStr] = key.split('_');
+        const start_minute = parseInt(startMinuteStr, 10);
+        return {
+          day,
+          start_minute,
+          end_minute: start_minute + SLOT_SIZE,
+        };
+      });
+
+    try {
+      const { error } = await supabase.rpc('save_guest_votes', {
+        p_group_id: groupId,
+        p_guest_token: guestToken,
+        p_votes: votePayload,
+      });
+
+      if (error) throw error;
+
+      // Broadcast changes to other channel listeners
+      await supabase.channel(`group:${groupId}`).send({
+        type: 'broadcast',
+        event: 'heatmap_update',
+        payload: {},
+      });
+
+      if (onVotesUpdated) onVotesUpdated();
+      refreshVotes();
+    } catch (err) {
+      console.error('Failed to save votes:', err);
+    } finally {
+      if (onVoteStatusChange) onVoteStatusChange(false);
+    }
+  };
+
+  const debouncedCommit = (newSelection: { [key: string]: boolean }) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = setTimeout(() => {
+      commitVotes(newSelection);
+    }, 100); // 100ms debounce
+  };
+
+  // Find slot under touch/mouse coordinate
+  const getSlotFromCoords = (clientX: number, clientY: number) => {
+    const element = document.elementFromPoint(clientX, clientY);
+    if (!element) return null;
+
+    const cell = element.closest('[data-slot-cell]');
+    if (!cell) return null;
+
+    const day = cell.getAttribute('data-day');
+    const startMinute = cell.getAttribute('data-minute');
+
+    if (!day || !startMinute) return null;
+
+    return {
+      day,
+      minute: parseInt(startMinute, 10),
+      key: `${day}_${startMinute}`,
+    };
+  };
+
+  const handleCellAction = (key: string, forceMode?: 'select' | 'deselect') => {
+    const isSelected = selectedSlots[key];
+    const mode = forceMode || (isSelected ? 'deselect' : 'select');
+
+    setSelectedSlots((prev) => {
+      const updated = { ...prev };
+      if (mode === 'select') {
+        updated[key] = true;
+      } else {
+        delete updated[key];
+      }
+      debouncedCommit(updated);
+      return updated;
+    });
+
+    return mode;
+  };
+
+  // Touch handlers (Mobile/Tablet)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 0) return;
+    const touch = e.touches[0];
+    const slot = getSlotFromCoords(touch.clientX, touch.clientY);
+    if (!slot) return;
+
+    setIsDragging(true);
+    const mode = handleCellAction(slot.key);
+    setDragMode(mode);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || !dragMode || e.touches.length === 0) return;
+    const touch = e.touches[0];
+    const slot = getSlotFromCoords(touch.clientX, touch.clientY);
+    if (!slot) return;
+
+    handleCellAction(slot.key, dragMode);
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+    setDragMode(null);
+  };
+
+  // Mouse handlers (Desktop fallback/previews)
+  const handleMouseDown = (day: string, minute: number) => {
+    const key = `${day}_${minute}`;
+    setIsDragging(true);
+    const mode = handleCellAction(key);
+    setDragMode(mode);
+  };
+
+  const handleMouseEnterCell = (day: string, minute: number) => {
+    if (!isDragging || !dragMode) return;
+    const key = `${day}_${minute}`;
+    handleCellAction(key, dragMode);
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+    setDragMode(null);
+  };
+
+  // Clean timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, []);
+
+  // Format minutes into HH:MM representation
+  const formatTime = (minutes: number) => {
+    const hour = Math.floor(minutes / 60);
+    const min = minutes % 60;
+    return `${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`;
+  };
+
+  // Map vote counts to 5-stop ramp colors
+  const getHeatClass = (count: number) => {
+    if (!count || count === 0) return 'bg-surface-3 dark:bg-surface-3'; // heat-0
+    if (memberCount <= 1) return 'bg-brand-500 dark:bg-brand-500';      // 100%
+    const ratio = count / memberCount;
+    if (ratio >= 0.99) return 'bg-brand-500 dark:bg-brand-500';         // heat-4
+    if (ratio >= 0.75) return 'bg-brand-400 dark:bg-brand-400';         // heat-3
+    if (ratio >= 0.50) return 'bg-brand-200 dark:bg-brand-300';         // heat-2
+    return 'bg-brand-100 dark:bg-brand-100';                            // heat-1
+  };
+
+  const dayOfWeek = (dateStr: string) => {
+    const days = ['일', '월', '화', '수', '목', '금', '토'];
+    const date = new Date(dateStr);
+    return days[date.getDay()];
+  };
+
+  const formatHeaderDate = (dateStr: string) => {
+    const [, month, day] = dateStr.split('-');
+    return `${parseInt(month, 10)}/${parseInt(day, 10)}`;
+  };
+
+  return (
+    <div className="flex flex-col select-none w-full">
+      {/* Grid Header */}
+      <div className="flex border-b border-border-subtle pb-2">
+        <div className="w-14 shrink-0" />
+        <div className="flex flex-1 justify-between">
+          {dates.map((date) => (
+            <div key={date} className="flex-1 text-center">
+              <div className="text-xs text-text-tertiary">{dayOfWeek(date)}</div>
+              <div className="text-sm font-semibold text-text-primary">
+                {formatHeaderDate(date)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Grid Body */}
+      <div
+        ref={gridRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onMouseLeave={handleMouseUp}
+        onMouseUp={handleMouseUp}
+        className="flex flex-1 overflow-y-auto max-h-[600px] py-4 touch-none"
+      >
+        {/* Hour Labels */}
+        <div className="w-14 shrink-0 flex flex-col justify-between pr-2 text-right">
+          {Array.from({ length: 16 }).map((_, index) => {
+            const min = START_MINUTE + index * 60;
+            return (
+              <div
+                key={min}
+                className="text-[11px] font-medium text-text-tertiary h-[24px] flex items-center justify-end font-sans font-variant-tabular-nums"
+                style={{ height: '32px' }}
+              >
+                {formatTime(min)}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Grid Cells Columns */}
+        <div className="flex flex-1 justify-between relative gap-1">
+          {dates.map((day) => (
+            <div key={day} className="flex-1 flex flex-col justify-between h-[512px]">
+              {Array.from({ length: TOTAL_SLOTS }).map((_, index) => {
+                const minute = START_MINUTE + index * SLOT_SIZE;
+                const key = `${day}_${minute}`;
+                const isSelected = selectedSlots[key];
+                const count = heatmapData[key] || 0;
+
+                return (
+                  <div
+                    key={minute}
+                    data-slot-cell
+                    data-day={day}
+                    data-minute={minute}
+                    onMouseDown={() => handleMouseDown(day, minute)}
+                    onMouseEnter={() => handleMouseEnterCell(day, minute)}
+                    className={`h-[7px] w-full border border-transparent transition-all rounded-xs cursor-pointer ${
+                      isSelected
+                        ? 'bg-brand-50 border-2 border-brand-500'
+                        : getHeatClass(count)
+                    }`}
+                    style={{
+                      touchAction: 'none',
+                    }}
+                  />
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Heatmap Legend */}
+      <div className="flex items-center justify-end gap-2 mt-4 text-xs text-text-secondary pr-1">
+        <span>비어있음</span>
+        <div className="w-3 h-3 bg-surface-3 rounded-xs" />
+        <div className="w-3 h-3 bg-brand-100 rounded-xs" />
+        <div className="w-3 h-3 bg-brand-200 dark:bg-brand-300 rounded-xs" />
+        <div className="w-3 h-3 bg-brand-400 rounded-xs" />
+        <div className="w-3 h-3 bg-brand-500 rounded-xs" />
+        <span>가득참</span>
+      </div>
+    </div>
+  );
+}
