@@ -81,7 +81,7 @@ export default function NicknameForm({ groupId, onComplete }: NicknameFormProps)
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 transition-opacity duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 transition-opacity duration-200">
       <div className="w-full max-w-sm rounded-xl border border-border-subtle bg-surface-0 dark:bg-surface-2 p-6 shadow-xl transition-all scale-100">
         <h2 className="text-lg font-semibold text-text-primary mb-2">
           투표 참여하기
