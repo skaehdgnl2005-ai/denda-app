@@ -732,6 +732,22 @@ const BranchAttribution = lazy(() => import('@/lib/branch/attribution'));
 
 ---
 
+## D30 — §17 anti-AI-feel 디자인 원칙 신설 (DESIGN.md §17)
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | DESIGN.md §17에 6가지 anti-AI-feel 안티패턴 카탈로그 추가. §17.1 반복 CTA · §17.2 빈 placeholder · §17.3 위계 평탄화 · §17.4 시각 자산 0 · §17.5 disabled 가짜 affordance (revised: surface-2 회색 명시) · §17.6 무미건조 마이크로카피. 정성적 검증(design-check 스킬 + PR self-review). |
+| 근거 | 1차 베타 화면 portfolio(로그인·온보딩·홈·친구탭) 회고 — "AI 생성물 같다"는 사용자 피드백 수렴. 토큰(D4·D5·D7)은 정합되지만 적용 화면에서 위계 평탄·반복 CTA·시각 자산 부재·시스템 톤 카피로 모드 전환 갭 발생. |
+| 대안 | (A) 토큰만 보강 — 거부: 정성적 문제는 토큰 추가로 해결 불가. (B) 외부 디자이너 의뢰 — 거부: 솔로 빌드 + 베타 timeline. (C) 안티패턴 catalog 없이 ad-hoc polish — 거부: 일관성 없음. |
+| 소유자 | Founder + Design |
+| 결정일 | 2026-05-25 |
+| 의존 | DESIGN.md §17 신설. Q-B12 (마이크로카피 일관 룰)와 §17.6 align. |
+| 결과 영향 | (1) DESIGN.md §17 본문 추가 (+88줄). (2) `src/components/brand/` 신규 시각 자산 컴포넌트 5종 (BrandMark, HeatRampRow, MiniCalendar, MiniMap, MiniTimeGrid) — §17.4 대응. (3) 1차 적용: auth(login/onboarding/terms) + tabs 구조(_layout/index/friends/_layout/map/profile) + friends 컴포넌트 polish. (4) `design-check` 스킬 + design-guard hook은 정성적 §17 위반 자동 검출 불가 — PR self-review 체크리스트 의무 (§17.7). (5) §17.5 본문(revised 2026-05-25)이 §17.7 체크리스트와 모순됐던 부분은 같은 commit에서 fix됨. |
+| Phase 3 전환 | §17 원칙 + 체크리스트는 Phase 3까지 유지. 정성적 평가라 design-check 스킬·PR 리뷰어 의존. |
+| 출처 | 본 세션 (2026-05-25/26) — 1차 베타 화면 회고 + §17 신설 + 1차 적용 |
+
+---
+
 ## 향후 결정 추가 템플릿
 
 새 결정을 추가할 때 다음 형식을 복사:
