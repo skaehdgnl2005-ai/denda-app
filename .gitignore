@@ -81,3 +81,9 @@ expo-env.d.ts
 # Generated native folders (managed workflow uses prebuild output)
 /ios
 /android
+
+# Screenshots / dev output
+output/
+
+# Claude Code worktrees (Agent isolation)
+.claude/worktrees/
