@@ -3,11 +3,11 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
-  SafeAreaView,
   StyleSheet,
   View,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/design/theme';
 import { Body, Title } from '@/design/typography';
@@ -90,14 +90,18 @@ export default function FriendsIndexScreen() {
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer} testID="empty-state">
-      <View style={[styles.emptyIconContainer, { backgroundColor: colors.surface[2] }]}>
-        <Icon name="친구" color={colors.text.tertiary} size={48} />
+      <View style={[styles.emptyIconContainer, { backgroundColor: colors.brand[50] }]}>
+        <Icon name="친구" color={colors.brand[500]} size={36} />
       </View>
       <Title level="h3" color={colors.text.primary} style={styles.emptyTitle}>
-        친구를 초대해보세요
+        아직 친구가 없어요
       </Title>
-      <Body variant="sm" color={colors.text.secondary} style={styles.emptySubtitle}>
-        친구들과 더 빠르고 편하게 시간을 맞출 수 있어요.
+      <Body
+        variant="sm"
+        color={colors.text.tertiary}
+        style={styles.emptySubtitle}
+      >
+        카톡 친구를 초대하면{'\n'}함께 시간을 맞춰볼 수 있어요.
       </Body>
       <Pressable
         onPress={handleKakaoInvite}
@@ -110,12 +114,12 @@ export default function FriendsIndexScreen() {
             marginTop: space[6],
             paddingHorizontal: space[6],
             paddingVertical: space[3],
-            opacity: pressed ? 0.8 : 1,
+            opacity: pressed ? 0.92 : 1,
           },
         ]}
       >
         <Body variant="bold" color={colors.text['on-brand']}>
-          카톡으로 초대
+          카톡으로 초대하기
         </Body>
       </Pressable>
     </View>

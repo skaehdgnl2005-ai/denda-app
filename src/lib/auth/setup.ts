@@ -11,7 +11,7 @@ import { initializeKakaoSDK } from '@react-native-kakao/core';
 import { login as kakaoLoginNative, logout as kakaoLogoutNative } from '@react-native-kakao/user';
 import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
-import { useSyncExternalStore } from 'react';
+import { useStore } from 'zustand';
 
 import { supabase } from '../supabase/client';
 
@@ -117,10 +117,9 @@ export const authStore = createAuthStore({
 // React hook
 // -------------------------------------------------------------------------
 
+// zustand의 useStore는 내부적으로 useSyncExternalStoreWithSelector를 사용해
+// (state, selector(state))를 캐싱한다. 직접 useSyncExternalStore를 쓰면 selector가
+// 매 호출 새 객체를 리턴할 때 "getSnapshot should be cached" React 경고가 뜬다.
 export function useAuth<T>(selector: (state: AuthState) => T): T {
-  return useSyncExternalStore(
-    authStore.subscribe,
-    () => selector(authStore.getState()),
-    () => selector(authStore.getState()),
-  );
+  return useStore(authStore, selector);
 }

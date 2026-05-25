@@ -2,12 +2,12 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   FlatList,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   View,
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/design/theme';
 import { Body, Title } from '@/design/typography';
@@ -82,15 +82,58 @@ export default function FriendsRequestsScreen() {
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer} testID="requests-empty-state">
-      <Icon name="추가" color={colors.text.disabled} size={48} />
-      <Title level="h3" color={colors.text.primary} style={{ marginTop: space[4], marginBottom: space[2] }}>
-        {activeTab === 'incoming' ? '받은 요청이 없습니다' : '보낸 요청이 없습니다'}
+      <View
+        style={{
+          width: 72,
+          height: 72,
+          borderRadius: 36,
+          backgroundColor: colors.brand[50],
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: space[4],
+        }}
+      >
+        <Icon name="추가" color={colors.brand[500]} size={32} />
+      </View>
+      <Title
+        level="h3"
+        color={colors.text.primary}
+        style={{ marginBottom: space[2] }}
+      >
+        {activeTab === 'incoming' ? '받은 요청이 없어요' : '보낸 요청이 없어요'}
       </Title>
-      <Body variant="sm" color={colors.text.secondary}>
+      <Body
+        variant="sm"
+        color={colors.text.tertiary}
+        style={{ textAlign: 'center', marginBottom: space[6] }}
+      >
         {activeTab === 'incoming'
-          ? '친구들로부터 받은 요청이 여기에 표시됩니다.'
-          : '보낸 친구 요청의 수락 대기 상태가 표시됩니다.'}
+          ? '친구의 요청이 도착하면\n여기에서 바로 수락할 수 있어요.'
+          : '친구를 검색해서 먼저 요청을 보내볼까요?'}
       </Body>
+      {activeTab === 'outgoing' ? (
+        <Pressable
+          onPress={() => router.push('/friends/search')}
+          accessibilityRole="button"
+          accessibilityLabel="친구 검색으로 이동"
+          style={({ pressed }) => [
+            {
+              backgroundColor: colors.brand[50],
+              borderColor: colors.brand[300],
+              borderWidth: 1,
+              borderRadius: 9999,
+              paddingHorizontal: space[5],
+              paddingVertical: space[3],
+              opacity: pressed ? 0.7 : 1,
+            },
+          ]}
+          testID="empty-search-cta"
+        >
+          <Body variant="sm-bold" color={colors.brand[500]}>
+            친구 검색하기
+          </Body>
+        </Pressable>
+      ) : null}
     </View>
   );
 

@@ -1,21 +1,39 @@
-// 카카오 OIDC 로그인 화면 (D29).
+// 카카오 OIDC 로그인 (D29).
 //
-// 색·타이포는 S11에서 토큰화 — 현재는 rgba/시스템 컬러로 최소 스타일.
-// "카카오로 시작" CTA는 KakaoGuide 공식 가이드의 노란색 (rgba(254, 229, 0, 1)).
-// 약관 동의 / 온보딩은 로그인 성공 후 게이트 (app/index.tsx)에서 라우팅.
+// §17.4 적용: hero에 BrandMark + HeatRampRow + 가치 prop 3행 — 시각 자산 확보.
+// 카카오 공식 노란색은 brand 컬러 아니라 유지 (외부 OAuth UX 일관).
 
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, SafeAreaView, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BrandMark } from '@/components/brand/BrandMark';
+import { HeatRampRow } from '@/components/brand/HeatRampRow';
+import { Icon, type IconName } from '@/components/Icon';
+import { useTheme } from '@/design/theme';
+import { Body, Caption, Title } from '@/design/typography';
 import { AuthError } from '@/lib/auth/AuthProvider';
 import { authStore, useAuth } from '@/lib/auth/setup';
 
+// 카카오 OAuth 공식 컬러 (외부 SDK 가이드라인 — DESIGN.md 토큰 밖).
 const KAKAO_YELLOW = 'rgba(254, 229, 0, 1)';
-const TEXT_PRIMARY = 'rgba(0, 0, 0, 0.87)';
-const TEXT_SECONDARY = 'rgba(0, 0, 0, 0.6)';
+const KAKAO_TEXT = 'rgba(0, 0, 0, 0.85)';
+
+const VALUE_PROPS: Array<{ icon: IconName; title: string; body: string }> = [
+  { icon: '시간', title: '시간', body: '7명까지 동시 투표' },
+  { icon: '장소', title: '장소', body: '지도에서 함께 결정' },
+  { icon: '캘린더', title: '예약', body: '캘린더 자동 등록' },
+];
 
 export default function LoginScreen() {
+  const { colors, space, radius } = useTheme();
   const status = useAuth((s) => s.status);
   const lastError = useAuth((s) => s.lastError);
   const [submitting, setSubmitting] = useState(false);
@@ -27,11 +45,9 @@ export default function LoginScreen() {
     setSubmitting(true);
     try {
       await authStore.getState().signIn();
-      // 성공 시 index 게이트로 — 약관·온보딩 상태에 따라 routing
       router.replace('/');
     } catch (error) {
       if (error instanceof AuthError && error.detail.kind === 'cancelled') {
-        // 사용자 취소는 silent
         return;
       }
       const message =
@@ -45,52 +61,108 @@ export default function LoginScreen() {
   const isLoading = submitting || status === 'authenticating';
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface[0] }]}>
       <View
-        style={{
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingHorizontal: 16,
-          paddingVertical: 32,
-        }}
+        style={[
+          styles.content,
+          {
+            paddingHorizontal: space[5],
+            paddingTop: space[10],
+            paddingBottom: space[6],
+          },
+        ]}
       >
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Text
+        <View style={{ flex: 1 }}>
+          {/* Hero — wordmark + heat ramp 미니 그래픽 */}
+          <View style={{ alignItems: 'center', marginTop: space[6] }}>
+            <BrandMark size="lg" />
+            <Body
+              variant="primary"
+              color={colors.text.secondary}
+              style={{
+                marginTop: space[5],
+                textAlign: 'center',
+                fontSize: 17,
+                lineHeight: 26,
+              }}
+            >
+              친구와 시간·장소·예약,{'\n'}한 번에 정해요
+            </Body>
+          </View>
+
+          {/* Heat ramp 미니 시각 — 핵심 메커닉 hint + 양끝 라벨 */}
+          <View
             style={{
-              fontSize: 32,
-              fontWeight: '700',
-              color: TEXT_PRIMARY,
-              letterSpacing: -0.5,
+              alignItems: 'center',
+              marginTop: space[10],
             }}
           >
-            된다
-          </Text>
-          <Text
+            <Caption
+              variant="micro"
+              color={colors.text.tertiary}
+              style={{ marginBottom: space[3] }}
+            >
+              가능한 사람이 많을수록 진해져요
+            </Caption>
+            <HeatRampRow
+              cellSize={36}
+              cellGap={6}
+              showLabel
+              leftLabel="적음"
+              rightLabel="많음"
+            />
+          </View>
+
+          {/* Value props 3행 — 아이콘 컨테이너 회색 (§17.1 D5 절제) */}
+          <View
             style={{
-              fontSize: 16,
-              color: TEXT_SECONDARY,
-              marginTop: 12,
-              textAlign: 'center',
+              marginTop: space[10],
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              paddingHorizontal: space[2],
             }}
           >
-            {'친구와 시간·장소·예약\n한 번에 정해요'}
-          </Text>
+            {VALUE_PROPS.map((p) => (
+              <View key={p.title} style={{ flex: 1, alignItems: 'center' }}>
+                <View
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: radius.full,
+                    backgroundColor: colors.surface[2],
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: space[2],
+                  }}
+                >
+                  <Icon name={p.icon} color={colors.text.secondary} size={22} />
+                </View>
+                <Body variant="sm-bold" color={colors.text.primary}>
+                  {p.title}
+                </Body>
+                <Caption
+                  variant="micro"
+                  color={colors.text.tertiary}
+                  style={{ marginTop: 2, textAlign: 'center' }}
+                >
+                  {p.body}
+                </Caption>
+              </View>
+            ))}
+          </View>
         </View>
 
+        {/* CTA */}
         <View style={{ width: '100%' }}>
           {lastError && lastError.kind !== 'cancelled' ? (
-            <Text
-              style={{
-                color: 'rgba(180, 0, 0, 1)',
-                fontSize: 13,
-                marginBottom: 12,
-                textAlign: 'center',
-              }}
+            <Caption
+              variant="default"
+              color={colors.semantic.error.fg}
+              style={{ marginBottom: space[3], textAlign: 'center' }}
               accessibilityRole="alert"
             >
               {errorMessage(lastError.kind)}
-            </Text>
+            </Caption>
           ) : null}
 
           <Pressable
@@ -99,36 +171,31 @@ export default function LoginScreen() {
             accessibilityRole="button"
             accessibilityLabel="카카오로 시작하기"
             accessibilityState={{ disabled: isLoading }}
-            style={({ pressed }) => ({
-              backgroundColor: KAKAO_YELLOW,
-              opacity: isLoading ? 0.6 : pressed ? 0.9 : 1,
-              minHeight: 52,
-              borderRadius: 8,
-              alignItems: 'center',
-              justifyContent: 'center',
-              paddingHorizontal: 16,
-            })}
+            style={({ pressed }) => [
+              styles.kakaoButton,
+              {
+                backgroundColor: KAKAO_YELLOW,
+                opacity: isLoading ? 0.6 : pressed ? 0.92 : 1,
+                borderRadius: radius.md,
+              },
+            ]}
           >
             {isLoading ? (
-              <ActivityIndicator color={TEXT_PRIMARY} />
+              <ActivityIndicator color={KAKAO_TEXT} />
             ) : (
-              <Text style={{ color: TEXT_PRIMARY, fontSize: 16, fontWeight: '600' }}>
+              <Body variant="bold" color={KAKAO_TEXT}>
                 카카오로 시작하기
-              </Text>
+              </Body>
             )}
           </Pressable>
 
-          <Text
-            style={{
-              fontSize: 12,
-              color: TEXT_SECONDARY,
-              textAlign: 'center',
-              marginTop: 16,
-              lineHeight: 18,
-            }}
+          <Caption
+            variant="default"
+            color={colors.text.tertiary}
+            style={{ textAlign: 'center', marginTop: space[3], lineHeight: 18 }}
           >
-            {'계속하면 이용약관과 개인정보 처리방침에\n동의하는 것으로 간주합니다.'}
-          </Text>
+            계속하면 이용약관과 개인정보 처리방침에{'\n'}동의하는 것으로 간주합니다.
+          </Caption>
         </View>
       </View>
     </SafeAreaView>
@@ -138,12 +205,25 @@ export default function LoginScreen() {
 function errorMessage(kind: 'cancelled' | 'network' | 'invalid_token' | 'unknown'): string {
   switch (kind) {
     case 'network':
-      return '네트워크 연결이 불안정해요. 잠시 후 다시 시도해주세요.';
+      return '네트워크가 불안정해요. 잠시 후 다시 시도해주세요.';
     case 'invalid_token':
       return '카카오 인증을 확인하지 못했어요. 다시 시도해주세요.';
     case 'unknown':
-      return '로그인 중 오류가 발생했어요. 다시 시도해주세요.';
+      return '로그인 중 문제가 생겼어요. 다시 시도해주세요.';
     default:
       return '';
   }
 }
+
+const styles = StyleSheet.create({
+  safe: { flex: 1 },
+  content: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  kakaoButton: {
+    minHeight: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

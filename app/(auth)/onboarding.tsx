@@ -1,15 +1,7 @@
 // 3-슬라이드 온보딩 (S01 acceptance).
 //
-// 가치 제안 3가지:
-//   1. 친구와 시간 조율 (60fps 시간 그리드)
-//   2. 장소 함께 정하기 (지도 + 제휴 마커)
-//   3. 모임 확정 + 캘린더 자동 등록
-//
-// "건너뛰기" 항상 노출 (P0/P1 페르소나 모두 빠르게 진입 가능).
-// 마지막 슬라이드는 "시작하기" CTA.
-//
-// 정식 일러스트는 S11 + D-ONBOARD-MOTION (sprint 2 design asset)에서 — 현재는
-// 텍스트만으로 흐름을 검증.
+// §17.4 적용: 각 슬라이드에 미니 시각 컴포넌트 — MiniTimeGrid · MiniMap · MiniCalendar.
+// "건너뛰기"는 상단 우측 secondary로.
 
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -18,41 +10,45 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
-  SafeAreaView,
   ScrollView,
-  Text,
+  StyleSheet,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { MiniCalendar } from '@/components/brand/MiniCalendar';
+import { MiniMap } from '@/components/brand/MiniMap';
+import { MiniTimeGrid } from '@/components/brand/MiniTimeGrid';
+import { useTheme } from '@/design/theme';
+import { Body, Caption, Title } from '@/design/typography';
 import { authStore } from '@/lib/auth/setup';
 
-const TEXT_PRIMARY = 'rgba(0, 0, 0, 0.87)';
-const TEXT_SECONDARY = 'rgba(0, 0, 0, 0.6)';
-// brand-500 (D5) — S11에서 tokens.light.brand[500] 참조로 교체
-const CTA_ENABLED = 'rgba(124, 58, 237, 1)';
-const DOT_INACTIVE = 'rgba(0, 0, 0, 0.16)';
-
 type Slide = {
+  visual: 'grid' | 'map' | 'calendar';
   title: string;
   body: string;
 };
 
 const SLIDES: Slide[] = [
   {
+    visual: 'grid',
     title: '친구와 시간을 맞춰요',
-    body: '시간 그리드 위에 손가락으로 쓱.\n7명까지 동시 투표를 볼 수 있어요.',
+    body: '시간 위를 손가락으로 쓱 — \n함께 시간을 맞춰가는 모습이 보여요.',
   },
   {
+    visual: 'map',
     title: '장소도 같이 정해요',
-    body: '지도 위에서 후보를 골라\n예약까지 한 번에 진행할 수 있어요.',
+    body: '지도에서 후보를 함께 고르고\n예약까지 한 번에 진행해요.',
   },
   {
-    title: '모임을 확정하면',
-    body: '캘린더에 자동으로 추가되고\n친구들도 알림을 받아요.',
+    visual: 'calendar',
+    title: '확정하면 끝',
+    body: '캘린더에 자동으로 등록되고\n친구들에게 알림이 가요.',
   },
 ];
 
 export default function OnboardingScreen() {
+  const { colors, space, radius } = useTheme();
   const { width } = Dimensions.get('window');
   const [pageIndex, setPageIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -86,31 +82,33 @@ export default function OnboardingScreen() {
   const isLast = pageIndex === SLIDES.length - 1;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface[0] }]}>
+      {/* Top bar — 건너뛰기 */}
       <View
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'flex-end',
-          paddingHorizontal: 16,
-          paddingTop: 12,
-        }}
+        style={[
+          styles.topBar,
+          { paddingHorizontal: space[4], paddingTop: space[3] },
+        ]}
       >
+        <View style={{ flex: 1 }} />
         <Pressable
           onPress={complete}
           accessibilityRole="button"
           accessibilityLabel="건너뛰기"
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           style={({ pressed }) => ({
+            paddingHorizontal: space[3],
+            paddingVertical: space[2],
             opacity: pressed ? 0.6 : 1,
-            minHeight: 44,
-            minWidth: 44,
-            justifyContent: 'center',
-            alignItems: 'flex-end',
           })}
         >
-          <Text style={{ fontSize: 14, color: TEXT_SECONDARY }}>건너뛰기</Text>
+          <Caption variant="default" color={colors.text.tertiary}>
+            건너뛰기
+          </Caption>
         </Pressable>
       </View>
 
+      {/* Slides */}
       <ScrollView
         ref={scrollRef}
         horizontal
@@ -120,81 +118,122 @@ export default function OnboardingScreen() {
         style={{ flex: 1 }}
       >
         {SLIDES.map((slide, i) => (
-          <View
-            key={i}
-            style={{
-              width,
-              alignItems: 'center',
-              justifyContent: 'center',
-              paddingHorizontal: 24,
-            }}
-          >
-            <Text
+          <View key={i} style={{ width, alignItems: 'center' }}>
+            {/* Mini visual */}
+            <View
               style={{
-                fontSize: 28,
-                fontWeight: '700',
-                color: TEXT_PRIMARY,
-                letterSpacing: -0.5,
-                textAlign: 'center',
+                flex: 1,
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingTop: space[8],
               }}
             >
-              {slide.title}
-            </Text>
-            <Text
-              style={{
-                fontSize: 16,
-                color: TEXT_SECONDARY,
-                marginTop: 16,
-                lineHeight: 24,
-                textAlign: 'center',
-              }}
-            >
-              {slide.body}
-            </Text>
+              <View
+                style={{
+                  padding: space[6],
+                  borderRadius: radius['2xl'],
+                  backgroundColor: colors.surface[2],
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {slide.visual === 'grid' && (
+                  <MiniTimeGrid cellSize={26} gap={3} animated={i === pageIndex} />
+                )}
+                {slide.visual === 'map' && <MiniMap width={224} height={150} />}
+                {slide.visual === 'calendar' && <MiniCalendar cellSize={28} gap={4} />}
+              </View>
+            </View>
+
+            {/* Copy */}
+            <View style={{ paddingHorizontal: space[6], paddingBottom: space[8] }}>
+              <Title
+                level="h1"
+                color={colors.text.primary}
+                style={{
+                  textAlign: 'center',
+                  fontSize: 26,
+                  lineHeight: 34,
+                  letterSpacing: -0.7,
+                  fontWeight: '700',
+                }}
+              >
+                {slide.title}
+              </Title>
+              <Body
+                variant="primary"
+                color={colors.text.secondary}
+                style={{
+                  marginTop: space[3],
+                  lineHeight: 24,
+                  textAlign: 'center',
+                }}
+              >
+                {slide.body}
+              </Body>
+            </View>
           </View>
         ))}
       </ScrollView>
 
+      {/* Dots */}
       <View
         style={{
           flexDirection: 'row',
           justifyContent: 'center',
-          paddingVertical: 16,
-          gap: 8,
+          paddingVertical: space[3],
+          gap: space[2],
         }}
       >
-        {SLIDES.map((_, i) => (
-          <View
-            key={i}
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: 4,
-              backgroundColor: i === pageIndex ? CTA_ENABLED : DOT_INACTIVE,
-            }}
-          />
-        ))}
+        {SLIDES.map((_, i) => {
+          const active = i === pageIndex;
+          return (
+            <View
+              key={i}
+              style={{
+                width: active ? 24 : 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: active ? colors.brand[500] : colors.border.subtle,
+              }}
+            />
+          );
+        })}
       </View>
 
-      <View style={{ paddingHorizontal: 16, paddingBottom: 24 }}>
+      {/* CTA */}
+      <View style={{ paddingHorizontal: space[4], paddingBottom: space[5], paddingTop: space[3] }}>
         <Pressable
           onPress={goNext}
           accessibilityRole="button"
           accessibilityLabel={isLast ? '시작하기' : '다음'}
-          style={({ pressed }) => ({
-            backgroundColor: CTA_ENABLED,
-            opacity: pressed ? 0.9 : 1,
-            minHeight: 52,
-            borderRadius: 8,
-            alignItems: 'center',
-            justifyContent: 'center',
-          })}
+          style={({ pressed }) => [
+            styles.ctaButton,
+            {
+              backgroundColor: colors.brand[500],
+              opacity: pressed ? 0.92 : 1,
+              borderRadius: radius.md,
+            },
+          ]}
         >
-          <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
+          <Body variant="bold" color={colors.text['on-brand']}>
             {isLast ? '시작하기' : '다음'}
-          </Text>
+          </Body>
         </Pressable>
       </View>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  safe: { flex: 1 },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ctaButton: {
+    minHeight: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

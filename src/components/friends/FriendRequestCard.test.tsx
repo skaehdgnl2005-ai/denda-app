@@ -23,7 +23,7 @@ describe('FriendRequestCard Component', () => {
     created_at: '2026-05-23T10:15:00Z', // 19시 15분 KST
   };
 
-  test('renders incoming request info correctly with KST formatted time', () => {
+  test('renders incoming request with nickname and relative time label', () => {
     const { getByText, queryByTestId } = render(
       <FriendRequestCard
         request={mockIncomingRequest}
@@ -33,14 +33,14 @@ describe('FriendRequestCard Component', () => {
     );
 
     expect(getByText('수신테스트')).toBeTruthy();
-    // 2026-05-23T14:30:00Z is 2026-05-23 23:30:00 KST
-    expect(getByText('2026.05.23 23:30')).toBeTruthy();
+    // 절대 시각 대신 "요청" 라벨로 시간 의미 명확화 (D5/§17 피드백 P0 5)
+    expect(getByText(/요청/)).toBeTruthy();
     expect(queryByTestId('accept-button')).toBeTruthy();
     expect(queryByTestId('reject-button')).toBeTruthy();
     expect(queryByTestId('cancel-button')).toBeNull();
   });
 
-  test('renders outgoing request info correctly with KST formatted time', () => {
+  test('renders outgoing request with nickname and 응답 대기 status', () => {
     const { getByText, queryByTestId } = render(
       <FriendRequestCard
         request={mockOutgoingRequest}
@@ -50,8 +50,7 @@ describe('FriendRequestCard Component', () => {
     );
 
     expect(getByText('발신테스트')).toBeTruthy();
-    // 2026-05-23T10:15:00Z is 2026-05-23 19:15:00 KST
-    expect(getByText('2026.05.23 19:15')).toBeTruthy();
+    expect(getByText('응답 대기')).toBeTruthy();
     expect(queryByTestId('cancel-button')).toBeTruthy();
     expect(queryByTestId('accept-button')).toBeNull();
     expect(queryByTestId('reject-button')).toBeNull();

@@ -103,7 +103,7 @@ describe('FriendsSearchScreen Screen', () => {
 
     await waitFor(() => {
       expect(getByTestId('search-empty-state')).toBeTruthy();
-      expect(getByText('검색 결과가 없습니다')).toBeTruthy();
+      expect(getByText('검색 결과가 없어요')).toBeTruthy();
     });
   });
 });

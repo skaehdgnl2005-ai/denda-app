@@ -1,0 +1,123 @@
+// 프로필 탭 — 닉네임 + 로그아웃 (placeholder, S15 정식 UI는 후속).
+
+import { router } from 'expo-router';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { Icon } from '@/components/Icon';
+import { useTheme } from '@/design/theme';
+import { Body, Caption, Title } from '@/design/typography';
+import { authStore, useAuth } from '@/lib/auth/setup';
+
+export default function ProfileScreen() {
+  const { colors, space, radius } = useTheme();
+  const nickname = useAuth((s) => s.session?.user.nickname ?? '');
+
+  const handleSignOut = async () => {
+    await authStore.getState().signOut();
+    router.replace('/');
+  };
+
+  const initial = nickname ? nickname.charAt(0) : '?';
+
+  return (
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface[0] }]}>
+      <View
+        style={{
+          paddingHorizontal: space[4],
+          paddingTop: space[4],
+          paddingBottom: space[3],
+        }}
+      >
+        <Title level="h1" color={colors.text.primary}>
+          프로필
+        </Title>
+      </View>
+
+      <View style={{ alignItems: 'center', paddingTop: space[6] }}>
+        <View
+          style={{
+            width: 80,
+            height: 80,
+            borderRadius: radius.full,
+            backgroundColor: colors.surface[2],
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: space[3],
+          }}
+        >
+          <Title level="h1" color={colors.text.primary}>
+            {initial}
+          </Title>
+        </View>
+        <Body variant="bold" color={colors.text.primary}>
+          {nickname || '게스트'}
+        </Body>
+        <Caption
+          variant="default"
+          color={colors.text.tertiary}
+          style={{ marginTop: 4 }}
+        >
+          카카오 로그인
+        </Caption>
+      </View>
+
+      <View style={{ paddingHorizontal: space[4], marginTop: space[10] }}>
+        <SettingRow icon="알림 켜짐" label="알림 설정" />
+        <SettingRow icon="신고" label="신고·차단 관리" />
+        <SettingRow icon="다크/라이트" label="화면 모드" />
+      </View>
+
+      <View style={{ flex: 1 }} />
+
+      <View style={{ paddingHorizontal: space[4], paddingBottom: space[6] }}>
+        <Pressable
+          onPress={handleSignOut}
+          accessibilityRole="button"
+          accessibilityLabel="로그아웃"
+          style={({ pressed }) => ({
+            paddingVertical: space[3],
+            alignItems: 'center',
+            opacity: pressed ? 0.6 : 1,
+          })}
+          testID="signout-button"
+        >
+          <Caption variant="default" color={colors.text.tertiary}>
+            로그아웃
+          </Caption>
+        </Pressable>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+function SettingRow({ icon, label }: { icon: ' 알림 켜짐' | '알림 켜짐' | '신고' | '다크/라이트'; label: string }) {
+  const { colors, space, radius } = useTheme();
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: space[3],
+        paddingHorizontal: space[3],
+        marginBottom: space[2],
+        borderRadius: radius.md,
+        backgroundColor: colors.surface[2],
+      }}
+    >
+      <Icon name={icon as never} color={colors.text.secondary} size={20} />
+      <Body
+        variant="primary"
+        color={colors.text.primary}
+        style={{ flex: 1, marginLeft: space[3] }}
+      >
+        {label}
+      </Body>
+      <Icon name="화살표" color={colors.text.tertiary} size={18} />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe: { flex: 1 },
+});

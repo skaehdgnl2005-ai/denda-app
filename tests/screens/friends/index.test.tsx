@@ -69,7 +69,7 @@ describe('FriendsIndexScreen Screen', () => {
     const { getByText, getByTestId, queryByTestId } = render(<FriendsIndexScreen />, { wrapper });
 
     await waitFor(() => {
-      expect(getByText('친구를 초대해보세요')).toBeTruthy();
+      expect(getByText('아직 친구가 없어요')).toBeTruthy();
       expect(getByTestId('empty-state')).toBeTruthy();
       expect(queryByTestId('friend-card')).toBeNull();
     });

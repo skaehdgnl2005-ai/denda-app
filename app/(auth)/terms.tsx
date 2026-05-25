@@ -1,20 +1,17 @@
-// 약관·개인정보 동의 모달 (V2_PRD §5.1).
-//
-// 첫 로그인 직후 노출. 필수 동의 2건 (이용약관 + 개인정보처리방침).
-// 선택 동의 (마케팅 정보 수신)는 베타에서 노출하되 거부 가능.
-// 동의 후 onboarding으로 진행.
+// 약관 동의 — §17.1·17.5 적용:
+//   - "모두 동의하기"는 강조 카드 (brand-50 hint background)
+//   - 개별 약관은 카드 리스트
+//   - disabled CTA는 brand-200 (회색 X) + hint 텍스트
 
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Icon } from '@/components/Icon';
+import { useTheme } from '@/design/theme';
+import { Body, Caption, Title } from '@/design/typography';
 import { authStore } from '@/lib/auth/setup';
-
-const TEXT_PRIMARY = 'rgba(0, 0, 0, 0.87)';
-const TEXT_SECONDARY = 'rgba(0, 0, 0, 0.6)';
-const CTA_DISABLED = 'rgba(0, 0, 0, 0.12)';
-// brand-500 (D5) — S11에서 tokens.light.brand[500] 참조로 교체
-const CTA_ENABLED = 'rgba(124, 58, 237, 1)';
 
 type TermItem = {
   key: string;
@@ -23,12 +20,13 @@ type TermItem = {
 };
 
 const TERMS: TermItem[] = [
-  { key: 'service', label: '이용약관 동의', required: true },
-  { key: 'privacy', label: '개인정보 수집 및 이용 동의', required: true },
-  { key: 'marketing', label: '마케팅 정보 수신 동의', required: false },
+  { key: 'service', label: '이용약관', required: true },
+  { key: 'privacy', label: '개인정보 수집 및 이용', required: true },
+  { key: 'marketing', label: '마케팅 정보 수신', required: false },
 ];
 
 export default function TermsScreen() {
+  const { colors, space, radius } = useTheme();
   const [agreed, setAgreed] = useState<Record<string, boolean>>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -36,7 +34,6 @@ export default function TermsScreen() {
     () => TERMS.filter((t) => t.required).every((t) => agreed[t.key]),
     [agreed],
   );
-
   const allChecked = useMemo(() => TERMS.every((t) => agreed[t.key]), [agreed]);
 
   const toggleAll = () => {
@@ -65,147 +62,193 @@ export default function TermsScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface[0] }]}>
       <ScrollView
         contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingVertical: 24,
+          paddingHorizontal: space[4],
+          paddingTop: space[6],
+          paddingBottom: space[6],
           flexGrow: 1,
         }}
       >
-        <Text
-          style={{
-            fontSize: 24,
-            fontWeight: '700',
-            color: TEXT_PRIMARY,
-            letterSpacing: -0.5,
-          }}
-        >
+        <Title level="h1" color={colors.text.primary} style={{ marginTop: space[3] }}>
           시작하기 전에
-        </Text>
-        <Text
-          style={{
-            fontSize: 14,
-            color: TEXT_SECONDARY,
-            marginTop: 8,
-            lineHeight: 22,
-          }}
+        </Title>
+        <Body
+          variant="primary"
+          color={colors.text.secondary}
+          style={{ marginTop: space[2], lineHeight: 24 }}
         >
-          {'서비스 이용을 위해\n다음 약관에 동의해주세요.'}
-        </Text>
+          서비스 이용을 위해{'\n'}다음 약관에 동의해주세요.
+        </Body>
 
-        <View style={{ marginTop: 32 }}>
-          <Pressable
-            onPress={toggleAll}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: allChecked }}
-            accessibilityLabel="모두 동의하기"
-            style={({ pressed }) => ({
-              flexDirection: 'row',
-              alignItems: 'center',
-              minHeight: 44,
-              opacity: pressed ? 0.7 : 1,
-            })}
-          >
-            <CheckBox checked={allChecked} />
-            <Text
-              style={{
-                fontSize: 16,
-                fontWeight: '600',
-                color: TEXT_PRIMARY,
-                marginLeft: 12,
-              }}
-            >
+        {/* 모두 동의 - 강조 카드 */}
+        <Pressable
+          onPress={toggleAll}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: allChecked }}
+          accessibilityLabel="모두 동의하기"
+          style={({ pressed }) => [
+            styles.allCard,
+            {
+              backgroundColor: allChecked ? colors.brand[50] : colors.surface[2],
+              borderColor: allChecked ? colors.brand[300] : colors.border.subtle,
+              borderRadius: radius.lg,
+              paddingHorizontal: space[4],
+              paddingVertical: space[4],
+              marginTop: space[8],
+              opacity: pressed ? 0.85 : 1,
+            },
+          ]}
+        >
+          <CheckCircle checked={allChecked} />
+          <View style={{ marginLeft: space[3], flex: 1 }}>
+            <Body variant="bold" color={colors.text.primary}>
               모두 동의하기
-            </Text>
-          </Pressable>
+            </Body>
+            <Caption
+              variant="default"
+              color={colors.text.tertiary}
+              style={{ marginTop: 2 }}
+            >
+              필수와 선택 항목을 한 번에 체크해요.
+            </Caption>
+          </View>
+        </Pressable>
 
-          <View
-            style={{
-              height: 1,
-              backgroundColor: 'rgba(0, 0, 0, 0.08)',
-              marginVertical: 12,
-            }}
-          />
-
+        {/* 개별 약관 카드 리스트 */}
+        <View style={{ marginTop: space[3] }}>
           {TERMS.map((term) => (
             <Pressable
               key={term.key}
               onPress={() => toggle(term.key)}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: Boolean(agreed[term.key]) }}
-              accessibilityLabel={term.label}
-              style={({ pressed }) => ({
-                flexDirection: 'row',
-                alignItems: 'center',
-                minHeight: 44,
-                opacity: pressed ? 0.7 : 1,
-              })}
+              accessibilityLabel={`${term.required ? '필수' : '선택'} ${term.label} 동의`}
+              style={({ pressed }) => [
+                styles.termRow,
+                {
+                  paddingHorizontal: space[4],
+                  paddingVertical: space[3],
+                  borderRadius: radius.md,
+                  opacity: pressed ? 0.7 : 1,
+                },
+              ]}
             >
-              <CheckBox checked={Boolean(agreed[term.key])} />
-              <Text
-                style={{
-                  fontSize: 15,
-                  color: TEXT_PRIMARY,
-                  marginLeft: 12,
-                  flex: 1,
-                }}
-              >
-                {term.required ? '[필수] ' : '[선택] '}
-                {term.label}
-              </Text>
+              <CheckCircle checked={Boolean(agreed[term.key])} small />
+              <View style={{ marginLeft: space[3], flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Body
+                    variant="sm-bold"
+                    color={term.required ? colors.brand[500] : colors.text.tertiary}
+                    style={{ marginRight: space[2] }}
+                  >
+                    {term.required ? '필수' : '선택'}
+                  </Body>
+                  <Body variant="primary" color={colors.text.primary} style={{ flex: 1 }}>
+                    {term.label}
+                  </Body>
+                </View>
+              </View>
+              <Icon name="화살표" color={colors.text.tertiary} size={18} />
             </Pressable>
           ))}
         </View>
 
         <View style={{ flex: 1 }} />
+      </ScrollView>
 
+      {/* Sticky bottom CTA */}
+      <View
+        style={[
+          styles.bottomBar,
+          {
+            paddingHorizontal: space[4],
+            paddingTop: space[3],
+            paddingBottom: space[5],
+            borderTopColor: colors.border.subtle,
+            backgroundColor: colors.surface[0],
+          },
+        ]}
+      >
+        {!allRequiredAgreed ? (
+          <Caption
+            variant="default"
+            color={colors.text.tertiary}
+            style={{ textAlign: 'center', marginBottom: space[2] }}
+          >
+            필수 약관에 동의하면 시작할 수 있어요.
+          </Caption>
+        ) : null}
         <Pressable
           onPress={handleContinue}
           disabled={!allRequiredAgreed || submitting}
           accessibilityRole="button"
           accessibilityLabel="동의하고 계속"
           accessibilityState={{ disabled: !allRequiredAgreed || submitting }}
-          style={({ pressed }) => ({
-            backgroundColor: allRequiredAgreed ? CTA_ENABLED : CTA_DISABLED,
-            opacity: pressed ? 0.9 : 1,
-            minHeight: 52,
-            borderRadius: 8,
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginTop: 24,
-          })}
+          style={({ pressed }) => [
+            styles.ctaButton,
+            {
+              // §17.5 (revised): disabled = dead 회색. 활성만 brand.
+              backgroundColor: allRequiredAgreed ? colors.brand[500] : colors.surface[2],
+              opacity: pressed && allRequiredAgreed ? 0.92 : 1,
+              borderRadius: radius.md,
+            },
+          ]}
         >
-          <Text
-            style={{
-              color: allRequiredAgreed ? 'white' : TEXT_SECONDARY,
-              fontSize: 16,
-              fontWeight: '600',
-            }}
+          <Body
+            variant="bold"
+            color={allRequiredAgreed ? colors.text['on-brand'] : colors.text.tertiary}
           >
             동의하고 계속
-          </Text>
+          </Body>
         </Pressable>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
 
-function CheckBox({ checked }: { checked: boolean }) {
+function CheckCircle({ checked, small = false }: { checked: boolean; small?: boolean }) {
+  const { colors } = useTheme();
+  const size = small ? 22 : 26;
   return (
     <View
       style={{
-        width: 22,
-        height: 22,
-        borderRadius: 4,
+        width: size,
+        height: size,
+        borderRadius: size / 2,
         borderWidth: checked ? 0 : 1.5,
-        borderColor: 'rgba(0, 0, 0, 0.3)',
-        backgroundColor: checked ? CTA_ENABLED : 'transparent',
+        borderColor: colors.border.strong,
+        backgroundColor: checked ? colors.brand[500] : 'transparent',
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      {checked ? <Text style={{ color: 'white', fontSize: 14, fontWeight: '700' }}>✓</Text> : null}
+      {checked ? (
+        <Icon name="확정" color={colors.text['on-brand']} size={small ? 14 : 16} />
+      ) : null}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  safe: { flex: 1 },
+  allCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+  },
+  termRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 56,
+  },
+  bottomBar: {
+    borderTopWidth: 1,
+  },
+  ctaButton: {
+    minHeight: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
