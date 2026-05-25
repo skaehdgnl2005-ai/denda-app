@@ -12,9 +12,9 @@
 | Sprint | 기간 | 계획 deliverable | 실제 진행 | 상태 |
 |---|---|---|---|---|
 | **Sprint 0** | W-1 (2026-05-22 ~ 2026-05-28) | 12 인프라 항목 + 디자인 자산 | Expo init + Supabase + EAS Build + 카카오 portal + Supabase Auth Kakao + 키해시 등록 완료 | ON_TRACK |
-| **Sprint 1** | W0 | S00, S11, S13 skeleton | S00 ✅, S11 일부 commit (별도 ship 필요), S13 일부 (eas.json) | IN_PROGRESS |
-| **Sprint 2** | W1 | S01 + S10 + S14 병행 (★ Kakao 답변 review) | **S01 ✅** (D29 OIDC end-to-end 검증 완료 2026-05-24), S14 일부 commit (별도 ship 필요) | IN_PROGRESS |
-| **Sprint 3** | W2 | S05 + S07 + S03 + S08 (baseline 시작) | S05-UI/S07-UI 일부 commit (별도 ship 필요) | — |
+| **Sprint 1** | W0 | S00, S11, S13 skeleton | S00 ✅, **S11 ✅ (백필 2026-05-26, 다크 검증 deferred)**, S13 eas.json (S01 portfolio) | DONE (S00·S11) |
+| **Sprint 2** | W1 | S01 + S10 + S14 병행 (★ Kakao 답변 review) | **S01 ✅** (D29), **S14 skeleton ✅ (백필)**, S10 BLOCKED (Q-A2), **UI-§17 ✅ 2026-05-26** | IN_PROGRESS (S10 BLOCKED) |
+| **Sprint 3** | W2 | S05 + S07 + S03 + S08 (baseline 시작) | **S05-UI ✅ + S05a ✅ (PR 대기)** = S05 partial / **S07-UI ✅ + S07-backend ✅ (PR 대기)** = S07 partial / S03·S08 미시작 | IN_PROGRESS |
 | **Sprint 4** | W3 | S04 + S06 + S12 + S15 (TestFlight) | 미시작 | — |
 | **W3.5** | W3.5 | S17 QA 종합 + 안암 invite-only launch | 미시작 | — |
 
@@ -25,15 +25,16 @@
 **총 17 태스크 (S00 ~ S16) + S17 QA**
 
 ```
-Progress: ██▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ 2 / 17 (11.8%)
+DONE 정식:  ██▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  2 / 17 (11.8%) — S00, S01
+Active:    ████████▒▒▒▒▒▒▒▒▒▒▒▒  7 / 17 (41%) — + S05 partial, S07 partial, S11 partial, S13 partial, S14 partial
 ```
 
-| Lane | TODO | IN_PROGRESS | DONE | BLOCKED |
+| Lane | TODO | IN_PROGRESS (partial) | DONE | BLOCKED |
 |---|---|---|---|---|
-| **A (Foundation·Auth·Time grid·OCR)** | 4 | 0 | 2 (S00, S01) | 0 |
-| **B (Map·Click-through·지도-일정)** | 2 | 0 | 0 | 1 (S10) |
-| **C (Web guest)** | 2 | 0 | 0 | 0 |
-| **D (Cross-cutting)** | 6 | 0 | 0 | 1 (S16) |
+| **A (Foundation·Auth·Time grid·OCR)** | 2 (S03, S04) | 2 (S05 = UI+a / S07 = UI+backend) | 2 (S00, S01) | 0 |
+| **B (Map·Click-through·지도-일정)** | 2 (S08, S15-mapmode) | 0 | 0 | 1 (S10) |
+| **C (Web guest)** | 1 (S15 deeplink) | 1 (S14 skeleton) | 0 | 0 |
+| **D (Cross-cutting)** | 3 (S06, S12, S17) | 2 (S11 tokens / S13 eas.json) | 0 | 1 (S16) |
 
 세부: [TASK_BACKLOG.md](TASK_BACKLOG.md)
 
@@ -124,9 +125,9 @@ Progress: ██▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ 2 / 17 (1
 | 주차 | 완료 태스크 | 누적 | 비고 |
 |---|---|---|---|
 | W-1 (Sprint 0) | S00 | 1 | 인프라 셋업 + Backend foundation |
-| W0 (Sprint 1) | — | — | |
-| W1 (Sprint 2) | — | — | ★ Kakao gate |
-| W2 (Sprint 3) | — | — | baseline 시작 |
+| W0 (Sprint 1) | S11 (백필 partial) | 2 | design system + Pretendard |
+| W1 (Sprint 2) | S01, S14-skel, S05-UI, S07-UI (백필), UI-§17, S05a + S07-backend (PR 대기) | ~8 (정식 DONE 1: S01) | ★ D29 OIDC 채택 + §17 신설 + worktree backend 2건 |
+| W2 (Sprint 3) | — | — | baseline 시작 (S05b 진행 예정) |
 | W3 (Sprint 4) | — | — | TestFlight |
 | W3.5 | — | — | Launch |
 
@@ -134,6 +135,6 @@ Progress: ██▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ 2 / 17 (1
 
 ## 📅 마지막 업데이트
 
-- **날짜**: 2026-05-24
-- **업데이트한 사람**: S01 ship-task (Kakao OIDC OAuth + D29 end-to-end 검증)
-- **다음 update**: S11/S13/S14/S05-UI/S07-UI 별도 ship-task 또는 S05 / S07 / S03 본격 진행 시
+- **날짜**: 2026-05-26
+- **업데이트한 사람**: Portfolio 백필 + UI-§17 + S05a/S07-backend (PR 대기) 정리
+- **다음 update**: S05a/S07-backend PR 머지 후, 또는 S05b/S03 본격 진행 시
