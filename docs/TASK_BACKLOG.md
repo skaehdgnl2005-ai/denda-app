@@ -8,10 +8,10 @@
 
 ## 진행 현황 요약
 
-- **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** + **S14 sub-task 다수** + **fail-cleanup** (2026-05-26) + **S15-deeplink-schema** (2026-05-26 — migration 0016 + inviteCode helper) + **Q-B22** + **D34** + **D35** 신규
+- **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** + **S14 sub-task 다수** + **fail-cleanup** (2026-05-26) + **S15-deeplink-schema** (2026-05-26) + **S12-backend-f1-f4** (2026-05-26 — notify_f1/f2/f3/f4 + `_lib/expo_push` 공통 helper) + **Q-B22** + **D34** + **D35** 신규
 - **DONE**: 9 (S00, S01, S03, S04, S06, S07, S11, S14) + S05 acceptance 7/7 (S05e 운영 task)
-- **IN_PROGRESS**: 2 (S05 — S05e 60fps 부하 실기기 잔여; S15-deeplink — 1/6 sub-task 완료)
-- **TODO**: 5 (S08, S12, S13, S15-mapmode, S17)
+- **IN_PROGRESS**: 3 (S05 — S05e 60fps 부하 실기기 잔여; S15-deeplink — 1/6 sub-task; S12 — backend 4종 ✅, publishers + RN client 잔여)
+- **TODO**: 4 (S08, S13, S15-mapmode, S17)
 - **BLOCKED**: 1 (S10 — D1 지도 부분 답변 대기), 1 (S16 — D1 답변 대기)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.

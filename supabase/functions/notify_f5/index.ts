@@ -21,6 +21,15 @@ import { DateTime } from 'npm:luxon@3.4.4';
 import { getServiceRoleClient } from '../_lib/supabase.ts';
 import { errorResponse, handlePreflight, jsonResponse } from '../_lib/http.ts';
 import { nowKst } from '../_lib/kst.ts';
+import {
+  buildPartialFailList,
+  partitionPushResponses,
+  sendExpoPushAll,
+  type ExpoPushMessage,
+  type ExpoPushTicket,
+  type PartialFailEntry,
+  type PushFailure,
+} from '../_lib/expo_push.ts';
 
 // ---------------------------------------------------------------------------
 // 순수 함수: recipient 필터 / 메시지 빌드 / response 분리
@@ -77,12 +86,7 @@ export interface Recipient {
   tokens: string[];
 }
 
-export interface F5PushMessage {
-  to: string;
-  title: string;
-  body: string;
-  userId: string;
-}
+export type F5PushMessage = ExpoPushMessage;
 
 export interface BuildF5MessagesArgs {
   recipients: Recipient[];
@@ -101,129 +105,15 @@ export function buildF5PushMessages(args: BuildF5MessagesArgs): F5PushMessage[] 
   return out;
 }
 
-export type ExpoPushTicket =
-  | { status: 'ok'; id: string }
-  | {
-      status: 'error';
-      message: string;
-      details?: { error?: string };
-    };
-
-export interface PushFailure {
-  userId: string;
-  reason: string;
-}
-
-export interface PartitionResult {
-  successfulCount: number;
-  failures: PushFailure[];
-}
-
-/**
- * Expo push response → success/fail 분리.
- *
- * - tickets.length < messages.length → 부족분은 'no_ticket' 사유로 실패
- * - 같은 user 여러 디바이스 → 각 ticket 별로 카운트. 1대만 실패해도 user는 partial 기록
- */
-export function partitionPushResponses(
-  messages: F5PushMessage[],
-  tickets: ExpoPushTicket[],
-): PartitionResult {
-  let successfulCount = 0;
-  const failures: PushFailure[] = [];
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i];
-    const ticket = tickets[i];
-    if (!ticket) {
-      failures.push({ userId: msg.userId, reason: 'no_ticket' });
-      continue;
-    }
-    if (ticket.status === 'ok') {
-      successfulCount++;
-      continue;
-    }
-    const reason = ticket.details?.error ?? ticket.message ?? 'unknown';
-    failures.push({ userId: msg.userId, reason });
-  }
-  return { successfulCount, failures };
-}
-
-export interface PartialFailEntry {
-  user_id: string;
-  reason: string;
-  channel: string;
-  occurred_at: string; // KST ISO
-}
-
-export interface BuildPartialFailArgs {
-  failures: PushFailure[];
-  channel: string;
-  occurredAtKstIso: string;
-}
-
-export function buildPartialFailList(
-  args: BuildPartialFailArgs,
-): PartialFailEntry[] {
-  return args.failures.map((f) => ({
-    user_id: f.userId,
-    reason: f.reason,
-    channel: args.channel,
-    occurred_at: args.occurredAtKstIso,
-  }));
-}
-
-// ---------------------------------------------------------------------------
-// Expo Push API
-// ---------------------------------------------------------------------------
-
-const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
-const EXPO_CHUNK_SIZE = 100;
-
-interface ExpoPushResponse {
-  data: ExpoPushTicket[];
-  errors?: Array<{ code: string; message: string }>;
-}
-
-async function sendExpoPushChunk(
-  messages: F5PushMessage[],
-): Promise<ExpoPushTicket[]> {
-  if (messages.length === 0) return [];
-  const accessToken = Deno.env.get('EXPO_ACCESS_TOKEN');
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
-    'Accept-Encoding': 'gzip, deflate',
-  };
-  if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
-
-  const body = messages.map((m) => ({ to: m.to, title: m.title, body: m.body }));
-  const res = await fetch(EXPO_PUSH_URL, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    // 전체 chunk 실패 → 모든 message를 unknown 실패로 처리
-    return messages.map(() => ({
-      status: 'error' as const,
-      message: `Expo HTTP ${res.status}`,
-    }));
-  }
-  const json = (await res.json()) as ExpoPushResponse;
-  return json.data ?? [];
-}
-
-async function sendExpoPushAll(
-  messages: F5PushMessage[],
-): Promise<ExpoPushTicket[]> {
-  const tickets: ExpoPushTicket[] = [];
-  for (let i = 0; i < messages.length; i += EXPO_CHUNK_SIZE) {
-    const chunk = messages.slice(i, i + EXPO_CHUNK_SIZE);
-    const partial = await sendExpoPushChunk(chunk);
-    tickets.push(...partial);
-  }
-  return tickets;
-}
+// partitionPushResponses · buildPartialFailList · sendExpoPushAll · 관련 type:
+// _lib/expo_push.ts로 추출 (S12). re-export로 기존 caller 호환 유지.
+export {
+  buildPartialFailList,
+  partitionPushResponses,
+  type ExpoPushTicket,
+  type PartialFailEntry,
+  type PushFailure,
+};
 
 // ---------------------------------------------------------------------------
 // HTTP handler

@@ -42,6 +42,66 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S12-backend-f1-f4 — Push F1/F2/F3/F4 Edge Function + _lib/expo_push 공통 helper (2026-05-26) — PARTIAL (S12 backend 4종 완성, RN client/publishers 잔여)
+- Depends: S00 (push_tokens·notification_settings·groups.f4_sent_at·users.nickname·friend_requests·group_invitations), S07 ✅ DONE (friends 시스템 acceptance), [D17](DECISIONS.md#d17--push-f4-idempotency-groupsf4_sent_at-column) (F4 idempotency), [D33](DECISIONS.md#d33--모임-확정-fan-out--단일-dispatcher-q-b5-close) (단일 dispatcher pattern), Q-B12(마이크로카피 미작성 — 본 turn auto mode 자체 결정, founder review 대기)
+- Context: S12 push F1-F3 + F4 backend Edge Function 4종 작성. F5(notify_f5)에서 공통 Expo Push API 호출 + ticket 분리 + partial fail list 빌드를 `_lib/expo_push.ts`로 추출 → 5개 notify_* 공유. Publishers(friend_requests·friendships·group_invitations INSERT trigger + votes_aggregate에서 votes_all_in detect → dispatcher.dispatch) + RN client(src/lib/push/ expo-notifications token 등록)는 별도 sub-task로 분리 (본 turn scope 절제 — backend 응답 가능 상태 우선)
+- Changes:
+  - **`_lib/expo_push.ts` 공통 helper (+136 lines, 신규)**: F-type 무관 공통 로직 추출:
+    - `ExpoPushMessage`/`ExpoPushTicket`/`PushFailure`/`PartitionResult`/`PartialFailEntry` type
+    - `partitionPushResponses(messages, tickets)` — success/fail 분리 (no_ticket·details.error·message fallback)
+    - `buildPartialFailList(args)` — JSONB shape D19 (`user_id`·`reason`·`channel`·`occurred_at`)
+    - `sendExpoPushAll(messages)` — Expo Push API + 100 chunk fan-out + EXPO_ACCESS_TOKEN optional
+    - `ExpoPushMessage.data` optional field 도입 (향후 deep link payload 확장 대비)
+  - **`_lib/expo_push_test.ts` (+115 lines, 신규, 8 tests TDD-first)**
+  - **`notify_f5/index.ts` refactor (−129 lines)**: 공통 함수 import → re-export로 caller 호환 유지. `F5PushMessage = ExpoPushMessage` alias. `EXPO_PUSH_URL`/`EXPO_CHUNK_SIZE`/`sendExpoPushChunk`/`sendExpoPushAll`/`ExpoPushResponse` 중복 제거. 기존 17 tests 그대로 pass
+  - **`notify_f1/` (+187 lines, 신규, 9 tests TDD-first)** — 친구 요청:
+    - `shouldSendF1` (f1_enabled opt-in, null=skip)
+    - `formatF1Title` = "친구 요청"
+    - `formatF1Body({fromNickname})` = "{닉네임}님이 친구 요청을 보냈어요" (빈 닉네임 → "누군가" fallback)
+    - `buildF1PushMessages` — recipient.tokens 다중 디바이스 fan-out
+    - handler: from_user_id nickname + to_user_id opt-in + push_tokens 병렬 fetch → 발송
+  - **`notify_f2/` (+178 lines, 신규, 8 tests TDD-first)** — 친구 수락:
+    - Recipient = from_user_id(원래 요청한 사람), accepter = to_user_id(수락한 사람)
+    - `formatF2Title` = "친구 수락", `formatF2Body` = "{닉네임}님이 친구 요청을 수락했어요"
+  - **`notify_f3/` (+200 lines, 신규, 9 tests TDD-first)** — 모임 초대:
+    - 추가 fetch: groups.name + inviter nickname
+    - `formatF3Title({groupName})` = "'{모임명}' 초대"
+    - `formatF3Body({inviterNickname})` = "{닉네임}님이 모임에 초대했어요"
+  - **`notify_f4/` (+225 lines, 신규, 8 tests TDD-first)** — 전원 투표 완료 + D17 idempotency:
+    - Recipient = groups.host_id (호스트만 — nudge to confirm)
+    - `formatF4Title({groupName})` = "{모임명} 멤버가 모두 시간을 골랐어요"
+    - `formatF4Body` = "이제 시간을 확정해주세요"
+    - **idempotency: groups.f4_sent_at IS NULL → SET nowKst()** (D17 mirror). 이미 SET이면 즉시 skipped:true
+    - opt-out / token 없음도 f4_sent_at SET하여 재호출 방지 (F5 동일 패턴)
+    - partial_fail_list 누적 (channel='f4_push')
+- Tests:
+  - **Deno 185 passed + 0 failed** (143 → 185, +42: expo_push 8 + f1 9 + f2 8 + f3 9 + f4 8)
+  - **Jest 467 passed + 1 skipped + 0 failed** (RN 회귀 0 — Edge Function만 변경)
+  - **typecheck 0 errors**
+  - **lint 3 errors all pre-existing** (jest.setup.js no-undef — git stash로 main에서도 동일 확인). 본 turn 신규 파일은 모두 supabase/functions/ 영역 (ESLint scope 외 Deno 환경)
+- Next:
+  - **S12-publishers (별도 sub-task)**: dispatcher.dispatch 호출 추가 위치:
+    1. `src/lib/friends/api.ts` 친구 요청 API → `dispatch({type:'friend_requested', fromUserId, toUserId})`
+    2. 친구 수락 API → `dispatch({type:'friend_accepted', fromUserId, toUserId})`
+    3. `src/lib/groups/invitations.ts` 모임 초대 API → `dispatch({type:'group_invited', groupId, inviterId, inviteeId})`
+    4. `supabase/functions/votes_aggregate/index.ts`에 전원 vote 완료 detect 로직 추가 → `dispatch({type:'votes_all_in', groupId})` (group_members 수 = unique voter 수일 때)
+    5. 각 notify_f* handler를 dispatcher.register (group_confirm/index.ts의 registerF5Handler mirror)
+  - **S12-client (별도 sub-task)**: `src/lib/push/expoNotifications.ts` (token 등록 + push_tokens upsert hook) + permission 요청 흐름 + AsyncStorage cache. expo-notifications 패키지 install 필요
+  - **S12 acceptance**: backend 4종 ✅ / D17 ✅ / dispatcher (D33) ✅ / publishers ⏸️ / RN client ⏸️ / 마이크로카피 founder review ⏸️ → IN_PROGRESS 유지
+- Notes:
+  - **F5 refactor 안전성**: re-export(`export { buildPartialFailList, partitionPushResponses, type ExpoPushTicket, ...}`)로 기존 17 tests 그대로 pass. F5PushMessage = ExpoPushMessage alias로 caller 영향 0
+  - **마이크로카피 자체 결정 사항 (Q-B12 founder review 대기)**:
+    - F1: "친구 요청" + "{닉네임}님이 친구 요청을 보냈어요"
+    - F2: "친구 수락" + "{닉네임}님이 친구 요청을 수락했어요"
+    - F3: "'{모임명}' 초대" + "{닉네임}님이 모임에 초대했어요"
+    - F4: "{모임명} 멤버가 모두 시간을 골랐어요" + "이제 시간을 확정해주세요"
+    - 친근체 + 모임명/닉네임 빈값 fallback ("모임"/"누군가"/"상대방") + 토큰 only (디자인 cross-cutting 영향 0). Q-B12 closure 후 founder가 다른 톤으로 변경하면 formatF*Title/Body 함수 시그너처 유지 + 본문만 교체
+  - **partial_fail_list 저장은 F4/F5만 (group 컬럼이라)**: F1/F2/F3는 user-level 알림이라 groups.partial_fail_list 위치 무관. buildPartialFailList 호출만 하고 저장 위치는 향후 user notification inbox 도입 시 확장
+  - **scope 절제 정직성**: backend Edge Function 4종 ship으로 S12 acceptance 절반 완성. Publishers + RN client = 별도 2 sub-task. 본 turn에서 다 하면 expo-notifications 패키지 설치·permission 흐름·multi-platform 동작 검증 등 scope creep. PARTIAL 명시로 정직 진척
+  - **S15-deeplink-schema는 본 commit 외 별도 sub-task로 untracked 진행 중** (src/lib/branch/inviteCode.* + 0016_deeplink_schema.sql + deno.lock). 본 turn ship 명시적 파일 list로 격리
+
+---
+
 ## S15-deeplink-schema — 자체 deferred deep link DB schema 확장 (2026-05-26) — DONE
 - Depends: S01 ✅, S14 ✅, [D28](DECISIONS.md#d28--자체-deferred-deep-link-구축-attribution-saas-회피-도메인-구매-회피) (자체 구축 deep link). S15-mapmode는 S10 BLOCKED로 시작 불가 → S15-deeplink 분기 진입
 - Context: S15 전체(deeplink + mapmode)는 두 분기로 분리되어 있고, mapmode는 S10(지도) BLOCKED로 시작 불가. deeplink는 S01·S14 DONE + D28 결정 완료로 진입 가능. Scope이 매우 크므로 sub-task로 분해 — 본 turn = DB schema 확장 + TS invite_code helper만. Edge Function `attribution_match` + web-guest INSERT + RN fallback 모달 + iOS Universal Links/Android App Links는 별도 sub-task로 분리.
