@@ -174,7 +174,9 @@
 | 결정 | votes INSERT → 트리거 → Edge Function이 group_id로 votes 합산 → broadcast. 클라는 receive → `useSharedValue` 업데이트. 100ms debounce |
 | 근거 | 클라이언트 합산은 7명 모임 × 1000 events = 7000 events/s 처리 불가 (60fps 무너짐). Edge에서 합산하면 broadcast payload는 aggregate만 |
 | 대안 | (A) Postgres LISTEN/NOTIFY raw broadcast — 거부: 클라 합산 부담. (C) Materialized view + postgres_changes — 거부: 복잡도, PG 11+ 의존 |
-| 결정일 | 2026-05-21 |
+| Payload spec | `{ slots: [{day_index, start_minute, count}], updated_at }` — day_index는 `groups.dates DATE[]`의 0-based offset (가변 day 범위 지원). updated_at = KST ISO (+09:00, D13). [Q-B21 close](OPEN_QUESTIONS.md#q-b21--d11-heatmap-broadcast-payload에-day-차원-누락) (2026-05-26) |
+| Channel / event | `group:${group_id}` channel · `heatmap_update` event |
+| 결정일 | 2026-05-21 (payload spec 갱신 2026-05-26 — Q-B21 close) |
 | 결과 영향 | Step 3 (시간 그리드 + 투표) Edge Function 추가. rules/supabase.md에 명시 |
 | 출처 | ENG_REVIEW §1.4 |
 
@@ -185,26 +187,52 @@
 ```ts
 // supabase/functions/votes_aggregate/index.ts
 // votes INSERT trigger → 합산 → broadcast
-const { data: counts } = await supabase
+
+// 1) groups.dates SELECT (day_index 매핑용)
+const { data: group } = await supabase
+  .from('groups')
+  .select('dates')
+  .eq('id', groupId)
+  .single();
+const dates = group?.dates ?? []; // ['2026-06-15', '2026-06-16', ...]
+
+// 2) votes SELECT — day + start_minute
+const { data: votes } = await supabase
   .from('votes')
-  .select('start_minute, count(*)')
-  .eq('group_id', groupId)
-  .group('start_minute');
+  .select('day, start_minute')
+  .eq('group_id', groupId);
+
+// 3) day → day_index 매핑 + 합산 (groups.dates에 없는 day는 skip)
+const dayIdx = new Map(dates.map((d, i) => [d, i]));
+const counts = new Map<string, { day_index: number; start_minute: number; count: number }>();
+for (const v of votes ?? []) {
+  const idx = dayIdx.get(v.day);
+  if (idx === undefined) continue; // graceful skip
+  const key = `${idx}:${v.start_minute}`;
+  const existing = counts.get(key);
+  if (existing) existing.count++;
+  else counts.set(key, { day_index: idx, start_minute: v.start_minute, count: 1 });
+}
+const slots = Array.from(counts.values()).sort(
+  (a, b) => a.day_index - b.day_index || a.start_minute - b.start_minute,
+);
 
 await supabase.channel(`group:${groupId}`).send({
   type: 'broadcast',
   event: 'heatmap_update',
-  payload: { slots: counts },
+  payload: { slots, updated_at: nowKst().toISO() },
 });
 ```
 
 **클라이언트 (broadcast만 listen)**:
 
 ```ts
-// src/lib/supabase/realtime.ts
+// src/lib/heatmap/useHeatmapSubscription.ts
 supabase.channel(`group:${groupId}`)
   .on('broadcast', { event: 'heatmap_update' }, ({ payload }) => {
-    heatmapSharedValue.value = payload.slots; // useSharedValue (D12)
+    // payload.slots = [{day_index, start_minute, count}, ...]
+    // applyHeatmapPayload로 60×N CellState[][] 변환 후 useSharedValue 업데이트
+    setPayload(payload);
   })
   .subscribe();
 ```

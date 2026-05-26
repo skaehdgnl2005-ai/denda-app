@@ -14,7 +14,7 @@
 | **Sprint 0** | W-1 (2026-05-22 ~ 2026-05-28) | 12 인프라 항목 + 디자인 자산 | Expo init + Supabase + EAS Build + 카카오 portal + Supabase Auth Kakao + 키해시 등록 완료 | ON_TRACK |
 | **Sprint 1** | W0 | S00, S11, S13 skeleton | S00 ✅, **S11 ✅ (백필 2026-05-26, 다크 검증 deferred)**, S13 eas.json (S01 portfolio) | DONE (S00·S11) |
 | **Sprint 2** | W1 | S01 + S10 + S14 병행 (★ Kakao 답변 review) | **S01 ✅** (D29), **S14 skeleton ✅ (백필)**, S10 BLOCKED (Q-A2), **UI-§17 ✅ 2026-05-26** | IN_PROGRESS (S10 BLOCKED) |
-| **Sprint 3** | W2 | S05 + S07 + S03 + S08 (baseline 시작) | **S05-UI ✅ + S05a ✅ (PR 대기) + S05b ✅ (PR #3 merged 78c8fe9) + S05c ✅ + S05d ✅** = S05 partial (worklet drag 통합 + S05e 부하 테스트만 남음) / **S07 ✅ DONE 2026-05-26** (UI + backend + d16-audit + report + block-supabase, 운영 통지만 D32 deferred to 별도 task) / **S03 ✅ DONE 2026-05-26 (a+b)** / S08 미시작 | IN_PROGRESS |
+| **Sprint 3** | W2 | S05 + S07 + S03 + S08 (baseline 시작) | **S05-UI ✅ + S05a ✅ (Q-B21 close 함께 머지 예정) + S05b ✅ (PR #3 merged 78c8fe9) + S05c ✅ + S05d ✅** = S05 partial (worklet drag 통합 + S05e 60fps 부하만 남음) / **S07 ✅ DONE 2026-05-26** / **S03 ✅ DONE 2026-05-26 (a+b)** / S08 미시작 | IN_PROGRESS |
 | **Sprint 4** | W3 | S04 + S06 + S12 + S15 (TestFlight) | 미시작 | — |
 | **W3.5** | W3.5 | S17 QA 종합 + 안암 invite-only launch | 미시작 | — |
 
@@ -127,7 +127,7 @@ Active:    █████████▒▒▒▒▒▒▒▒▒▒▒  7 / 17 
 | W-1 (Sprint 0) | S00 | 1 | 인프라 셋업 + Backend foundation |
 | W0 (Sprint 1) | S11 (백필 partial) | 2 | design system + Pretendard |
 | W1 (Sprint 2) | S01, S14-skel, S05-UI, S07-UI (백필), UI-§17, S05a + S07-backend (PR 대기) | ~8 (정식 DONE 1: S01) | ★ D29 OIDC 채택 + §17 신설 + worktree backend 2건 |
-| W2 (Sprint 3) | S03a+S03b → S03 ✅, S07-d16-audit + S07-report + S07-block-supabase → S07 ✅, D31 + D32, S05b ✅ (PR #3 merged 78c8fe9) + S05c + S05d + S05-cleanup | 4 (S03·S07 DONE 정식) | OCR 끝. S07 완성. S05 sub-task UI+a+b+c+d 5/6 완료 — worklet drag 통합 + S05e 부하 테스트만 잔여. Q-B21 등록(D11 payload day_index). D16 RLS hardening. D31/D32 정책 |
+| W2 (Sprint 3) | S03a+S03b → S03 ✅, S07-d16-audit + S07-report + S07-block-supabase → S07 ✅, D31 + D32, S05b ✅ (PR #3 merged 78c8fe9) + S05c + S05d + S05-cleanup + **S05a + Q-B21 close (D11 본문 갱신)** | 4 (S03·S07 DONE 정식) | OCR 끝. S07 완성. S05 sub-task UI+a+b+c+d 5/6 완료 — worklet drag 통합 + S05e 60fps 부하만 잔여. **Q-B21 closed (D11 payload day_index)**. D16 RLS hardening. D31/D32 정책 |
 | W3 (Sprint 4) | — | — | TestFlight |
 | W3.5 | — | — | Launch |
 
@@ -136,5 +136,5 @@ Active:    █████████▒▒▒▒▒▒▒▒▒▒▒  7 / 17 
 ## 📅 마지막 업데이트
 
 - **날짜**: 2026-05-26
-- **업데이트한 사람**: S05-cleanup ship (origin/main S05b merge + 중복 sub-task 폐기 + 30s polling 통합. 같은 날 S07-block-supabase + S05c+S05d + S05b 모두 main 통합)
+- **업데이트한 사람**: S05a + Q-B21 ship (PR 머지 — D11 payload spec day_index 추가, Edge Function votes_aggregate + 0006 migration main 통합)
 - **다음 update**: worklet drag(reanimated lazy install) 또는 S05e 60fps 부하 테스트 진행 시
