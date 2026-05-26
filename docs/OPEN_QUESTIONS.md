@@ -213,6 +213,21 @@
 - **마감**: W-2 (Sprint 0 전)
 - **상태**: 미시작
 
+### Q-B22 — Apple Calendar sync mechanism (worker → client trigger 패턴)
+- **출처**: S06-google-oauth ship 후 노출 (2026-05-26). Apple Calendar 외부 push API 부재로 worker가 직접 push 불가
+- **질문**: S06 Apple sync는 client-side `expo-calendar.createEventAsync`만 가능. 그러나 D20 background queue·D19 partial fail report는 worker(서버) 기준 설계 — Apple 사용자의 calendar push를 어떻게 worker가 trigger·track하느냐.
+- **소유자**: Backend + Mobile
+- **마감**: S06-apple-expo-calendar 다음 단계(worker 통합) 시점. 본 sub-task(클라 lib 자체)는 mechanism 무관하게 ship 가능
+- **옵션 (3가지)**:
+  - **(a) Silent push notification**: worker가 멤버에게 silent push(`content-available: 1`) → 백그라운드 app 깨움 → `expo-calendar.createEventAsync` 호출 후 ack endpoint POST. **장점**: 자동성 ↑ (app 닫혀 있어도 동작). **단점**: iOS silent push 빈도 제한(3/hour throttle), Android는 silent 개념 약함, ack endpoint 추가, partial fail 추적 복잡
+  - **(b) 클라 polling** (★ 추천): worker가 Apple 사용자에 대해서는 `calendar_push_apple_pending` table에 row INSERT (또는 partial_fail_list channel='apple_pending'으로 마킹). 앱이 foreground 진입 시(또는 모임 화면 진입 시) pending row SELECT → 각각 `expo-calendar.createEventAsync` 호출 → row UPDATE/DELETE. **장점**: 단순, 베타 N≤7 멤버 fan-out 작음, silent push 인프라 불필요, partial fail은 row updated_at으로 자연 추적. **단점**: 앱 열어야 동작 (사용자가 모임 확정 후 앱 안 열면 push 안 됨 — but F5 시간 확정 알림이 자연스럽게 사용자를 앱으로 유도)
+  - **(c) Realtime broadcast**: 워커 → Supabase Realtime broadcast → 클라가 subscribe → 수신 시 `createEventAsync`. **장점**: 즉시성. **단점**: app foreground 활성 시만 작동 (백그라운드 socket 끊김), missed message 복구 안 됨
+- **추천**: **(b) 클라 polling**. 이유: 베타 (1) silent push iOS 정책 risk + Android 호환성 + ack endpoint 복잡성 > 자동성 가치, (2) F5 시간 확정 알림(이미 ship됨)이 사용자를 앱으로 유도 자연, (3) `calendar_push_apple_pending` table은 worker가 이미 작성하는 partial_fail_list와 같은 패턴 → 추가 인프라 최소. Phase 3에서 광고 launch + 사용자 retention 패턴 측정 후 (a) silent push 채택 재평가
+- **해결 시**: D{N} 신규 결정 추가 + `supabase/migrations/0012_calendar_push_apple_pending.sql` (또는 calendar_queue.ts 확장으로 partial_fail channel='apple_pending' 사용) + 클라 hook 추가(`src/lib/calendar/useAppleSyncOnAppForeground.ts` 또는 app/_layout에 통합) + S06-worker-google-integration에서 Apple 분기 처리 추가
+- **상태**: 미결정 — 본 sub-task(S06-apple-expo-calendar)는 client lib 자체로 mechanism 무관하게 ship. worker integration 단계에서 결정 prereq
+
+---
+
 ### Q-B21 — D11 heatmap broadcast payload에 day 차원 누락 ✅ Closed by D11 update (2026-05-26)
 - **출처**: S05b 구현 중 발견 (2026-05-26)
 - **질문**: D11 본문 spec은 `{slots: [{start_minute, count}], updated_at}`만 명시. 그러나 `votes` 테이블에 `day DATE NOT NULL` 컬럼이 있고 시간 그리드는 60slot × N day = N×60 cells이 필수 (S05 acceptance). 7일 고정 가정 불가 — `groups.dates DATE[]`는 가변 길이.

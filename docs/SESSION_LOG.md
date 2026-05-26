@@ -42,6 +42,52 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S06-apple-expo-calendar — Apple Calendar(expo-calendar) 클라이언트 lib + Q-B22 추가 (2026-05-26) — DONE (S06 partial 진척)
+- Depends: S06-google-oauth ship 2026-05-26 (`CalendarEventPayload`·`CalendarProviderError` re-use from `src/lib/calendar/google.ts`), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc) (event timeZone='Asia/Seoul'), [D15](DECISIONS.md#d15--schedulessource-enum--phase-12은-provider-구분-포기) (apple_ios bucket — iOS 디바이스 통합), [D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시) (silent fail 금지 — permission denied 명시 throw), AuthProvider DI 패턴 mirror
+- Branch: `worktree-s06-google-oauth` (S06-google-oauth + S06-migration-0011 위에 누적, main 23cef5c base)
+- Changes:
+  - **Q-B22 신규 추가** (`docs/OPEN_QUESTIONS.md`, +20 lines):
+    - "Apple Calendar sync mechanism (worker → client trigger 패턴)" — Apple 외부 push API 부재로 worker 직접 push 불가
+    - 3 옵션 평가: (a) silent push notification / (b) 클라 polling ★ 추천 / (c) Realtime broadcast
+    - 추천 근거: 베타 silent push iOS 정책 risk + Android 호환성 + ack endpoint 복잡성 > 자동성 가치. F5 확정 알림이 사용자를 앱으로 유도 자연. `calendar_push_apple_pending` table 추가 인프라 최소
+    - 해결 시 추가 작업 명시: D{N} 결정 + `0012_calendar_push_apple_pending.sql` (또는 partial_fail channel='apple_pending') + 클라 hook + worker 분기
+    - 본 sub-task(client lib)는 mechanism 무관하게 ship 가능 — worker integration 단계에서 결정 prereq
+  - **클라이언트 lib TDD-first** (`src/lib/calendar/apple.ts`, +205 lines):
+    - DI interface: `AppleCalendarApi` (getCalendarPermissionsAsync · requestCalendarPermissionsAsync · getDefaultCalendarAsync · getCalendarsAsync · createEventAsync — production은 expo-calendar 모듈로 wiring)
+    - 타입: `AppleCalendarPermissionStatus` ('granted'|'denied'|'undetermined'), `AppleCalendarHandle` (id·title·source·allowsModifications), `AppleCalendarEvent` (title·startDate·endDate·notes·location·timeZone)
+    - `CalendarEventPayload` re-export from google.ts — 호출자 편의
+    - 순수 함수 2종:
+      - `buildAppleEvent(payload)` — CalendarEventPayload → expo-calendar event. timeZone='Asia/Seoul' 항상 명시(D13), locationName null 시 location 키 자체 생략, 빈 title throw
+      - `pickWritableCalendar(default, all)` — default가 writable이면 그것 / 아니면 all 첫 writable / 없으면 null
+    - `AppleCalendarProvider`: providerName='apple_ios'
+      - `isAuthorized()` — getCalendarPermissionsAsync 결과 'granted'면 true. 'denied'·'undetermined' false
+      - `requestPermission()` — requestCalendarPermissionsAsync → 'granted' 아니면 CalendarProviderError({unauthorized}) throw
+      - `insertEvent(payload)` — permission re-verify → default writable이면 빠른 경로 / 아니면 getCalendarsAsync로 fallback selection → buildAppleEvent → createEventAsync. 권한 미부여·writable 0개·throw·빈 응답 모두 적절히 CalendarProviderError 매핑
+    - `CalendarProviderError` 직접 import from google.ts — 동일 union(cancelled/unauthorized/token_expired/rate_limit/network/unknown) 사용. Apple은 unauthorized + unknown만 throw
+  - **Jest tests** (`src/lib/calendar/apple.test.ts`, +310 lines, 20 케이스):
+    - `buildAppleEvent` 3: 기본 매핑 + Asia/Seoul / locationName null → 키 생략 / 빈 title throw
+    - `pickWritableCalendar` 4: default writable / default readonly + fallback / default null + fallback / 모두 readonly → null
+    - `AppleCalendarProvider.isAuthorized` 3: granted=true / denied=false / undetermined=false
+    - `AppleCalendarProvider.requestPermission` 3: granted no-throw / denied throw unauthorized / undetermined throw unauthorized
+    - `AppleCalendarProvider.insertEvent` 7: happy(default writable 빠른 경로 + createEventAsync 인자 검증) / permission denied → unauthorized + 미호출 / default readonly + fallback writable → fallback id 사용 / default null + fallback 사용 / writable 0개 → unknown + 미호출 / createEventAsync throw → unknown wrap / 빈 응답 → unknown (방어적)
+- Tests: Jest **51 passed** (Google 31 + Apple 20). 회귀 0. typecheck 0. lint 0 errors + 0 warnings (prettier auto-fix 1회). design-guard 위반 0 (bare `new Date()` 0 / hex 0 / 영문 라벨 0 / 금지 폰트 0)
+- Next:
+  - **S06-worker-google-integration** (다음 세션): worker stub 교체. (1) migration 0011 caller — `users.calendar_preference` SELECT 후 'google'·'both'면 events.insert 호출, (2) 서버 측 OAuth token 저장 architecture 결정 (D{N} 신규: 클라 → 서버 refresh_token 업로드 vs auth.identities table vs Supabase secret). 본 sub-task lib는 클라 측이라 worker 측은 서버 측 google API client(`supabase/functions/_lib/google_calendar.ts`) 별도 구축 + 본 lib와 동일 spec 유지
+  - **Q-B22 closure + Apple worker integration**: Q-B22 결정 → D{N} → (추천 (b) polling 채택 시) `0012_calendar_push_apple_pending.sql` + worker가 apple_ios 사용자에 pending row 작성 + 클라 hook (foreground 진입 시 SELECT → AppleCalendarProvider.insertEvent → row UPDATE)
+  - **S06-setup.ts** (Q-B22 결정 후 + UI 모달 prereq): `src/lib/calendar/setup.ts` production wiring — expo-auth-session(Google) + expo-secure-store + expo-calendar(Apple) lazy install. AppleCalendarApi 어댑터는 expo-calendar 모듈을 `Calendar.getCalendarPermissionsAsync` 등으로 매핑
+  - **S06-ui-first-time-modal** (Q-B22 결정 후): "어디 추가할까요" 모달 + GoogleCalendarProvider.authorize + AppleCalendarProvider.requestPermission + users.calendar_preference UPDATE
+  - **S06-ui-reauth-modal** (S06-setup.ts 후): D19 silent fail 금지 — token_expired catch → 프로필 모달 노출 + AppleCalendarProvider unauthorized → iOS 설정 안내
+- Notes:
+  - **CalendarProviderError·CalendarEventPayload import from google.ts**: 둘 다 google.ts에 정의되어 있어 apple.ts에서 import + re-export. types.ts 별도 추출은 risk(google.ts refactor) → 보류. 향후 3rd provider 추가 시 자연 추출 후보
+  - **Apple은 'cancelled' kind 안 씀**: iOS permission prompt는 OS가 관리 — 우리가 cancel 분기를 catch할 곳 없음. denied만 ('취소'는 명시 거부와 의미 다름). Google OAuth는 cancel/denied 둘 다 있음 — 패키지 reuse는 OK
+  - **빠른 경로 (default writable) vs fallback**: 대부분 사용자가 default cal에 쓰기 권한 보유. 빠른 경로로 getCalendarsAsync 호출 회피(권한 prompt 다중 노출 위험↓). default가 readonly(구독 캘린더가 default)인 케이스만 fallback path 진입
+  - **'apple_ios' providerName 선택**: schedules.source enum과 명칭 일치(D15). worker SELECT 분기에서 동일 string 비교 가능
+  - **createEventAsync 빈 응답 방어**: expo-calendar 6.x 이전 일부 버전이 falsy 응답 케이스 있어 명시 가드. 응답 spec은 항상 string id지만 type safety로 안전망
+  - **expo-calendar 모듈 미설치**: package.json 변경 0. setup.ts 추가 시점에 `npx expo install expo-calendar` lazy. EAS Build에서 native 빌드 시 자동 포함
+  - **partial_fail_list 호환성**: Apple insertEvent 실패는 client-side에서 발생 → server worker가 직접 보지 못함. Q-B22 (b) polling 채택 시 클라가 fail row를 server에 ack해야 호스트 알림 가능. 본 ship lib는 throw만, recording은 caller 책임
+
+---
+
 ## S06-migration-0011 — users.calendar_preference 컬럼 추가 (2026-05-26) — DONE (S06 partial 진척)
 - Depends: S00 (users table 0001:56-65), [D15](DECISIONS.md#d15--schedulessource-enum--phase-12은-provider-구분-포기) (apple_ios bucket 명칭), S06-google-oauth (`src/lib/calendar/google.ts` 본 컬럼 caller 예정), S06-ui-first-time-modal (모달이 본 컬럼 writer)
 - Changes:

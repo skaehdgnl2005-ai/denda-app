@@ -8,7 +8,7 @@
 
 ## 진행 현황 요약
 
-- **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** sub-task (DONE 2026-05-26) + **S06-queue-foundation** + **S06-worker-integration** + **S06-google-oauth** + **S06-migration-0011** sub-task (DONE 2026-05-26)
+- **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** sub-task (DONE 2026-05-26) + **S06-queue-foundation** + **S06-worker-integration** + **S06-google-oauth** + **S06-migration-0011** + **S06-apple-expo-calendar** sub-task (DONE 2026-05-26) + **Q-B22** 신규
 - **DONE**: 5 (S00, S01, S03, S04, S07) + S05 acceptance 7/7 (S05e 운영 task)
 - **IN_PROGRESS**: 3 (S05 — S05e 60fps 부하 실기기 잔여, S14 skeleton+utils+test-augment+violations-fix+e2e-setup, S06 — backend 묶음(0009/0010 + worker + 순수 함수) + Google 클라이언트 lib 완료, Apple expo-calendar · migration 0011 · worker stub 교체 · UI 모달 잔여)
 - **TODO**: 8
@@ -259,18 +259,18 @@
 
 ### S06 — Calendar Sync (Google + Apple)
 
-- **Status**: IN_PROGRESS (sub-task 4/N: S06-queue-foundation ✅ + S06-worker-integration ✅ + S06-google-oauth ✅ + S06-migration-0011 ✅ 2026-05-26 — backend 묶음 + Google 클라이언트 lib + users.calendar_preference 컬럼 완성. Apple expo-calendar · worker stub 교체 · UI 모달 잔여) | **Owner**: Mobile + Backend | **Sprint**: 4 | **Lane**: D
-- **Depends**: S04 ✅ DONE (모임 확정 trigger + dispatcher real impl + `group_confirmed` event), [D15](DECISIONS.md#d15--schedulessource-enum--phase-12은-provider-구분-포기) (apple_ios 통합 bucket), [D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시) (단방향 + 부분실패 명시), [D20](DECISIONS.md#d20--calendar-push-fan-out--background-queue) (background queue)
+- **Status**: IN_PROGRESS (sub-task 5/N: S06-queue-foundation ✅ + S06-worker-integration ✅ + S06-google-oauth ✅ + S06-migration-0011 ✅ + S06-apple-expo-calendar ✅ 2026-05-26 — backend 묶음 + 양 provider 클라이언트 lib + users.calendar_preference 컬럼 + Q-B22 신규. worker stub 교체(서버 측 token D{N} prereq) · setup.ts production wiring · UI 모달 잔여) | **Owner**: Mobile + Backend | **Sprint**: 4 | **Lane**: D
+- **Depends**: S04 ✅ DONE (모임 확정 trigger + dispatcher real impl + `group_confirmed` event), [D15](DECISIONS.md#d15--schedulessource-enum--phase-12은-provider-구분-포기) (apple_ios 통합 bucket), [D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시) (단방향 + 부분실패 명시), [D20](DECISIONS.md#d20--calendar-push-fan-out--background-queue) (background queue), [Q-B22](OPEN_QUESTIONS.md#q-b22--apple-calendar-sync-mechanism-worker--client-trigger-패턴) (Apple sync mechanism — worker integration prereq)
 - **Acceptance**:
-  - 🟡 Google Calendar OAuth + `events.insert` (single event push) — ✅ 클라이언트 lib `src/lib/calendar/google.ts` (S06-google-oauth 2026-05-26, DI 패턴 GoogleCalendarProvider + Jest 31 tests). worker stub 교체는 **S06-worker-google-integration** (migration 0011 + 서버 측 token 저장 결정 필요)
-  - ⏳ `expo-calendar` wrapper (iOS 17+ write-only 권한) — **S06-apple-expo-calendar** (Apple은 client-side만 가능 → push notification trigger 패턴 검토 필요)
-  - ⏳ "어디 추가할까요" 첫 모달 (Google·Apple·둘 다) — **S06-ui-first-time-modal** (users.calendar_preference 컬럼 추가)
+  - 🟡 Google Calendar OAuth + `events.insert` (single event push) — ✅ 클라이언트 lib `src/lib/calendar/google.ts` (S06-google-oauth 2026-05-26, DI 패턴 GoogleCalendarProvider + Jest 31 tests). worker stub 교체는 **S06-worker-google-integration** (서버 측 token 저장 D{N} 결정 prereq)
+  - 🟡 `expo-calendar` wrapper (iOS 17+ write-only 권한) — ✅ 클라이언트 lib `src/lib/calendar/apple.ts` (S06-apple-expo-calendar 2026-05-26, DI 패턴 AppleCalendarProvider + Jest 20 tests). worker → client trigger는 **Q-B22 결정 prereq** + 그 후 별도 sub-task(`S06-worker-apple-trigger` 가칭 — table 또는 partial_fail channel 활용)
+  - ⏳ "어디 추가할까요" 첫 모달 (Google·Apple·둘 다) — **S06-ui-first-time-modal** (Q-B22 결정 후, GoogleCalendarProvider.authorize + AppleCalendarProvider.requestPermission + users.calendar_preference UPDATE)
   - ⏳ Token 만료 → 프로필 "재인증 필요" + 다음 진입 모달 — **S06-ui-reauth-modal** (D19 silent fail 금지)
   - 🟡 Partial push fail 시 호스트에게 멤버 list 알림 — ✅ partial_fail_list 누적 backend 완료(S06-worker-integration). 호스트 알림 trigger는 **S06-ui-reauth-modal**과 묶음 또는 별도 push handler에서
   - ✅ Background queue (pg_cron + retry max 3) — **DONE** (S06-queue-foundation + S06-worker-integration)
 - **Files**:
-  - ✅ ship됨: `supabase/migrations/{0009_calendar_push_queue,0010_calendar_cron,0011_users_calendar_preference}.sql`, `supabase/functions/_lib/calendar_queue.ts(_test.ts)`, `supabase/functions/calendar_push_worker/index.ts`, `src/lib/calendar/google.ts(.test.ts)`
-  - 잔여: `src/lib/calendar/apple.ts`, `src/lib/calendar/setup.ts` (production wiring — expo-auth-session + expo-secure-store 어댑터), `src/components/calendar/{FirstTimeModal,ReauthModal}.tsx`
+  - ✅ ship됨: `supabase/migrations/{0009_calendar_push_queue,0010_calendar_cron,0011_users_calendar_preference}.sql`, `supabase/functions/_lib/calendar_queue.ts(_test.ts)`, `supabase/functions/calendar_push_worker/index.ts`, `src/lib/calendar/{google,apple}.ts(.test.ts)`
+  - 잔여: `src/lib/calendar/setup.ts` (production wiring — expo-auth-session + expo-secure-store + expo-calendar 어댑터), `src/components/calendar/{FirstTimeModal,ReauthModal}.tsx`, `supabase/functions/_lib/google_calendar.ts` (서버 측 Google API client — worker stub 교체용), `supabase/migrations/0012_*.sql` (Q-B22 결정에 따라 — apple_pending table 또는 alternative)
 - **Worktree 분기**: 가능 (Lane D 독립). S06 backend는 `worktree-s06-calendar-sync` branch 위에서 진행 → main 머지 후 cleanup. S06-google-oauth는 `worktree-s06-google-oauth` branch (본 ship). 후속 OAuth/UI sub-task는 새 worktree 또는 main 위에서 진행
 - **Notes**: backend 묶음(0009/0010 + worker + 순수 함수) + Google 클라이언트 lib(DI 패턴, 31 tests)이 ship 완료. Apple expo-calendar + migration 0011 + worker stub 교체 + UI 모달은 컨텍스트·실 동작 검증(EAS Build + 디자인) 필요로 다음 세션. Apple sync mechanism은 **OPEN_QUESTIONS Q-{ID} 신규 추가 prereq** (worker가 client에게 push notification trigger → expo-calendar 호출 패턴)
 
