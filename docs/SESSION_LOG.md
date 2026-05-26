@@ -42,6 +42,29 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S14-utils — web-guest 순수 유틸 TDD 도입 + RN spec mirror (2026-05-26) — DONE (S14 partial 진척)
+- Depends: S14 skeleton (Next.js + Supabase + RPC + RLS 백필), S05 RN 헬퍼([D10](DECISIONS.md#d10--히트맵-5단계-색-램프-heat-0--중립-그레이) classify spec source), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc) (KST 강제), [D14](DECISIONS.md#d14--시간-슬롯-단위-15분--db-check) (15분 슬롯), [D23](DECISIONS.md#d23--web-guest-page--nextjs-별도-codebase) (web-guest 별도 codebase + RN과 spec share)
+- Branch: main 직접 (skeleton 백필 다음 단계, worktree 미필요 — file 충돌 0)
+- Changes:
+  - **순수 유틸 3종 TDD-first**:
+    - `web-guest/lib/heatmap.ts` (+49 lines) + `.test.ts` (24 케이스) — `classifyHeat(count, maxCount): HeatLevel` D10 5-stop quartile. RN `src/lib/heatmap/classify.ts`와 정확히 동일 spec (q1/q2/q3 경계, count≤0/maxCount≤0/count≥maxCount edge clamp). `heatToTokenIndex(level): 0..4` tokens.heat 배열 인덱스 매핑
+    - `web-guest/lib/time.ts` (+44 lines) + `.test.ts` (18 케이스) — luxon `Asia/Seoul` 강제. `isValidDateString` YYYY-MM-DD 검증(윤년 포함), `dayOfWeekKst` 한국어 요일 (월/화/수/목/금/토/일), `formatHeaderDate` "M/D" (앞 0 제거). `new Date(dateStr)` 직접 사용 0. `KST_ZONE` 상수 export
+    - `web-guest/lib/voteKey.ts` (+62 lines) + `.test.ts` (13 케이스) — `VoteSlot`/`VoteKey`/`voteKey`/`parseVoteKey`/`voteSetFromSlots`/`diffVoteSets`. RN `src/lib/votes/voteSet.ts`와 정확히 동일 spec (`day:start_minute` 형식, day asc → start_minute asc 정렬). selectionToVoteSlots는 RN worklet 패턴이라 SKIP (web은 worklet 없음)
+- Tests: web-guest jest 57 passed (24 heatmap + 18 time + 13 voteKey + 2 기존 GuestTimeGrid). typecheck 0 (web-guest tsc), lint 0 (S14-utils 영역 eslint). 메인 RN jest는 unrelated, web-guest project 분리 cmd
+- Next:
+  - **S14-violations-fix** (별도 sub-task): GuestTimeGrid·NicknameForm을 본 lib 사용으로 refactor — (1) `dayOfWeek(new Date(dateStr))` → `dayOfWeekKst()` (D13 위반 fix), (2) `getHeatClass` inline ratio → `classifyHeat()` (RN spec mirror), (3) GuestTimeGrid의 클라 self-broadcast `heatmap_update` 제거 (D11 위반 — S05a Edge Function 책임), (4) NicknameForm useEffect `onComplete` deps → useRef로 무한 루프 risk fix, (5) selectedSlots Record를 voteKey 직렬화로 교체
+  - **GuestTimeGrid.test.tsx 보강**: 기존 2개 → drag sweep / heatmap 색 / 본인 슬롯 override / 다일 span 케이스 추가
+  - **Playwright E2E 셋업**: `web-guest/playwright/guest_flow.spec.ts` — TEST_PLAN.md §3.5 base spec
+- Notes:
+  - **S14 acceptance "RN과 같은 동작 spec" 의 spec drift 방지가 본 ship 핵심** — 현 skeleton의 `getHeatClass`(ratio 0.99/0.75/0.50)와 RN classify(quartile q1/q2/q3) 가 다른 임계값으로 drift 중. 본 utils 채택 후 한 화면 같은 카운트가 두 플랫폼에서 동일 색으로 표시 보장
+  - **`KO_WEEKDAY` 순서는 luxon weekday 1..7 (월=1, 일=7)** — JS `Date.getDay()` (일=0, 월=1, ..., 토=6)과 다름. 기존 컴포넌트의 `['일','월','화','수','목','금','토'][date.getDay()]` 패턴은 D13 위반 + JS Date base. utils는 luxon base로 단일 진실
+  - **VoteSlot/VoteKey shape는 RN과 100% 동일** — `${day}:${start_minute}` 직렬화. cross-platform broadcast payload나 Supabase 저장 schema와 자연 align (day=DATE, start_minute=INT)
+  - **selectionToVoteSlots는 web에서 미필요** — RN worklet의 `Record<SlotKey, boolean>` (col:minute 매핑)은 sweep의 day_index 표현. web은 DOM elementFromPoint로 day(DATE)를 직접 추출하므로 col 매핑 불요. 본 sub-task는 RN spec 의도적 부분 mirror
+  - **컴포넌트 refactor 의도적 deferred** — TDD red→green 사이클을 lib에만 두고, 컴포넌트 변경은 시각 회귀 risk가 있어 별도 sub-task로 분리 (GuestTimeGrid.test 보강이 prereq). 본 ship 후에도 production page는 기존 코드 그대로 작동, 새 utils는 0 caller
+  - **NOW.md S14-utils 항목은 본 ship으로 promote** — 다음 sub-task(S14-violations-fix)는 별도 /start-task에서 시작
+
+---
+
 ## S04-backend — group_confirm + notify_f5 + dispatcher (D33 close Q-B5) (2026-05-26) — PARTIAL (S04 backend 100%, UI deferred)
 - Depends: S00 (groups.confirmed_at·confirmed_start_at·confirmed_end_at·confirmed_place_id + CHECK constraint atomic + f5_sent_at·partial_fail_list 0001:198-218, group_members·notification_settings·push_tokens), S05 (votes 합산 — votes_aggregate가 별도 path), [D33](DECISIONS.md#d33--모임-확정-fan-out--단일-dispatcher-q-b5-close) (본 세션 신규), [Q-B5](OPEN_QUESTIONS.md#q-b5--edge-function-단일-dispatcher) closed by D33, [D17](DECISIONS.md#d17--push-f4-idempotency-groupsf4_sent_at-column) (idempotent UPDATE WHERE NULL pattern mirror → f5_sent_at·confirmed_at), [D14](DECISIONS.md#d14--시간-슬롯-단위-강제-15분--db-check) (15분 단위 application 검증 + DB CHECK 2중 방어), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc), [D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시) (partial fail → partial_fail_list JSONB), [D22](DECISIONS.md#d22--phase-12-tech-stack)
 - Changes:

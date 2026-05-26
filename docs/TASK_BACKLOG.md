@@ -10,8 +10,8 @@
 
 - **총 17 태스크** (S00 ~ S16)
 - **DONE**: 4 (S00, S01, S03, S07)
-- **IN_PROGRESS**: 2 (S04 backend done UI 잔여, S05 sub-task 6/7)
-- **TODO**: 10
+- **IN_PROGRESS**: 3 (S04 backend done UI 잔여, S05 sub-task 6/7, S14 skeleton+utils)
+- **TODO**: 9
 - **BLOCKED**: 1 (S10 — D1 지도 부분 답변 대기)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
@@ -191,19 +191,24 @@
 
 ### S14 — Web Guest Page (Next.js)
 
-- **Status**: TODO | **Owner**: Web | **Sprint**: 2-3 | **Lane**: C
-- **Depends**: S00 (group_guests, votes — SQL 직접 또는 별도 API), D23 (Next.js 별도 codebase), S05 (시간 그리드 spec 공유)
+- **Status**: IN_PROGRESS (sub-task: skeleton ✅ 백필 + S14-utils ✅ 2026-05-26 — lib heatmap/time/voteKey TDD. 잔여: S14-violations-fix · GuestTimeGrid.test 보강 · Playwright E2E 셋업) | **Owner**: Web | **Sprint**: 2-3 | **Lane**: C
+- **Depends**: S00 (group_guests, votes — migration 0004 ✅), D23 (Next.js 별도 codebase), S05 (시간 그리드 spec 공유)
 - **Acceptance**:
-  - Vercel project 셋업
-  - 게스트 토큰 생성 (Q-B7 — 모임별 별도)
-  - 닉네임 입력 → group_guests INSERT
-  - 시간 그리드 (RN과 별도 구현, 같은 동작 spec) — Conflict flag: D23 spec drift 주의
-  - Branch.io 단축 URL 생성
-  - 카톡 OG 메타 (`og:title`, `og:image`, `og:description`)
-  - 모바일·태블릿 only (DESIGN §12.7, 데스크톱 폭 미지원)
-  - 투표 완료 → "결과 알림 받으려면 →" CTA
-- **Files**: `web-guest/` (별도 git repo 또는 monorepo subdir — founder 선택)
+  - ✅ Vercel project 셋업 (Next.js 16.2.6 + React 19.2.4 + Tailwind v4 + Pretendard 셀프호스팅)
+  - ✅ 게스트 토큰 생성 — `localStorage` key `denda_guest_token_${groupId}` 모임별 별도 (Q-B7 자연 해소)
+  - ✅ 닉네임 입력 → group_guests INSERT (`components/NicknameForm.tsx` + 0004 RLS anonymous insert)
+  - ⏳ 시간 그리드 (RN과 별도 구현, 같은 동작 spec) — Conflict flag: D23 spec drift 주의. **S14-utils로 lib heatmap/time/voteKey 추출 ✅ (RN classify/voteSet과 정확히 동일)**. GuestTimeGrid 컴포넌트는 본 utils 미사용 → S14-violations-fix 잔여
+  - ⏸️ Branch.io 단축 URL 생성 — S15(D28 자체 deferred deep link)로 분리
+  - ✅ 카톡 OG 메타 (`og:title`, `og:description`, `og:image`, `og:url`, `og:site_name`) — `app/g/[token]/page.tsx::generateMetadata`
+  - ✅ 모바일·태블릿 only (DESIGN §12.7) — `md:hidden` Tailwind responsive guard + 데스크톱 안내 화면
+  - ✅ 투표 완료 → "결과 알림 받으려면 → 카톡 공유" CTA + clipboard share
+- **잔여 sub-task**:
+  - **S14-violations-fix**: GuestTimeGrid의 `dayOfWeek(new Date(dateStr))` D13 위반 → `dayOfWeekKst`로 교체, `getHeatClass` inline ratio → `classifyHeat` quartile로 교체, 클라 self-broadcast `heatmap_update` 제거(D11 위반 — S05a Edge Function 책임), NicknameForm useEffect `onComplete` deps 무한 루프 risk → useRef fix
+  - **GuestTimeGrid.test.tsx 보강**: 기존 2 케이스 → drag sweep / heatmap 색 / 본인 슬롯 override / 다일 span / KST 요일 케이스 추가
+  - **Playwright E2E 셋업**: `web-guest/playwright/guest_flow.spec.ts` — TEST_PLAN.md §3.5 base spec
+- **Files**: `web-guest/` (monorepo subdir, 별도 npm project + jest + tsconfig + tailwind v4)
 - **Worktree 분기**: 완전 독립 (별도 codebase)
+- **Notes**: S14-utils ship 2026-05-26 — lib 영역 RN cross-platform spec 정합 확보. 컴포넌트 미사용 (caller 0)이므로 production page 동작 영향 0. 후속 sub-task에서 컴포넌트 wire-up + 시각 회귀 테스트 보강
 
 ### S15 — 자체 deferred deep link (게스트→회원 전환) — D28
 
