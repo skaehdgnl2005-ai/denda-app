@@ -1,5 +1,13 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  type LayoutChangeEvent,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
+} from 'react-native';
+import { GestureDetector, type PanGesture } from 'react-native-gesture-handler';
+import Animated from 'react-native-reanimated';
 import { useTheme } from '../../design/theme';
 import { Cell } from './Cell';
 import { Header } from './Header';
@@ -14,19 +22,30 @@ export interface GridProps {
   onCellPress?: (slot: number, day: number) => void;
   dayLabels?: string[];
   testID?: string;
+  // D12 worklet drag 통합 — optional.
+  // panGesture가 있으면 grid body가 GestureDetector로 감싸지고 single-tap onCellPress는 사용되지 않는다.
+  panGesture?: PanGesture;
+  // cellWidth 측정 결과 (grid body width / colCount) — 부모가 useSweepGesture의 layout sharedValue에 반영.
+  onCellWidthChange?: (cellWidth: number) => void;
+  // ScrollView 수직 offset — 부모가 useSweepGesture의 scrollOffsetY sharedValue에 반영.
+  onScrollY?: (offsetY: number) => void;
 }
 
 const DEFAULT_DAYS = ['월', '화', '수', '목', '금', '토', '일'];
 const ROW_COUNT = 60;
 const COL_COUNT = 7;
+const TIME_COLUMN_WIDTH = 50; // headerWidth — coords.ts pointToCell과 동일 단위
 
 export const Grid: React.FC<GridProps> = ({
   cells,
   onCellPress,
   dayLabels = DEFAULT_DAYS,
   testID,
+  panGesture,
+  onCellWidthChange,
+  onScrollY,
 }) => {
-  const { colors, space } = useTheme();
+  const { colors } = useTheme();
 
   // Helper to format time label for slot index
   const getTimeLabel = (slotIndex: number): string => {
@@ -34,6 +53,67 @@ export const Grid: React.FC<GridProps> = ({
     const hour = 9 + Math.floor(slotIndex / 4);
     return `${hour.toString().padStart(2, '0')}:00`;
   };
+
+  const handleGridBodyLayout = (event: LayoutChangeEvent): void => {
+    if (!onCellWidthChange) return;
+    const totalWidth = event.nativeEvent.layout.width;
+    const cellWidth = (totalWidth - TIME_COLUMN_WIDTH) / COL_COUNT;
+    onCellWidthChange(cellWidth);
+  };
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>): void => {
+    if (!onScrollY) return;
+    onScrollY(event.nativeEvent.contentOffset.y);
+  };
+
+  const gridBody = (
+    <View style={styles.gridBody} onLayout={handleGridBodyLayout}>
+      {Array.from({ length: ROW_COUNT }).map((_, slotIdx) => {
+        const timeLabel = getTimeLabel(slotIdx);
+        const rowCells = cells[slotIdx] || [];
+
+        return (
+          <View key={`grid-row-${slotIdx}`} style={styles.row}>
+            {/* Time Label on the left */}
+            <View style={styles.timeLabelContainer}>
+              {timeLabel ? <Header type="time" label={timeLabel} /> : null}
+            </View>
+
+            {/* 7 Day Grid Cells */}
+            {Array.from({ length: COL_COUNT }).map((_, dayIdx) => {
+              const cellData: CellState = rowCells[dayIdx] || {
+                state: 'empty',
+                count: 0,
+              };
+
+              return (
+                <Cell
+                  key={`cell-${slotIdx}-${dayIdx}`}
+                  state={cellData.state}
+                  count={cellData.count}
+                  isHeader={false}
+                  onPress={(): void => {
+                    if (onCellPress && !panGesture) {
+                      onCellPress(slotIdx, dayIdx);
+                    }
+                  }}
+                  testID={`grid-cell-${slotIdx}-${dayIdx}`}
+                />
+              );
+            })}
+          </View>
+        );
+      })}
+    </View>
+  );
+
+  // panGesture가 있으면 GestureDetector로 grid body를 감싼다. ScrollView는 onScroll로
+  // scrollOffsetY를 부모에 통지 (부모는 useSweepGesture의 scrollOffsetY sharedValue 갱신).
+  const scrollContent = panGesture ? (
+    <GestureDetector gesture={panGesture}>{gridBody}</GestureDetector>
+  ) : (
+    gridBody
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surface[0] }]} testID={testID}>
@@ -50,50 +130,15 @@ export const Grid: React.FC<GridProps> = ({
       </View>
 
       {/* Scrollable TimeGrid Body */}
-      <ScrollView
+      <Animated.ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       >
-        <View style={styles.gridBody}>
-          {Array.from({ length: ROW_COUNT }).map((_, slotIdx) => {
-            const timeLabel = getTimeLabel(slotIdx);
-            const rowCells = cells[slotIdx] || [];
-
-            return (
-              <View key={`grid-row-${slotIdx}`} style={styles.row}>
-                {/* Time Label on the left */}
-                <View style={styles.timeLabelContainer}>
-                  {timeLabel ? <Header type="time" label={timeLabel} /> : null}
-                </View>
-
-                {/* 7 Day Grid Cells */}
-                {Array.from({ length: COL_COUNT }).map((_, dayIdx) => {
-                  const cellData: CellState = rowCells[dayIdx] || {
-                    state: 'empty',
-                    count: 0,
-                  };
-
-                  return (
-                    <Cell
-                      key={`cell-${slotIdx}-${dayIdx}`}
-                      state={cellData.state}
-                      count={cellData.count}
-                      isHeader={false}
-                      onPress={(): void => {
-                        if (onCellPress) {
-                          onCellPress(slotIdx, dayIdx);
-                        }
-                      }}
-                      testID={`grid-cell-${slotIdx}-${dayIdx}`}
-                    />
-                  );
-                })}
-              </View>
-            );
-          })}
-        </View>
-      </ScrollView>
+        {scrollContent}
+      </Animated.ScrollView>
     </View>
   );
 };
@@ -109,7 +154,7 @@ const styles = StyleSheet.create({
     height: 44,
   },
   timeColumnSpacer: {
-    width: 50,
+    width: TIME_COLUMN_WIDTH,
   },
   dayHeaderCellContainer: {
     flex: 1,
@@ -131,7 +176,7 @@ const styles = StyleSheet.create({
     height: 10, // 8pt visual cell + 2pt space
   },
   timeLabelContainer: {
-    width: 50,
+    width: TIME_COLUMN_WIDTH,
     height: 10,
     justifyContent: 'center',
     alignItems: 'flex-end',

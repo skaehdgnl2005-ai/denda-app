@@ -48,3 +48,31 @@ export function toggleSlot(set: Set<SlotKey>, key: SlotKey): Set<SlotKey> {
   }
   return next;
 }
+
+// applySweepToRecord — worklet-safe sweep (Set 미지원 reanimated UI thread).
+//
+// baseline (drag 시작 시점 selection snapshot)에 시작/종료 사각형 영역을 mark 값으로 덮어쓴다.
+// add 모드(mark=true): 영역의 모든 슬롯을 true로.
+// remove 모드(mark=false): 영역의 모든 슬롯을 false로 (key 자체는 남지만 false).
+// 호출자는 commit 시 falsy 값을 제외한다 (selectionToVoteSlots 참조).
+export function applySweepToRecord(
+  baseline: Record<SlotKey, boolean>,
+  start: CellCoord,
+  end: CellCoord,
+  mark: boolean,
+): Record<SlotKey, boolean> {
+  'worklet';
+  const result: Record<SlotKey, boolean> = { ...baseline };
+  const rowMin = Math.min(start.row, end.row);
+  const rowMax = Math.max(start.row, end.row);
+  const colMin = Math.min(start.col, end.col);
+  const colMax = Math.max(start.col, end.col);
+  for (let row = rowMin; row <= rowMax; row++) {
+    const startMinute = GRID_START_MINUTE + row * SLOT_MINUTES;
+    for (let col = colMin; col <= colMax; col++) {
+      const key = `${col}:${startMinute}` as SlotKey;
+      result[key] = mark;
+    }
+  }
+  return result;
+}

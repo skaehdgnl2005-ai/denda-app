@@ -4,7 +4,7 @@
 // 단일 tap (r1=r2, c1=c2) = 단일 슬롯 toggle.
 // (worklet에서 직접 호출 가능하도록 pure 함수로 분리.)
 
-import { computeSweepKeys, toggleSlot, slotKey } from './sweep';
+import { computeSweepKeys, toggleSlot, slotKey, applySweepToRecord } from './sweep';
 import type { SlotKey } from './types';
 
 describe('slotKey — `${col}:${start_minute}` 문자열 표현', () => {
@@ -63,5 +63,41 @@ describe('toggleSlot — 기존 set에 추가/제거 toggle', () => {
     const set = new Set<SlotKey>(['0:540']);
     toggleSlot(set, '0:540');
     expect(set.has('0:540')).toBe(true); // 원본 그대로
+  });
+});
+
+describe('applySweepToRecord — worklet-safe sweep (Set 미지원 환경)', () => {
+  test('mark=true: baseline + 새 영역 = 합집합', () => {
+    const baseline: Record<SlotKey, boolean> = { '6:540': true };
+    const result = applySweepToRecord(baseline, { row: 0, col: 0 }, { row: 1, col: 1 }, true);
+    expect(result['0:540']).toBe(true);
+    expect(result['0:555']).toBe(true);
+    expect(result['1:540']).toBe(true);
+    expect(result['1:555']).toBe(true);
+    expect(result['6:540']).toBe(true); // baseline 보존
+  });
+
+  test('mark=false: baseline에서 영역 제거 (false로 마크)', () => {
+    const baseline: Record<SlotKey, boolean> = {
+      '0:540': true,
+      '0:555': true,
+      '6:540': true,
+    };
+    const result = applySweepToRecord(baseline, { row: 0, col: 0 }, { row: 1, col: 0 }, false);
+    expect(result['0:540']).toBe(false);
+    expect(result['0:555']).toBe(false);
+    expect(result['6:540']).toBe(true);
+  });
+
+  test('원본 baseline 불변', () => {
+    const baseline: Record<SlotKey, boolean> = { '0:540': true };
+    applySweepToRecord(baseline, { row: 0, col: 0 }, { row: 0, col: 0 }, false);
+    expect(baseline['0:540']).toBe(true);
+  });
+
+  test('역방향 sweep도 정규화', () => {
+    const result = applySweepToRecord({}, { row: 3, col: 2 }, { row: 1, col: 0 }, true);
+    expect(result['0:555']).toBe(true);
+    expect(result['2:585']).toBe(true);
   });
 });

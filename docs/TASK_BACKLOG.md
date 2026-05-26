@@ -102,23 +102,23 @@
 
 ### S05 — 시간 그리드 + 투표 + Realtime 히트맵
 
-- **Status**: IN_PROGRESS (sub-task 5/6: S05-UI ✅ + S05a ✅ + S05b ✅ + S05c ✅ + S05d ✅. worklet drag 통합 + S05e 부하 테스트 잔여) | **Owner**: Mobile + Backend | **Sprint**: 3 | **Lane**: A
+- **Status**: IN_PROGRESS (sub-task 6/7: S05-UI ✅ + S05a ✅ + S05b ✅ + S05c ✅ + S05d ✅ + worklet drag ✅. S05e 60fps 부하 테스트 잔여 — 실기기 필요) | **Owner**: Mobile + Backend | **Sprint**: 3 | **Lane**: A
 - **Depends**: S00 (votes, time_slots, Realtime enabled), D9 (8pt/44pt), D10 (heat ramp), D11 (Edge aggregation), D12 (60fps spec)
 - **Acceptance** (sub-task 매핑은 본 entry가 단일 source — SESSION_LOG의 S05b commit Next는 stale):
-  - ⏳ Reanimated worklet drag (UI thread) — **worklet 통합 task** (reanimated + gesture-handler lazy install + jest mock 환경 필요)
+  - ✅ Reanimated worklet drag (UI thread) — S05 worklet drag ship 2026-05-26 (`src/lib/votes/useSweepGesture.ts` + `src/lib/heatmap/coords.ts` + sweep `applySweepToRecord` + voteSet `selectionToVoteSlots`. reanimated 4 + gesture-handler 2 + worklets 0.8 lazy install + babel/jest mock 인프라)
   - ✅ FlashList 또는 React.memo 셀 가상화 (60slot × 7day = 420 cells) — S05-UI commit f715fcb
-  - ⏳ `useSharedValue` 셀 상태 (JS state X) — worklet 통합 task
-  - ✅ Drag sweep 멀티셀렉트 pure 함수 — S05b `heatmap/sweep.ts` (worklet 호출 가능). 실 gesture 통합은 worklet task
+  - ✅ `useSharedValue` 셀 상태 (JS state X) — useSweepGesture에서 selection/baseline/startCoord/toggleAdd/scrollOffsetY 모두 sharedValue
+  - ✅ Drag sweep 멀티셀렉트 pure 함수 — S05b `heatmap/sweep.ts` + S05 worklet drag `applySweepToRecord` (worklet-safe Record 기반)
   - ✅ 09:00·24:00 경계 처리 — S05-UI
-  - ⏳ 다일 (multi-day) span 처리 — worklet 통합 task (heatmap/sweep.ts는 다일 가능, gesture 통합 잔여)
+  - ✅ 다일 (multi-day) span 처리 — sweep rect 알고리즘이 col 범위 정규화 (worklet drag 통합 완료)
   - ✅ Vote commit 1회 + 100ms debounce — S05c (`src/lib/votes/api.ts` commitVoteDiff diff INSERT/DELETE) + S05b (`src/lib/heatmap/debounce.ts` debouncer 본체. 본 cleanup으로 votes/debouncer.ts 중복 폐기)
   - ✅ Edge Function `on_votes_change`: votes 합산 → `broadcast` channel — S05a (PR 대기, worktree)
   - ✅ Client receive → cells 변환 → 셀 색 transition (heat-0~4) — S05b (`heatmap/applyPayload.ts` + `classify.ts` + `useHeatmapSubscription.ts`). useSharedValue 통합은 worklet task
   - ✅ Realtime disconnect UI (Q-B6 → DESIGN §11.4 info-bg 칩) — S05b (`useHeatmapSubscription.isConnected`) + S05-UI chip + S05-cleanup (30s polling state machine inline 통합)
   - ⏳ 60fps 부하 테스트: 7명 모임 동시 투표 (저사양: iPhone SE 2, Galaxy A14) — S05e (production binary 측정 필요)
-- **Files**: `src/screens/group/[id]/grid.tsx`(미작성), `src/components/TimeGrid/`, `src/lib/votes/` (voteSet + api), `src/lib/heatmap/` (S05b types/classify/applyPayload/sweep/debounce/useHeatmapSubscription), `supabase/functions/votes_aggregate/`
+- **Files**: `src/screens/group/[id]/grid.tsx`(미작성), `src/components/TimeGrid/` (Grid에 panGesture/onCellWidthChange/onScrollY props 추가), `src/lib/votes/` (voteSet + api + useSweepGesture), `src/lib/heatmap/` (S05b types/classify/applyPayload/sweep/debounce/useHeatmapSubscription/coords), `supabase/functions/votes_aggregate/`
 - **Worktree 분기**: 가능 (S03 OCR, S07 친구와 worktree 병행)
-- **Notes**: 7.3 ASCII flow 참조. **회사 운명이 60fps에 걸린 부분 (ENG_REVIEW §1.4)**. 잔여 worklet drag task는 reanimated + gesture-handler lazy install이 prereq — D25 lazy spec. **Q-B21 closure 완료 (2026-05-26, S05a + day_index 한 묶음 머지)** — D11 payload spec에 day_index 추가 (`groups.dates DATE[]`의 0-based offset, 가변 day 지원)
+- **Notes**: 7.3 ASCII flow 참조. **회사 운명이 60fps에 걸린 부분 (ENG_REVIEW §1.4)**. 잔여 S05e 60fps 부하 테스트는 production binary + 실기기 필수 (iPhone SE 2 + Galaxy A14 — D12 측정 기준). worklet drag 중 60fps 시각 피드백(drag rect 셀 색 즉시 반영 SelectionOverlay)은 mock-only 검증 한계로 S05e와 함께 통합 검증 예정 — selection sharedValue는 useSweepGesture가 노출하므로 후속 sub-task에서 Animated.View overlay 또는 Cell sharedValue 구독 패턴으로 통합 가능. **Q-B21 closure 완료 (2026-05-26)**. **Reanimated 4 worklet runtime = react-native-worklets 분리** — babel plugin `react-native-worklets/plugin` 필수 (Reanimated 3의 `react-native-reanimated/plugin`과 다름)
 
 ### S07 — 친구 시스템 + 신고/차단
 

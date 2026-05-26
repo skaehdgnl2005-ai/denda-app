@@ -1,4 +1,11 @@
-import { voteKey, parseVoteKey, voteSetFromSlots, diffVoteSets, type VoteSlot } from './voteSet';
+import {
+  voteKey,
+  parseVoteKey,
+  voteSetFromSlots,
+  diffVoteSets,
+  selectionToVoteSlots,
+  type VoteSlot,
+} from './voteSet';
 
 describe('voteKey / parseVoteKey', () => {
   test('voteKey: day + start_minute을 안정적 문자열로 직렬화', () => {
@@ -89,5 +96,37 @@ describe('diffVoteSets', () => {
       { day: '2026-05-30', start_minute: 555 },
       { day: '2026-05-31', start_minute: 600 },
     ]);
+  });
+});
+
+describe('selectionToVoteSlots — `${col}:${sm}` selection record → VoteSlot[]', () => {
+  const days = ['2026-05-30', '2026-05-31', '2026-06-01'];
+
+  test('빈 selection → 빈 배열', () => {
+    expect(selectionToVoteSlots({}, days)).toEqual([]);
+  });
+
+  test('true 값만 포함 (false는 제외)', () => {
+    const result = selectionToVoteSlots({ '0:540': true, '0:555': false, '1:600': true }, days);
+    expect(result).toEqual(
+      expect.arrayContaining([
+        { day: '2026-05-30', start_minute: 540 },
+        { day: '2026-05-31', start_minute: 600 },
+      ]),
+    );
+    expect(result).toHaveLength(2);
+  });
+
+  test('days 범위 벗어난 col은 무시', () => {
+    const result = selectionToVoteSlots({ '0:540': true, '5:540': true, '99:540': true }, days);
+    expect(result).toEqual([{ day: '2026-05-30', start_minute: 540 }]);
+  });
+
+  test('잘못된 key 형식 무시', () => {
+    const result = selectionToVoteSlots(
+      { bad: true, '0:abc': true, '0:540': true } as Record<string, boolean>,
+      days,
+    );
+    expect(result).toEqual([{ day: '2026-05-30', start_minute: 540 }]);
   });
 });

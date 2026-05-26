@@ -42,6 +42,32 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S05 worklet drag 통합 — Reanimated 4 + Gesture.Pan sweep selection (2026-05-26) — PARTIAL
+- Depends: S00 (votes), [D12](DECISIONS.md#d12--60fps-시간-그리드-구현-spec), [D25](DECISIONS.md#d25--cold-start-target--2초--lazy-loading)
+- Changes:
+  - **Lazy install (D25 prereq)**:
+    - `package.json` — react-native-gesture-handler ~2.31.1, react-native-reanimated 4.3.1, react-native-worklets 0.8.3 (npx expo install로 SDK 56 호환 버전 자동 선택)
+    - `babel.config.js` (신규, +10 lines) — `react-native-worklets/plugin` (Reanimated 4에서 worklet 변환이 worklets 패키지로 분리됨)
+    - `jest.setup.js` (+50 lines) — react-native-worklets 완전 mock (createSerializable·runOnJS 등 identity), react-native-reanimated/mock 등록, react-native-gesture-handler `Gesture.Pan()` builder pattern stub (`_handlers` 노출로 테스트에서 직접 호출 가능)
+  - **Pure worklet layer (TDD)**:
+    - `src/lib/heatmap/coords.ts` (신규, +37 lines) — `pointToCell(pt, layout): CellCoord | null` worklet 헬퍼. scrollOffsetY 보정, 헤더/그리드 경계 검사
+    - `src/lib/heatmap/coords.test.ts` (신규, 9 tests) — 경계값·역방향·scroll offset 시뮬레이션
+    - `src/lib/heatmap/sweep.ts` (+30 lines) — `applySweepToRecord(baseline, start, end, mark)` 추가 (Reanimated UI thread는 Set 미지원 → Record 기반)
+    - `src/lib/heatmap/sweep.test.ts` (+4 tests) — applySweepToRecord add/remove/역방향/immutability
+    - `src/lib/votes/voteSet.ts` (+22 lines) — `selectionToVoteSlots(selection, days)` Record→VoteSlot[] 변환 (falsy·범위 밖 col·malformed key 모두 제외)
+    - `src/lib/votes/voteSet.test.ts` (+4 tests)
+  - **Hook (D12 의무 패턴)**:
+    - `src/lib/votes/useSweepGesture.ts` (신규, +97 lines) — `Gesture.Pan().onBegin/onUpdate/onEnd` worklet 체인. 시작 cell의 baseline 토글 모드(add/remove) 결정 → applySweepToRecord로 selection sharedValue 갱신 → onEnd에서 `runOnJS(jsCommit)`. scrollOffsetY는 별도 sharedValue로 노출 (Grid ScrollView onScroll로 갱신)
+    - `src/lib/votes/useSweepGesture.test.tsx` (신규, 7 tests) — `_handlers` 직접 호출로 add/remove/scroll offset/재진입 baseline 갱신/헤더 outside 무시 검증
+  - **Grid 통합**:
+    - `src/components/TimeGrid/Grid.tsx` (+50 lines, -10 lines) — optional `panGesture` / `onCellWidthChange` / `onScrollY` props 추가. panGesture 시 grid body를 `<GestureDetector>` wrap, ScrollView를 `Animated.ScrollView`로 전환 (`scrollEventThrottle=16`). panGesture가 있으면 single-tap `onCellPress` 비활성
+    - `src/components/TimeGrid/Grid.test.tsx` (+3 tests) — sweep mode에서 onCellPress 비활성, onCellWidthChange / onScrollY 통지
+- Tests: 273 passed (1 skipped — 기존), lint 0, typecheck 0
+- Next: S04 (모임 확정 + F5 push) — 이미 IN_PROGRESS backend. 그리드 화면 wiring(`app/group/[id]/grid.tsx`) + SelectionOverlay 시각 피드백은 별도 sub-task. S05e 60fps 부하 테스트는 실기기 확보 후 진행
+- Notes: **S05 자체는 IN_PROGRESS 유지** (sub-task 6/7 완료: UI + a + b + c + d + worklet drag. 잔여 S05e). worklet drag 중 60fps 셀 색 시각 피드백(SelectionOverlay = drag rect Animated.View)은 mock-only 검증의 한계로 본 sub-task 제외 — 실기기 + S05e와 함께 검증해야 의미 있음. selection sharedValue는 hook이 노출하므로 후속 sub-task에서 Animated.View overlay 또는 Cell sharedValue 구독으로 통합 가능. **Reanimated 4 worklet runtime은 react-native-worklets 분리됨** — babel plugin `react-native-worklets/plugin` 필수 (Reanimated 3 시절 `react-native-reanimated/plugin`과 다름)
+
+---
+
 ## S05a + Q-B21 — votes_aggregate Edge Function (D11 broadcast) + day_index alignment (2026-05-26) — DONE
 - Depends: S00 (votes/groups table, Realtime), S05b (클라이언트 헬퍼 `applyHeatmapPayload`가 day_index 가정), [D11](DECISIONS.md#d11--realtime-히트맵--edge-function-합산-후-broadcast-옵션-b), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc), [D14](DECISIONS.md#d14--시간-슬롯-단위-15분--db-check)
 - Branch: `worktree-s05a-q-b21-day-index` (S05a author worktree `agent-ae72b67b533ba1d2d`에서 파일 3개 copy + day_index patch)

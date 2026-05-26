@@ -12,5 +12,11 @@
 
 ## 🟢 활성 작업
 
-(없음 — 새 세션은 [PROGRESS.md](PROGRESS.md)의 active Sprint 확인 후 `/start-task`로 시작)
+### S04 모임 확정 + F5 push (backend)
+- **상태**: 시작 (D33 dispatcher 결정 + Q-B5 close 완료)
+- **다음 단계**: dispatcher.ts stub → real impl (register/dispatch + Promise.allSettled 격리) + Deno test
+- **블로커**: 없음 (Sprint 3 잔여 S05 worklet drag와 직교, S04 의존 S00·S05 데이터 layer ready)
+- **Scope**: backend only — group_confirm Edge Function + notify_f5 Edge Function + dispatcher impl + 클라 wrapper. UI(`confirm.tsx`)는 S05b 그리드 통합 후 별도 sub-task
+- **마지막 update**: 2026-05-26 KST
+
 
