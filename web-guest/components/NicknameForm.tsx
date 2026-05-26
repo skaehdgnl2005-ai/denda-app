@@ -64,6 +64,16 @@ export default function NicknameForm({ groupId, onComplete }: NicknameFormProps)
     setLoading(true);
     setError('');
 
+    // S14-e2e-setup: dummy supabase URL insert hang 회피. 토큰 생성 + onComplete 즉시 호출.
+    if (process.env.NEXT_PUBLIC_IS_E2E === 'true') {
+      const token = `e2e-guest-${Date.now()}`;
+      localStorage.setItem(`denda_guest_token_${groupId}`, token);
+      setIsOpen(false);
+      onComplete(token, nickname.trim());
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data, error: insertError } = await supabase
         .from('group_guests')

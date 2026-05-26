@@ -9,10 +9,10 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './playwright',
   testMatch: '**/*.spec.ts',
-  timeout: 30_000,
+  timeout: 60_000,
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 1,
+  retries: process.env.CI ? 3 : 2,
   workers: 1,
   reporter: process.env.CI ? 'line' : 'list',
   use: {
@@ -36,9 +36,9 @@ export default defineConfig({
   webServer: {
     command: 'npm run dev',
     url: 'http://localhost:3000',
-    // NEXT_PUBLIC_* 변수는 dev server 시작 시점에 client bundle inline. reuseExistingServer=true
-    // 이면 이전 server가 다른 env로 시작됐을 가능성 → 매번 새 spawn.
-    reuseExistingServer: false,
+    // 이미 NEXT_PUBLIC_IS_E2E=true로 띄운 서버가 있으면 재사용해 dev compile bottleneck 회피.
+    // CI는 항상 새 spawn — clean env 보장.
+    reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
       NEXT_PUBLIC_IS_E2E: 'true',

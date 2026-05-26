@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { classifyHeat, type HeatLevel } from '../lib/heatmap';
 import { dayOfWeekKst, formatHeaderDate } from '../lib/time';
+import { voteKey, parseVoteKey } from '../lib/voteKey';
 
 interface Vote {
   day: string;
@@ -55,7 +56,7 @@ export default function GuestTimeGrid({
     const initialSelection: { [key: string]: boolean } = {};
     initialVotes.forEach((vote) => {
       if (vote.guest_token === guestToken) {
-        const key = `${vote.day}_${vote.start_minute}`;
+        const key = voteKey({ day: vote.day, start_minute: vote.start_minute });
         initialSelection[key] = true;
       }
     });
@@ -66,7 +67,7 @@ export default function GuestTimeGrid({
   const heatmapData = React.useMemo(() => {
     const counts: { [key: string]: number } = {};
     votes.forEach((vote) => {
-      const key = `${vote.day}_${vote.start_minute}`;
+      const key = voteKey({ day: vote.day, start_minute: vote.start_minute });
       counts[key] = (counts[key] || 0) + 1;
     });
     return counts;
@@ -105,17 +106,21 @@ export default function GuestTimeGrid({
   const commitVotes = async (newSelection: { [key: string]: boolean }) => {
     if (onVoteStatusChange) onVoteStatusChange(true);
 
+    // S14-e2e-setup: dummy supabase URL RPC hang 회피. selection만 유지 (heatmap update X).
+    if (process.env.NEXT_PUBLIC_IS_E2E === 'true') {
+      if (onVotesUpdated) onVotesUpdated();
+      if (onVoteStatusChange) onVoteStatusChange(false);
+      return;
+    }
+
     const votePayload = Object.keys(newSelection)
       .filter((key) => newSelection[key])
       .map((key) => {
-        const parts = key.split('_');
-        const day = parts[0] || '';
-        const startMinuteStr = parts[1] || '0';
-        const start_minute = parseInt(startMinuteStr, 10);
+        const slot = parseVoteKey(key);
         return {
-          day,
-          start_minute,
-          end_minute: start_minute + SLOT_SIZE,
+          day: slot.day,
+          start_minute: slot.start_minute,
+          end_minute: slot.start_minute + SLOT_SIZE,
         };
       });
 
@@ -160,10 +165,11 @@ export default function GuestTimeGrid({
 
     if (!day || !startMinute) return null;
 
+    const minute = parseInt(startMinute, 10);
     return {
       day,
-      minute: parseInt(startMinute, 10),
-      key: `${day}_${startMinute}`,
+      minute,
+      key: voteKey({ day, start_minute: minute }),
     };
   };
 
@@ -215,7 +221,7 @@ export default function GuestTimeGrid({
 
   // Mouse handlers (Desktop fallback/previews)
   const handleMouseDown = (day: string, minute: number) => {
-    const key = `${day}_${minute}`;
+    const key = voteKey({ day, start_minute: minute });
     setIsDragging(true);
     const mode = handleCellAction(key);
     setDragMode(mode);
@@ -223,7 +229,7 @@ export default function GuestTimeGrid({
 
   const handleMouseEnterCell = (day: string, minute: number) => {
     if (!isDragging || !dragMode) return;
-    const key = `${day}_${minute}`;
+    const key = voteKey({ day, start_minute: minute });
     handleCellAction(key, dragMode);
   };
 
@@ -313,7 +319,7 @@ export default function GuestTimeGrid({
             <div key={day} className="flex-1 flex flex-col justify-between h-[512px]">
               {Array.from({ length: TOTAL_SLOTS }).map((_, index) => {
                 const minute = START_MINUTE + index * SLOT_SIZE;
-                const key = `${day}_${minute}`;
+                const key = voteKey({ day, start_minute: minute });
                 const isSelected = selectedSlots[key];
                 const count = heatmapData[key] || 0;
 
