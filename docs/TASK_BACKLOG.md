@@ -8,10 +8,10 @@
 
 ## 진행 현황 요약
 
-- **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** + **S14 sub-task 다수** + **fail-cleanup** (2026-05-26) + **S15-deeplink-schema** (2026-05-26) + **S12-backend-f1-f4 + S12-publishers-f4 + S12-client** (2026-05-26 — 3 sub-task 누적: backend 4종 + F4 publisher wire-up + RN expoNotifications.ts) + **Q-B22** + **D34** + **D35** 신규
+- **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** + **S14 sub-task 다수** + **fail-cleanup** (2026-05-26) + **S15-deeplink-schema** (2026-05-26) + **S12-backend-f1-f4 + S12-publishers-f4 + S12-client** (2026-05-26 — 3 sub-task 누적: backend 4종 + F4 publisher wire-up + RN expoNotifications.ts) + **S08-backend** (2026-05-26) + **Q-B22** + **D34** + **D35** 신규
 - **DONE**: 10 (S00, S01, S03, S04, S06, S07, S11, S12, S14) + S05 acceptance 7/7 (S05e 운영 task)
-- **IN_PROGRESS**: 2 (S05 — S05e 60fps 부하 실기기 잔여; S15-deeplink — 1/6 sub-task)
-- **TODO**: 4 (S08, S13, S15-mapmode, S17)
+- **IN_PROGRESS**: 3 (S05 — S05e 60fps 부하 실기기 잔여; S15-deeplink — 1/6 sub-task; S08 — S08-backend ✅, S08-ui S10 BLOCKED prereq)
+- **TODO**: 3 (S13, S15-mapmode, S17)
 - **BLOCKED**: 1 (S10 — D1 지도 부분 답변 대기), 1 (S16 — D1 답변 대기)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
@@ -181,16 +181,19 @@
 
 ### S08 — "예약하기" Click-through 측정
 
-- **Status**: TODO | **Owner**: Mobile + Backend | **Sprint**: 3 | **Lane**: B
-- **Depends**: S10 (마커 인터랙션), Q-A4 (baseline 측정 design)
+- **Status**: IN_PROGRESS (S08-backend ✅ 2026-05-26 — click_events table + click_log Edge Function + analytics lib. S08-ui는 S10 BLOCKED prereq로 분리) | **Owner**: Mobile + Backend | **Sprint**: 3 | **Lane**: B
+- **Depends**: S10 (마커 인터랙션 — UI 부분만), Q-A4 (baseline 측정 design — segment_label nullable로 schema 확보 완료, Q-A4 closure 시 채움)
 - **Acceptance**:
-  - 마커 탭 → 바텀시트 (DESIGN §10.3)
-  - "예약하기" 버튼: click event 로깅 (idempotent — 더블 탭 1 event)
-  - "장소만 정하기" 버튼: 카톡 공유
-  - "Phase 1+2: 준비 중" 안내 또는 silent (founder 선택)
-  - Click 이벤트 schema: `event_id`, `user_id`, `group_id`, `place_id`, `partnership_id`, `clicked_at`, `segment_label` (P1/P2)
-  - **Gate #2 측정의 단일 source of truth** (G2 참조)
-- **Files**: `src/screens/group/[id]/place.tsx`, `src/lib/analytics/click_through.ts`, `supabase/functions/click_log/`
+  - ⏸️ 마커 탭 → 바텀시트 (DESIGN §10.3) — S08-ui (S10 BLOCKED)
+  - ✅ "예약하기" 버튼 click event 로깅 (idempotent — 더블 탭 1 event): `src/lib/analytics/click_through.ts` `logReservationClick` + Edge `click_log` event_id PK + ON CONFLICT DO NOTHING
+  - ⏸️ "장소만 정하기" 버튼: 카톡 공유 — S08-ui
+  - ⏸️ "Phase 1+2: 준비 중" 안내 또는 silent (founder 선택) — S08-ui
+  - ✅ Click 이벤트 schema: `event_id`, `user_id`, `group_id`, `place_id`, `partnership_id`, `clicked_at`, `segment_label` (P1/P2) — migration 0017_click_events.sql
+  - ✅ **Gate #2 측정의 단일 source of truth** (G2 참조) — click_events table + 6 indexes + RLS
+- **Files**: `supabase/migrations/0017_click_events.sql` ✅, `supabase/functions/click_log/{index,_test}.ts` ✅, `src/lib/analytics/click_through.{ts,test.ts}` ✅, `src/screens/group/[id]/place.tsx` ⏸️
+- **Sub-task 분해**:
+  - ✅ S08-backend (2026-05-26): migration 0017 + Edge Function click_log + RN analytics lib
+  - ⏸️ S08-ui: S10 unblock 후. 마커 바텀시트 + 예약하기 호출(logReservationClick) + inflight 더블 탭 보호 + 장소만 정하기 카톡 공유 + 준비 중 안내
 
 ### S15 — "지도로 내 일정 보기" 모드
 

@@ -42,6 +42,57 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S08-backend — "예약하기" Click-through 측정 backend (Gate #2 single source of truth) (2026-05-26) — PARTIAL (S08-backend 완성, UI는 S10 BLOCKED로 S08-ui sub-task로 분리)
+- Depends: S00 ✅ (users·groups·places·partnerships 모두 schema 완성), [G2](DECISIONS.md#g2--gate-2-장소-확정--예약하기-click-through--가장-critical) (Phase 3 commit 단일 게이트), Q-A4 (baseline 측정 design — segment_label nullable로 schema 확보 후 closure 시 채움)
+- Context: S08 전체 acceptance 중 UI(마커 바텀시트 + "장소만 정하기" 카톡 공유 + "준비 중" 안내)는 S10(지도) BLOCKED(Q-A2 답변 대기)로 시작 불가. 그러나 backend infrastructure(click_events table + click_log Edge Function + analytics lib)는 S10 의존 없음 → S12 패턴(backend-f1-f4 먼저 ship 후 publishers/client/mount 차례) mirror로 S08-backend sub-task 우선 ship. Gate #2 측정 instrument 조기 확보 — UI 작업 시점 backend 안정성 검증 완료 상태로 진입 가능.
+- Changes:
+  - **`supabase/migrations/0017_click_events.sql` (+~90 lines, 신규)**:
+    - `click_events` table — event_id UUID PRIMARY KEY(클라 발급, Idempotency-Key pattern) + user_id/group_id/place_id NOT NULL FK + partnership_id nullable FK(snapshot, places.partnership_id 변경 후에도 history 보존) + segment_label TEXT nullable(CHECK 'P1'|'P2'|NULL, Q-A4 closure 시 채움) + clicked_at/created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    - 6개 인덱스: (group_id, place_id) Gate #2 핫패스 / (clicked_at DESC) 시계열 / (place_id, clicked_at DESC) 제휴 식당 popularity / (segment_label, clicked_at DESC) WHERE NOT NULL Q-A4 활용 / (user_id, clicked_at DESC) 본인 history / (partnership_id, clicked_at DESC) WHERE NOT NULL 제휴 ROI
+    - RLS: ENABLE + click_events_select_own(auth.uid()=user_id) + click_events_insert_self(WITH CHECK auth.uid()=user_id). UPDATE/DELETE 정책 없음 = immutable analytics event (운영 cleanup은 service_role만). COMMENT 3종으로 schema 의도 명시
+  - **`supabase/functions/click_log/index.ts` (+~180 lines, 신규)**:
+    - 순수 함수: `parseClickLogRequest(body)` — event_id/group_id/place_id UUID 검증 + partnership_id?(UUID|null) + segment_label?('P1'|'P2'|null) 통과 / `buildClickEventRow(args)` — DB INSERT row shape
+    - HTTP handler: POST body parse → 401 if no auth → anon client(JWT) auth.getUser() → row build → `upsert(row, {onConflict:'event_id', ignoreDuplicates:true})` → 충돌 시 inserted=[] → `duplicated:true` 반환 (acceptance "더블 탭 1 event" idempotent 보장)
+    - Response: `{ok:true, event_id, duplicated:boolean}`. clicked_at은 nowKst().toUTC().toISO() (D13)
+  - **`supabase/functions/click_log/_test.ts` (+~190 lines, 신규, 15 tests TDD-first)**:
+    - parseClickLogRequest 12: 최소 4 UUID 통과 / partnership+segment / null 명시 / P2 / event_id UUID 위반 throw / group_id 누락 / place_id 누락 / partnership_id UUID 위반 / segment_label 'P3' throw / 빈 문자열 throw / body null throw / event_id 누락 throw
+    - buildClickEventRow 3: 모든 필드 / null partnership+segment / clicked_at ISO 그대로 전달(D13)
+  - **`src/lib/analytics/click_through.ts` (+~110 lines, 신규)**:
+    - `logReservationClick(input, options?)` — groupId/placeId UUID + 옵션 partnershipId/segmentLabel/eventId. supabase.functions.invoke('click_log') wrapper
+    - **DI**: `options.genEventId` 미명시 시 `globalThis.crypto.randomUUID()` 사용. fallback 부재 시 한국어 throw(EAS Build 후 expo-crypto wrap injection 권장)
+    - **Idempotency 2-layer**: 사전 UUID 검증(group_id/place_id/partnership_id 사전 throw → Edge invoke 0) + 클라가 eventId 명시 시 재시도에서 같은 UUID 사용 가능
+    - 에러 한국어 wrap: 401 → "로그인 필요" / 기타 → "클릭을 기록하지 못했어요"
+  - **`src/lib/analytics/click_through.test.ts` (+~200 lines, 신규, 12 tests TDD-first)**:
+    - 정상 케이스 invoke shape + camelCase 응답 변환 / partnershipId 미명시 → body null / segmentLabel P2 + partnershipId null / eventId 명시 → genEventId 호출 0 / eventId 미명시 → genEventId 호출 1 / 401 → "로그인 필요" / 기타 에러 → "클릭을 기록하지 못했어요" / data null → 일반 에러 / duplicated=true 응답 정상 전달 / segmentLabel 'P3' 사전 throw / groupId UUID 위반 사전 throw / placeId UUID 위반 사전 throw
+  - **`docs/NOW.md`**: S08-backend 활성 항목 본 ship으로 promote (제거). 잔여 S08-ui는 S10 BLOCKED라 활성 상태 아님
+- Tests:
+  - **Deno 209 passed + 0 failed** (194 → 209, +15: click_log)
+  - **Jest 494 passed + 1 skipped + 0 failed** (482 → 494, +12: click_through)
+  - **typecheck 0 errors**
+  - **lint 0 errors** (warnings 19개 = pre-existing prettier formatting 잔여, 본 turn 신규 파일은 prettier --fix로 0)
+- Next:
+  - **S08-ui sub-task**: S10 unblock 시 진행. acceptance 잔여:
+    1. `src/screens/group/[id]/place.tsx` — 장소 선택 화면 (지도 마커 탭 → 바텀시트, DESIGN §10.3)
+    2. "예약하기" 버튼 — `logReservationClick(input)` 호출 + inflight `useState` 더블 탭 보호. 성공 → toast "예약 정보를 보낼 식당을 보고 있어요" (또는 founder 결정 micro-copy)
+    3. "장소만 정하기" 버튼 — 카톡 공유 (`expo-sharing` 또는 Web Share API)
+    4. "Phase 1+2: 준비 중" 안내 또는 silent (founder 선택, S04 confirm 후 화면 표시 위치)
+    5. expo-crypto wrap helper — `Crypto.randomUUID()` 호출 후 `eventId` 명시 전달 또는 click_through.ts default fallback 신뢰
+  - **다음 가능 태스크 (auto mode 권장 후보)**:
+    - **S13 EAS Build skeleton** — TODO 상태, depends Apple Developer + Google Play Console(Q-B20). Sprint 1+W3 lane D. cold start <2초 측정 + production binary 검증의 prereq. S05e 60fps 부하 + S03 OCR Gemini Vision 실 호출 + S06 setup.ts Google OAuth wiring + S12 EAS projectId 모두의 unblock
+    - **S15-deeplink-edge** — S15-deeplink-schema(2026-05-26 ship) 의 다음 sub-task. `attribution_match` Edge Function + ip_hash/ua_hash helper (Deno test TDD)
+  - **운영 잔여 (Q-A4 closure 시)**: segment_label 결정 규칙 적용. 본 schema는 nullable로 baseline 수집 phase 안전
+- Notes:
+  - **S08 acceptance 부분 close 정직성**: 6개 acceptance 중 backend 3개(click event schema ✅ + click_log Edge ✅ + Gate #2 single source of truth ✅) 완성. UI 3개(마커 바텀시트 + 장소만 정하기 카톡 공유 + 준비 중 안내)는 S10 BLOCKED prereq. PARTIAL 명시로 정직 진척
+  - **Idempotency strategy = event_id PK + ON CONFLICT DO NOTHING**: 클라이언트가 UUID 발급(Idempotency-Key pattern) → 서버는 `upsert + ignoreDuplicates:true`로 충돌 시 0 rows 반환. UI side로는 inflight state disable + 같은 event_id로 retry 가능 패턴. 시간 window dedup이 아니라 PK 충돌 자연 방어 — race-safe + retry-safe
+  - **Q-A4 deferred 안전**: segment_label nullable + CHECK 'P1'|'P2'|NULL → Q-A4 closure 후 식별 규칙 적용 시 row 생성 시점에 채워서 INSERT. baseline 수집 phase는 NULL로 누적. partial index `WHERE segment_label IS NOT NULL`로 Q-A4 활용 시점 핫패스
+  - **partnership_id snapshot 의미**: places.partnership_id가 click 후 변경(예: 제휴 종료)되어도 click event의 partnership_id는 보존 → 정확한 historical Gate #2 측정. snapshot pattern은 ON DELETE SET NULL로 partnership row 삭제 시에만 무효화
+  - **Edge Function auth flow**: anon client(JWT passthrough) → `auth.getUser()` → row.user_id set. RLS `WITH CHECK auth.uid() = user_id`로 일관성 자연 검증. group_id/place_id FK 위반은 user 본인 잘못된 호출로 가정 (악의적 호출 시 RLS 차단)
+  - **D25 cold start 영향 0**: `src/lib/supabase/client` always load 이미 포함. click_through.ts 자체는 lazy import 대상 아니지만 첫 사용 시점이 지도 탭 진입 후 → 자연 lazy
+  - **재시도 + 더블 탭 정직성**: 더블 탭 1 event(acceptance 요구사항)는 PK 충돌로 보장. 네트워크 실패 후 retry도 같은 event_id 재사용 시 idempotent. 다른 event_id로 호출하면 별개 event 기록(예상 동작 — 사용자가 일부러 두 번 click한 경우 추적 가치 있음). UI에서 inflight state로 같은 button을 빠르게 누른 case 추가 방어 권장
+  - **deno.lock 무관**: 본 commit에 staging 안 함. S15-deeplink-schema turn에서 untracked로 누적된 상태 그대로 유지
+
+---
+
 ## S12 — Push Notification F1-F4 (2026-05-26) — DONE 정식
 - Depends: S00 ✅ (push_tokens·notification_settings·groups.f4_sent_at·users.nickname 모두 schema 완성), S07 ✅ (friends 시스템), [D17](DECISIONS.md#d17--push-f4-idempotency-groupsf4_sent_at-column), [D33](DECISIONS.md#d33--모임-확정-fan-out--단일-dispatcher-q-b5-close), Q-B12 (마이크로카피 — auto mode 자체 결정, founder review 분리)
 - Context: 본 turn에 S12 3 sub-task 누적 완성 후 마지막 `_layout.tsx` mount까지 묶어 정식 DONE 마킹. 사용자 "여기서 S12 끝내자" 요청. Sub-task 누적: S12-backend-f1-f4 (commit 5eaf1b2) + S12-publishers-f4 + S12-client (commit ed33cfb) + **본 commit S12-mount + DONE**.
