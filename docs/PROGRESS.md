@@ -13,7 +13,7 @@
 |---|---|---|---|---|
 | **Sprint 0** | W-1 (2026-05-22 ~ 2026-05-28) | 12 인프라 항목 + 디자인 자산 | Expo init + Supabase + EAS Build + 카카오 portal + Supabase Auth Kakao + 키해시 등록 완료 | ON_TRACK |
 | **Sprint 1** | W0 | S00, S11, S13 skeleton | S00 ✅, **S11 ✅ (백필 2026-05-26, 다크 검증 deferred)**, S13 eas.json (S01 portfolio) | DONE (S00·S11) |
-| **Sprint 2** | W1 | S01 + S10 + S14 병행 (★ Kakao 답변 review) | **S01 ✅** (D29), **S14 skeleton ✅ (백필) + S14-utils ✅ 2026-05-26 (lib heatmap/time/voteKey TDD, RN spec mirror)**, S10 BLOCKED (Q-A2), **UI-§17 ✅ 2026-05-26** | IN_PROGRESS (S10 BLOCKED) |
+| **Sprint 2** | W1 | S01 + S10 + S14 병행 (★ Kakao 답변 review) | **S01 ✅** (D29), **S14 skeleton ✅ (백필) + S14-utils ✅ 2026-05-26 + S14-test-augment ✅ 2026-05-26 (GuestTimeGrid.test 4 그룹 안전망 + 4 그룹 drift skip)**, S10 BLOCKED (Q-A2), **UI-§17 ✅ 2026-05-26** | IN_PROGRESS (S10 BLOCKED) |
 | **Sprint 3** | W2 | S05 + S07 + S03 + S08 (baseline 시작) | **S05-UI ✅ + S05a ✅ + S05b ✅ (PR #3 78c8fe9) + S05c ✅ + S05d ✅ + S05 worklet drag ✅** = S05 partial (S05e 60fps 부하만 남음 — 실기기 필요) / **S07 ✅ DONE 2026-05-26** / **S03 ✅ DONE 2026-05-26 (a+b)** / S08 미시작 | IN_PROGRESS |
 | **Sprint 4** | W3 | S04 + S06 + S12 + S15 (TestFlight) | **S04-backend ✅ 2026-05-26 (D33 dispatcher + group_confirm + notify_f5 + 클라 wrapper, UI deferred)** / S06·S12·S15 미시작 | IN_PROGRESS (early start) |
 | **W3.5** | W3.5 | S17 QA 종합 + 안암 invite-only launch | 미시작 | — |
@@ -126,7 +126,7 @@ Active:    █████████▒▒▒▒▒▒▒▒▒▒▒  8 / 17 
 |---|---|---|---|
 | W-1 (Sprint 0) | S00 | 1 | 인프라 셋업 + Backend foundation |
 | W0 (Sprint 1) | S11 (백필 partial) | 2 | design system + Pretendard |
-| W1 (Sprint 2) | S01, S14-skel, S05-UI, S07-UI (백필), UI-§17, S05a + S07-backend (PR 대기), **S14-utils ✅ 2026-05-26** | ~9 (정식 DONE 1: S01) | ★ D29 OIDC 채택 + §17 신설 + worktree backend 2건 + S14 TDD 도입 (web-guest lib RN spec mirror) |
+| W1 (Sprint 2) | S01, S14-skel, S05-UI, S07-UI (백필), UI-§17, S05a + S07-backend (PR 대기), **S14-utils ✅ + S14-test-augment ✅ 2026-05-26** | ~10 (정식 DONE 1: S01) | ★ D29 OIDC 채택 + §17 신설 + worktree backend 2건 + S14 TDD 도입 (lib RN spec mirror + GuestTimeGrid.test 안전망) |
 | W2 (Sprint 3) | S03a+S03b → S03 ✅, S07-d16-audit + S07-report + S07-block-supabase → S07 ✅, D31 + D32, S05b ✅ (PR #3 merged 78c8fe9) + S05c + S05d + S05-cleanup + **S05a + Q-B21 close** + **S05 worklet drag ✅** | 4 (S03·S07 DONE 정식) | OCR 끝. S07 완성. S05 sub-task 6/7 완료 — S05e 60fps 부하만 잔여(실기기 필요). worklet drag = reanimated 4 + gesture-handler 2 + worklets 0.8 lazy install + D12 의무 패턴 통합 |
 | W3 (Sprint 4) | **S04-backend ✅** (D33 dispatcher + group_confirm Edge + notify_f5 Edge + 클라 wrapper, UI deferred to S05b 동시 작업) | 1 | Sprint 4 early start. Q-B5 close by D33 |
 | W3.5 | — | — | Launch |
@@ -136,5 +136,5 @@ Active:    █████████▒▒▒▒▒▒▒▒▒▒▒  8 / 17 
 ## 📅 마지막 업데이트
 
 - **날짜**: 2026-05-26
-- **업데이트한 사람**: S14-utils ship — web-guest TDD 도입 + RN spec mirror 3종 (lib/heatmap·time·voteKey). Jest 57 passed (24+18+13+2 기존). S14 spec drift 위험(D23 Conflict flag) mitigate 시작
-- **다음 update**: S14-violations-fix (GuestTimeGrid·NicknameForm refactor: D13 `new Date()` + D11 self-broadcast + dep loop fix) 또는 S04-UI / S06 Calendar 시
+- **업데이트한 사람**: S14-test-augment ship — GuestTimeGrid.test 4 그룹 안전망 + 4 그룹 drift skip(S14-violations-fix unskip 조건 주석). Jest 83 (69 passed + 14 skipped 의도). S14-violations-fix 안전망 확보
+- **다음 update**: S14-violations-fix (`new Date` → `dayOfWeekKst`, ratio → `classifyHeat` quartile, client self-broadcast 제거, NicknameForm dep loop fix — drift skip 4개 unskip 사이클) 또는 S04-UI / S06 Calendar 시

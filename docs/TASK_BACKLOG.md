@@ -213,7 +213,7 @@
 
 ### S14 — Web Guest Page (Next.js)
 
-- **Status**: IN_PROGRESS (sub-task: skeleton ✅ 백필 + S14-utils ✅ 2026-05-26 — lib heatmap/time/voteKey TDD. 잔여: S14-violations-fix · GuestTimeGrid.test 보강 · Playwright E2E 셋업) | **Owner**: Web | **Sprint**: 2-3 | **Lane**: C
+- **Status**: IN_PROGRESS (sub-task: skeleton ✅ 백필 + S14-utils ✅ 2026-05-26 + S14-test-augment ✅ 2026-05-26 — lib heatmap/time/voteKey TDD + GuestTimeGrid.test 4 그룹 안전망 + 4 그룹 drift skip. 잔여: S14-violations-fix · Playwright E2E 셋업) | **Owner**: Web | **Sprint**: 2-3 | **Lane**: C
 - **Depends**: S00 (group_guests, votes — migration 0004 ✅), D23 (Next.js 별도 codebase), S05 (시간 그리드 spec 공유)
 - **Acceptance**:
   - ✅ Vercel project 셋업 (Next.js 16.2.6 + React 19.2.4 + Tailwind v4 + Pretendard 셀프호스팅)
@@ -225,12 +225,11 @@
   - ✅ 모바일·태블릿 only (DESIGN §12.7) — `md:hidden` Tailwind responsive guard + 데스크톱 안내 화면
   - ✅ 투표 완료 → "결과 알림 받으려면 → 카톡 공유" CTA + clipboard share
 - **잔여 sub-task**:
-  - **S14-violations-fix**: GuestTimeGrid의 `dayOfWeek(new Date(dateStr))` D13 위반 → `dayOfWeekKst`로 교체, `getHeatClass` inline ratio → `classifyHeat` quartile로 교체, 클라 self-broadcast `heatmap_update` 제거(D11 위반 — S05a Edge Function 책임), NicknameForm useEffect `onComplete` deps 무한 루프 risk → useRef fix
-  - **GuestTimeGrid.test.tsx 보강**: 기존 2 케이스 → drag sweep / heatmap 색 / 본인 슬롯 override / 다일 span / KST 요일 케이스 추가
+  - **S14-violations-fix**: 4 그룹 drift skip을 unskip 사이클로 정통 red→green 진행 — (1) `dayOfWeek(new Date(dateStr))` → `dayOfWeekKst` (KST 요일 skip unskip), (2) `getHeatClass` inline ratio → `classifyHeat` quartile (Heatmap 색 skip unskip), (3) 클라 self-broadcast `heatmap_update` 제거 — S05a Edge Function 책임 (Realtime broadcast skip unskip), (4) NicknameForm useEffect `onComplete` deps → useRef 무한 루프 risk fix, (5) Cross-day sweep spec 확정 (RN `applySweepToRecord` 사각형 영역 정합)
   - **Playwright E2E 셋업**: `web-guest/playwright/guest_flow.spec.ts` — TEST_PLAN.md §3.5 base spec
 - **Files**: `web-guest/` (monorepo subdir, 별도 npm project + jest + tsconfig + tailwind v4)
 - **Worktree 분기**: 완전 독립 (별도 codebase)
-- **Notes**: S14-utils ship 2026-05-26 — lib 영역 RN cross-platform spec 정합 확보. 컴포넌트 미사용 (caller 0)이므로 production page 동작 영향 0. 후속 sub-task에서 컴포넌트 wire-up + 시각 회귀 테스트 보강
+- **Notes**: S14-utils + S14-test-augment ship 2026-05-26 — lib 영역 RN cross-platform spec 정합 확보 + GuestTimeGrid.test 안전망 확보 (Jest 83 = 69 passed + 14 skipped 의도). 컴포넌트 미사용 (caller 0)이므로 production page 동작 영향 0. S14-violations-fix가 caller 0 해소 + drift skip 4 그룹 unskip 사이클
 
 ### S15 — 자체 deferred deep link (게스트→회원 전환) — D28
 

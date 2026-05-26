@@ -42,6 +42,32 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S14-test-augment — GuestTimeGrid.test 보강 (S14-violations-fix 안전망) (2026-05-26) — DONE (S14 partial 진척)
+- Depends: S14-utils (lib heatmap/time/voteKey ship 2026-05-26), S14 skeleton (`web-guest/components/GuestTimeGrid.tsx`), [D10](DECISIONS.md#d10--히트맵-5단계-색-램프-heat-0--중립-그레이) (5-stop spec), [D11](DECISIONS.md#d11--realtime-히트맵--edge-function-합산-후-broadcast-옵션-b) (broadcast 책임 분리), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc) (KST 강제), [D23](DECISIONS.md#d23--web-guest-page--nextjs-별도-codebase) (RN과 spec share)
+- Changes:
+  - `web-guest/tests/GuestTimeGrid.test.tsx` (+253 lines / 기존 58 line 전면 재작성) — 4 그룹 안전 spec + 4 그룹 spec drift skip
+    - **Render (7 케이스 green)**: 헤더 M/D 포맷(앞 0 제거 — `1/9`/`12/31`) · 기존 `5/24`/`5/25` · 시간 라벨 09:00/12:00/24:00 · cell 총 개수 `60 × dates.length` · 첫·마지막 슬롯 data-minute(540/1425) · 범위 밖 슬롯(525/1440) 미렌더 · legend "비어있음"/"가득참"
+    - **Cell toggle (3 케이스 green)**: 기존 mousedown→border-brand-500 · 재mousedown→deselect · mouseup 후 dragMode reset 검증
+    - **Drag sweep (4 케이스 green)**: mousedown→mouseEnter 연쇄 다중 select · initialVotes로 선택된 cell에서 시작→deselect 모드 다중 deselect · mouseup 후 mouseEnter 무시 · 다른 guest_token votes는 본인 selection 미인식
+    - **drift skip (4 그룹 14 케이스)** — S14-violations-fix 후 unskip + 주석 unskip 조건 명시:
+      - Heatmap 색 (D10): 현재 ratio(0.99/0.75/0.50) → 목표 quartile(q1/q2/q3) drift. 7명 모임 count=2 예시 (ratio=0.286=heat-1 vs quartile q1=1.75=heat-2)
+      - KST 요일 (D13): 현재 `new Date(dateStr).getDay()` UTC 의존 → 목표 `lib/time.dayOfWeekKst` luxon Asia/Seoul
+      - Cross-day sweep: 현재 자동 cross 동작 → 목표 RN `applySweepToRecord` 사각형 영역 spec과 정합
+      - Realtime broadcast (D11): 현재 클라 self-broadcast → 목표 Edge Function 책임 분리 + 클라는 listen만
+  - **mock supabase 보강** — `channel().send`/`from().eq` chain 추가 (debouncedCommit 100ms 후 timer 발화 시 unhandled mock error 회피, `from().select.mockReturnThis()`로 builder chain 정합)
+- Tests: web-guest jest **83 total (69 passed + 14 skipped 의도)**. typecheck 0, lint 0
+- Next:
+  - **S14-violations-fix**: (1) `dayOfWeek(new Date)` → `dayOfWeekKst` (`describe.skip('KST 요일')` unskip), (2) `getHeatClass` ratio inline → `classifyHeat` quartile (`describe.skip('Heatmap 색')` unskip + 임계값 갱신), (3) client `channel.send({event:'heatmap_update'})` 제거 (`describe.skip('Realtime broadcast')` unskip), (4) NicknameForm `useEffect` `onComplete` deps → `useRef` 무한 루프 risk fix. Cross-day sweep은 spec 확정 후 unskip
+  - **Playwright E2E 셋업**: TEST_PLAN.md §3.5 base spec (`web-guest/playwright/guest_flow.spec.ts`) — S14 acceptance "투표 완료 → CTA" user flow 회귀 안전망
+- Notes:
+  - **drift skip 패턴 정당화** — TDD red→green 정통이 아닌 "현 spec 굳히기 + 위반은 의도적 skip"으로 분리. 본 ship에서 violations fix를 한 묶음으로 가지 않은 이유는: GuestTimeGrid는 production page caller이라 시각 회귀 risk(특히 heat ramp 임계값 변경)가 있고, 안전망 0 상태에서 refactor하면 사용자 측 회귀 발견 가능성. 본 ship 후 S14-violations-fix는 unskip 사이클로 정통 red→green 진행
+  - **mock supabase 보강 필요했음** — debouncedCommit이 100ms 후 `supabase.channel(...).send({...})` 호출. 기존 mock에 send 누락 → drag sweep test에서 unhandled async error 가능성. send를 `mockResolvedValue({})`로 추가. from().select/eq도 builder chain mockReturnThis로 정합 (테스트 시점에는 호출 안 되나 미래 fetchData test 대비)
+  - **lib utils caller 0 유지** — 본 보강은 컴포넌트 wire-up 전이라 `lib/heatmap.classifyHeat` / `lib/time.dayOfWeekKst` / `lib/voteKey` 모두 미사용. S14-violations-fix가 caller 0 해소
+  - **GuestTimeGrid 코드 변경 0** — 본 ship은 test만 작성/재구성. production 동작 영향 0
+  - **위치 변경** — 기존 test 파일은 `web-guest/tests/GuestTimeGrid.test.tsx`. 본 ship은 같은 위치 유지 (skeleton 시점 결정 따름)
+
+---
+
 ## S14-utils — web-guest 순수 유틸 TDD 도입 + RN spec mirror (2026-05-26) — DONE (S14 partial 진척)
 - Depends: S14 skeleton (Next.js + Supabase + RPC + RLS 백필), S05 RN 헬퍼([D10](DECISIONS.md#d10--히트맵-5단계-색-램프-heat-0--중립-그레이) classify spec source), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc) (KST 강제), [D14](DECISIONS.md#d14--시간-슬롯-단위-15분--db-check) (15분 슬롯), [D23](DECISIONS.md#d23--web-guest-page--nextjs-별도-codebase) (web-guest 별도 codebase + RN과 spec share)
 - Branch: main 직접 (skeleton 백필 다음 단계, worktree 미필요 — file 충돌 0)
