@@ -7,12 +7,15 @@
 //   4. decideGroupPushOutcome으로 DB UPDATE 의사결정 (순수)
 //   5. 모두 성공 → calendar_pushed_at SET. 일부 실패 → partial_fail_list append + retry_count++
 //
-// ⚠️ 본 sub-task(S06-worker-integration)는 외부 push를 stub으로 처리:
-//   pushToMemberCalendar 가 CalendarPushUnimplementedError throw.
-//   → 모든 멤버 outcomes = { reason: 'UNIMPLEMENTED' }로 분류되어 retry_count 누적이 검증됨.
-//   다음 sub-task(S06-google-oauth + S06-apple-expo-calendar)에서 실 구현으로 교체.
+// S06-worker-google-integration (2026-05-26 본 sub-task):
+//   - pushToMemberCalendar는 users.calendar_preference 분기 처리:
+//     · 'google' / 'both' → _lib/google_calendar.ts로 events.insert (D35: user_oauth_tokens SELECT/UPDATE)
+//     · 'apple_ios' → silent ok (S06-worker-apple-trigger에서 calendar_push_apple_pending INSERT로 교체 — D34)
+//     · 'none' / NULL → silent ok (사용자가 캘린더 거부 또는 첫 모달 미진행)
+//   - Google 에러 → partial_fail_list reason: 'no_token' / 'token_expired' / 'unauthorized' / 'rate_limit' / 'network' / 'unknown'
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
+import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import { getServiceRoleClient } from '../_lib/supabase.ts';
 import { errorResponse, handlePreflight, jsonResponse } from '../_lib/http.ts';
@@ -28,37 +31,213 @@ import {
   type PartialFailEntry,
   selectPendingFromRows,
 } from '../_lib/calendar_queue.ts';
+import {
+  buildGoogleEventBody,
+  GoogleApiError,
+  insertCalendarEvent,
+  isAccessTokenExpired,
+  refreshAccessToken,
+} from '../_lib/google_calendar.ts';
 
 const QUEUE_BATCH_SIZE = 50;
+const GOOGLE_PROVIDER = 'google_calendar';
 
 const PENDING_SELECT_COLUMNS =
   'id, name, host_id, confirmed_at, confirmed_start_at, confirmed_end_at, calendar_pushed_at, calendar_retry_count, partial_fail_list';
 
 // ---------------------------------------------------------------------------
-// Stub push — S06-google-oauth + S06-apple-expo-calendar에서 실 구현으로 교체
+// Push reason codes — partial_fail_list reason 값 (운영 통계 + 호스트 알림 분기 시 사용)
 // ---------------------------------------------------------------------------
 
-export class CalendarPushUnimplementedError extends Error {
-  constructor(public memberId: string) {
-    super(`pushToMemberCalendar UNIMPLEMENTED for member ${memberId}`);
-    this.name = 'CalendarPushUnimplementedError';
+export const PUSH_FAIL_REASONS = {
+  noToken: 'no_token',
+  tokenExpired: 'token_expired',
+  unauthorized: 'unauthorized',
+  rateLimit: 'rate_limit',
+  network: 'network',
+  unknown: 'unknown',
+} as const;
+
+// ---------------------------------------------------------------------------
+// Push context — defaultPushToMember가 사용할 의존성 묶음 (DI)
+// ---------------------------------------------------------------------------
+
+export interface PushContext {
+  service: SupabaseClient;
+  fetch: typeof globalThis.fetch;
+  googleClientId: string;
+  googleClientSecret: string;
+  /** Token 만료 비교 + 새 만료 시각 계산용 unix ms. */
+  nowMs: () => number;
+}
+
+/**
+ * 멤버 캘린더 push — calendar_preference 분기.
+ * 본 sub-task(S06-worker-google-integration): Google 분기만 실 구현.
+ * Apple/none은 silent ok (다음 sub-task S06-worker-apple-trigger에서 apple_pending INSERT 추가).
+ */
+export async function pushToMemberCalendar(
+  ctx: PushContext,
+  memberId: string,
+  payload: CalendarEventPayload,
+): Promise<void> {
+  const pref = await fetchCalendarPreference(ctx.service, memberId);
+
+  if (pref === null || pref === 'none') {
+    // 사용자가 캘린더 거부 또는 첫 모달 미진행 — F5 시간 확정 알림만으로 충분
+    return;
+  }
+
+  if (pref === 'apple_ios') {
+    // S06-worker-apple-trigger에서 calendar_push_apple_pending row INSERT로 교체 (D34)
+    return;
+  }
+
+  // 'google' or 'both' → Google API events.insert
+  await pushGoogleForUser(ctx, memberId, payload);
+}
+
+async function fetchCalendarPreference(
+  service: SupabaseClient,
+  userId: string,
+): Promise<string | null> {
+  const { data, error } = await service
+    .from('users')
+    .select('calendar_preference')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`calendar_preference SELECT 실패 (user=${userId}): ${error.message}`);
+  }
+  const pref = (data as { calendar_preference?: string | null } | null)?.calendar_preference;
+  return pref ?? null;
+}
+
+interface GoogleTokenRow {
+  access_token: string;
+  refresh_token: string;
+  expires_at: string;
+  scope: string;
+}
+
+async function pushGoogleForUser(
+  ctx: PushContext,
+  userId: string,
+  payload: CalendarEventPayload,
+): Promise<void> {
+  // 1) user_oauth_tokens SELECT
+  const { data: tokenData, error: tokenError } = await ctx.service
+    .from('user_oauth_tokens')
+    .select('access_token, refresh_token, expires_at, scope')
+    .eq('user_id', userId)
+    .eq('provider', GOOGLE_PROVIDER)
+    .maybeSingle();
+
+  if (tokenError) {
+    throw new Error(
+      `user_oauth_tokens SELECT 실패 (user=${userId}): ${tokenError.message}`,
+    );
+  }
+  if (!tokenData) {
+    // 사용자가 'google'/'both' 선호지만 OAuth 미진행 — 재인증 모달 trigger 후보
+    throw memberFailureReason(PUSH_FAIL_REASONS.noToken);
+  }
+
+  let { access_token, refresh_token, expires_at } = tokenData as GoogleTokenRow;
+
+  // 2) 만료 검사 + refresh
+  if (isAccessTokenExpired(expires_at, ctx.nowMs())) {
+    try {
+      const refreshed = await refreshAccessToken({
+        clientId: ctx.googleClientId,
+        clientSecret: ctx.googleClientSecret,
+        refreshToken: refresh_token,
+        fetch: ctx.fetch,
+      });
+      access_token = refreshed.accessToken;
+      const newExpiresAt = new Date(
+        ctx.nowMs() + refreshed.expiresInSeconds * 1000,
+      ).toISOString();
+      const nextRefreshToken = refreshed.refreshToken ?? refresh_token;
+
+      const { error: updErr } = await ctx.service
+        .from('user_oauth_tokens')
+        .update({
+          access_token,
+          refresh_token: nextRefreshToken,
+          expires_at: newExpiresAt,
+        })
+        .eq('user_id', userId)
+        .eq('provider', GOOGLE_PROVIDER);
+      if (updErr) {
+        console.error(
+          `user_oauth_tokens UPDATE 실패 (user=${userId}): ${updErr.message}`,
+        );
+      }
+    } catch (error) {
+      if (error instanceof GoogleApiError) {
+        if (error.detail.kind === 'token_expired') {
+          // refresh_token 만료/revoke → row 삭제 → 사용자 재인증 필요 (모달 trigger)
+          await deleteGoogleToken(ctx.service, userId);
+          throw memberFailureReason(PUSH_FAIL_REASONS.tokenExpired);
+        }
+        if (error.detail.kind === 'network') {
+          throw memberFailureReason(PUSH_FAIL_REASONS.network);
+        }
+        throw memberFailureReason(PUSH_FAIL_REASONS.unknown);
+      }
+      throw error;
+    }
+  }
+
+  // 3) events.insert
+  const body = buildGoogleEventBody(payload);
+  try {
+    await insertCalendarEvent({
+      accessToken: access_token,
+      body,
+      fetch: ctx.fetch,
+    });
+  } catch (error) {
+    if (error instanceof GoogleApiError) {
+      if (error.detail.kind === 'unauthorized') {
+        // access_token revoke됨 — 다음 retry에서 refresh 시도 가능하지만 본 회는 fail
+        throw memberFailureReason(PUSH_FAIL_REASONS.unauthorized);
+      }
+      if (error.detail.kind === 'rate_limit') {
+        throw memberFailureReason(PUSH_FAIL_REASONS.rateLimit);
+      }
+      if (error.detail.kind === 'network') {
+        throw memberFailureReason(PUSH_FAIL_REASONS.network);
+      }
+      throw memberFailureReason(PUSH_FAIL_REASONS.unknown);
+    }
+    throw error;
+  }
+}
+
+async function deleteGoogleToken(
+  service: SupabaseClient,
+  userId: string,
+): Promise<void> {
+  const { error } = await service
+    .from('user_oauth_tokens')
+    .delete()
+    .eq('user_id', userId)
+    .eq('provider', GOOGLE_PROVIDER);
+  if (error) {
+    console.error(
+      `user_oauth_tokens DELETE 실패 (user=${userId}): ${error.message}`,
+    );
   }
 }
 
 /**
- * 본 sub-task의 stub. throws CalendarPushUnimplementedError.
- * 다음 sub-task에서:
- *   - users.calendar_preference 조회 ('google' | 'apple_ios' | 'both' | null)
- *   - Google: OAuth token + events.insert
- *   - Apple: 클라이언트 측 expo-calendar (worker가 push 못함 → 별도 mechanism 필요)
- *     → Apple은 client-side만 가능. worker는 Google + push notification(F5와 별도) 패턴 검토.
+ * Promise.allSettled reason으로 잡힐 Error 인스턴스 — message가 reason code.
+ * decideGroupPushOutcome가 result.reason으로 추출 → partial_fail_list에 누적.
  */
-export async function pushToMemberCalendar(
-  memberId: string,
-  _payload: CalendarEventPayload,
-): Promise<void> {
-  // S06-worker-integration: 모두 fail로 분류되어 retry_count 누적 검증
-  throw new CalendarPushUnimplementedError(memberId);
+function memberFailureReason(reason: string): Error {
+  return new Error(reason);
 }
 
 // ---------------------------------------------------------------------------
@@ -74,19 +253,46 @@ export interface WorkerSummary {
 }
 
 export interface ProcessQueueDeps {
-  service: ReturnType<typeof getServiceRoleClient>;
+  service: SupabaseClient;
+  /**
+   * 멤버별 push 함수 (DI). 기본은 본 모듈의 pushToMemberCalendar(google_calendar 통합).
+   * 테스트 또는 dry-run 시 override 가능.
+   */
   push?: (memberId: string, payload: CalendarEventPayload) => Promise<void>;
+  /** Google API fetch DI. default = globalThis.fetch. */
+  fetch?: typeof globalThis.fetch;
+  /** 본 worker 호출 시점의 KST ISO. default = nowKst().toISO(). */
   occurredAtKstIso?: string;
   batchSize?: number;
+  /** Google OAuth client id (Supabase secret env GOOGLE_CLIENT_ID). */
+  googleClientId?: string;
+  /** Google OAuth client secret (Supabase secret env GOOGLE_CLIENT_SECRET). */
+  googleClientSecret?: string;
+  /** Token 만료 비교용 unix ms. default = Date.now. */
+  nowMs?: () => number;
 }
 
 export async function processCalendarPushQueue(
   deps: ProcessQueueDeps,
 ): Promise<WorkerSummary> {
   const service = deps.service;
-  const push = deps.push ?? pushToMemberCalendar;
+  const fetchFn = deps.fetch ?? globalThis.fetch.bind(globalThis);
   const occurredAtKstIso = deps.occurredAtKstIso ?? (nowKst().toISO() ?? '');
   const batchSize = deps.batchSize ?? QUEUE_BATCH_SIZE;
+  const googleClientId = deps.googleClientId ?? Deno.env.get('GOOGLE_CLIENT_ID') ?? '';
+  const googleClientSecret =
+    deps.googleClientSecret ?? Deno.env.get('GOOGLE_CLIENT_SECRET') ?? '';
+  const nowMs = deps.nowMs ?? (() => Date.now());
+
+  const ctx: PushContext = {
+    service,
+    fetch: fetchFn,
+    googleClientId,
+    googleClientSecret,
+    nowMs,
+  };
+  const push =
+    deps.push ?? ((memberId, payload) => pushToMemberCalendar(ctx, memberId, payload));
 
   const summary: WorkerSummary = {
     scanned: 0,
@@ -138,7 +344,7 @@ export async function processCalendarPushQueue(
 }
 
 interface ProcessOneArgs {
-  service: ReturnType<typeof getServiceRoleClient>;
+  service: SupabaseClient;
   group: CalendarQueueGroup;
   push: (memberId: string, payload: CalendarEventPayload) => Promise<void>;
   occurredAtKstIso: string;

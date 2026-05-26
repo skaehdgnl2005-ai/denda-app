@@ -823,6 +823,36 @@ const BranchAttribution = lazy(() => import('@/lib/branch/attribution'));
 
 ---
 
+## D34 — Apple Calendar sync = 클라 polling 패턴 (Q-B22 close)
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | Apple Calendar(`apple_ios` 또는 `both`) push는 worker가 직접 외부 API 호출 불가(`expo-calendar`는 클라이언트 권한) → worker가 `apple_pending` table에 row INSERT만 하고, 클라이언트가 foreground 진입 시 SELECT → `AppleCalendarProvider.insertEvent` 호출 → row UPDATE `completed_at`. partial_fail_list와 의미 분리(`pending ≠ failure`)를 위해 **별도 table** (`calendar_push_apple_pending`: `id`, `group_id`, `user_id`, `payload JSONB`, `created_at`, `completed_at`). 24시간 미완료 row는 호스트 알림 trigger 후보. |
+| 근거 | (1) iOS silent push는 3/hour throttle + Android 호환성 부족 + ack endpoint 추가 복잡 → 자동성 가치보다 risk 큼. (2) F5 시간 확정 알림이 이미 사용자를 앱으로 유도 → 클라 polling이 자연 흐름. (3) 베타 N≤7 fan-out 작아 인프라 단순성 가치 ↑. (4) Realtime broadcast는 백그라운드 socket 끊김 + missed message 복구 안 됨 → 거부. (5) partial_fail_list channel='apple_pending' 재사용 vs 별도 table: pending은 "실패 누적" 의미와 다르고 lookup pattern(user_id 기준 SELECT)도 다름 → 별도 table 분리가 명료. |
+| 대안 | (a) Silent push notification — 거부 (위 (1) 근거). (c) Realtime broadcast — 거부 (위 (4) 근거). (b-mixed) partial_fail_list channel='apple_pending' 재사용 — 거부: pending은 실패 누적과 의미 다르며 lookup pattern 다름. |
+| 소유자 | Backend + Mobile (Founder approval) |
+| 결정일 | 2026-05-26 |
+| 의존 | [Q-B22](OPEN_QUESTIONS.md#q-b22--apple-calendar-sync-mechanism-worker--client-trigger-패턴) closed by D34. [D19](#d19--calendar-sync-단방향-부분-실패-명시) (partial fail report), [D20](#d20--calendar-push-fan-out--background-queue) (background queue), [D15](#d15--schedulessource-enum--phase-12은-provider-구분-포기) (apple_ios bucket) |
+| 결과 영향 | (1) `supabase/migrations/0013_calendar_push_apple_pending.sql` 신규 (table + RLS 본인만 SELECT/UPDATE). (2) `calendar_push_worker.pushToMemberCalendar`이 `users.calendar_preference` SELECT → 'apple_ios'/'both' → `calendar_push_apple_pending` INSERT(별도 sub-task S06-worker-apple-trigger). (3) 클라 hook `src/lib/calendar/useApplePendingSync.ts` 신규 — app foreground 진입 시 SELECT → `AppleCalendarProvider.insertEvent` → `completed_at` UPDATE. (4) S06 acceptance "expo-calendar wrapper" 충족 + 24h 미완료 stale row 호스트 알림은 별도 worker 또는 pg_cron job. |
+| 출처 | 본 세션 (2026-05-26) — S06-worker-google-integration 시작 전 Q-B22 closure 필요 |
+
+---
+
+## D35 — Google Calendar OAuth token 서버 측 저장 = user_oauth_tokens table
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | Google Calendar용 OAuth token은 `user_oauth_tokens` 신규 table에 저장: `user_id UUID`, `provider TEXT`(예: `'google_calendar'`), `access_token TEXT`, `refresh_token TEXT`, `expires_at TIMESTAMPTZ`, `scope TEXT`, `created_at`, `updated_at`. 클라이언트가 OAuth flow 완료 후 supabase RPC `upsert_user_oauth_tokens`로 업로드. worker(`calendar_push_worker`)는 service_role로 SELECT → `access_token` 만료 시 `refresh_token`으로 갱신 → `events.insert` 호출. RLS: 본인 행 SELECT/UPDATE/DELETE만 허용, INSERT/UPSERT는 RPC를 통해 (RPC가 user identity 검증). Encrypt-at-rest는 Phase 3에서 Supabase Vault로 격상(베타는 row-level RLS로 1차 격리). |
+| 근거 | (1) Worker가 서버 측에서 events.insert 호출하려면 refresh_token 서버 접근 필요. (2) Supabase Auth `auth.identities`는 Kakao OIDC가 이미 사용 — Google Calendar OAuth를 linkIdentity로 추가하면 auth flow 의미 혼란(Google로 로그인 가능한 것처럼 보임) + auth.identities는 OAuth user 매칭 의도이지 외부 API token storage 의도가 아님. (3) Service account + 도메인 위임은 Google Workspace 도메인 한정 → 베타 일반 Google 계정 안 맞음. (4) `user_oauth_tokens` table은 단순 schema로 future Apple Sign-in(혹시 token 저장 필요해질 경우)·기타 OAuth provider에 자연 확장. (5) 베타 N≤7 fan-out 작아 encrypt overhead 미미하지만, refresh_token은 민감 — RLS + service_role-only SELECT 2중 격리. |
+| 대안 | (a) `auth.identities` 활용 — 거부 (위 (2) 근거). (b) Service account + 도메인 위임 — 거부 (위 (3) 근거). (d) refresh_token 클라이언트 only + worker가 클라 호출 — 거부: D20 background queue 본 의도(즉시 응답 + 비동기 worker)를 깸. |
+| 소유자 | Backend (Founder approval) |
+| 결정일 | 2026-05-26 |
+| 의존 | [D19](#d19--calendar-sync-단방향-부분-실패-명시) (단방향 + token 만료 명시), [D20](#d20--calendar-push-fan-out--background-queue) (worker가 events.insert 호출), [D29](#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede) (Kakao OIDC는 `auth.identities` 단독 사용 — Google은 별도 storage) |
+| 결과 영향 | (1) `supabase/migrations/0012_user_oauth_tokens.sql` 신규: table + RLS + `upsert_user_oauth_tokens(p_provider, p_access_token, p_refresh_token, p_expires_at, p_scope)` RPC. (2) `supabase/functions/_lib/google_calendar.ts` 신규: server-side `refreshAccessToken` + `insertCalendarEvent` 순수 함수(Deno fetch 기반). (3) `src/lib/calendar/google.ts` 클라이언트에 OAuth 완료 후 token 서버 업로드 wrapper 추가는 별도 sub-task(S06-setup) — 본 sub-task는 server-side path만. (4) `calendar_push_worker.pushToMemberCalendar`이 `users.calendar_preference` + `user_oauth_tokens` SELECT → 분기 처리. (5) Token 갱신: `expires_at` 임박 또는 401 응답 시 `refresh_token`으로 POST `oauth2.googleapis.com/token` → `access_token` + 새 `expires_at` UPDATE. refresh_token 회전 시(응답에 새 refresh_token 포함) 함께 UPDATE. (6) refresh_token 만료(401 with `invalid_grant`) → D19 token 만료 path: `partial_fail_list`에 `reason='token_expired'` 마킹 → 호스트 알림 + 사용자 재인증 모달(S06-ui-reauth-modal) trigger. |
+| 출처 | 본 세션 (2026-05-26) — S06-worker-google-integration prereq. worker가 events.insert 호출 위해 server-side token storage 결정 필요 |
+
+---
+
 ## 향후 결정 추가 템플릿
 
 새 결정을 추가할 때 다음 형식을 복사:
