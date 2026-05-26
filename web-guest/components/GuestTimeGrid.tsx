@@ -45,6 +45,11 @@ export default function GuestTimeGrid({
 
   const gridRef = useRef<HTMLDivElement>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Drag baseline + 시작 cell — RN `useSweepGesture` + `applySweepToRecord` 정합 (D12 + D23).
+  // 사각형 sweep은 시작/종료 cell의 (col, row) 범위 모두 select/deselect → 경로 모드와 달리
+  // mousedown D1:540 → mouseEnter D2:555 시 hover 안 한 D1:555·D2:540도 함께 toggle.
+  const sweepBaselineRef = useRef<{ [key: string]: boolean }>({});
+  const sweepStartRef = useRef<{ day: string; minute: number } | null>(null);
 
   // Parse initial votes to populate guest's selection state.
   // S14-violations-fix: `setVotes(initialVotes)`은 prop→state sync로 set-state-in-effect 회피가
@@ -184,22 +189,49 @@ export default function GuestTimeGrid({
     };
   };
 
-  const handleCellAction = (key: string, forceMode?: 'select' | 'deselect') => {
-    const isSelected = selectedSlots[key];
-    const mode = forceMode || (isSelected ? 'deselect' : 'select');
+  // 사각형 sweep — RN `applySweepToRecord` 정합. baseline + 시작 cell 기준 사각형 영역의
+  // 모든 cell을 mark 값으로 덮어쓴다. dates index = col, start_minute = row.
+  const applyRectangleSweep = (
+    endDay: string,
+    endMinute: number,
+    mode: 'select' | 'deselect',
+  ) => {
+    const start = sweepStartRef.current;
+    if (!start) return;
 
-    setSelectedSlots((prev) => {
-      const updated = { ...prev };
-      if (mode === 'select') {
-        updated[key] = true;
-      } else {
-        delete updated[key];
+    const startCol = dates.indexOf(start.day);
+    const endCol = dates.indexOf(endDay);
+    if (startCol < 0 || endCol < 0) return;
+
+    const colMin = Math.min(startCol, endCol);
+    const colMax = Math.max(startCol, endCol);
+    const minMin = Math.min(start.minute, endMinute);
+    const minMax = Math.max(start.minute, endMinute);
+
+    const updated: { [key: string]: boolean } = { ...sweepBaselineRef.current };
+    const mark = mode === 'select';
+    for (let col = colMin; col <= colMax; col++) {
+      const day = dates[col];
+      if (!day) continue;
+      for (let m = minMin; m <= minMax; m += SLOT_SIZE) {
+        const key = voteKey({ day, start_minute: m });
+        if (mark) updated[key] = true;
+        else delete updated[key];
       }
-      debouncedCommit(updated);
-      return updated;
-    });
+    }
+    setSelectedSlots(updated);
+    debouncedCommit(updated);
+  };
 
-    return mode;
+  const beginSweep = (day: string, minute: number) => {
+    const key = voteKey({ day, start_minute: minute });
+    const isSelected = selectedSlots[key];
+    const mode: 'select' | 'deselect' = isSelected ? 'deselect' : 'select';
+    sweepBaselineRef.current = { ...selectedSlots };
+    sweepStartRef.current = { day, minute };
+    setIsDragging(true);
+    setDragMode(mode);
+    applyRectangleSweep(day, minute, mode);
   };
 
   // Touch handlers (Mobile/Tablet)
@@ -209,10 +241,7 @@ export default function GuestTimeGrid({
     if (!touch) return;
     const slot = getSlotFromCoords(touch.clientX, touch.clientY);
     if (!slot) return;
-
-    setIsDragging(true);
-    const mode = handleCellAction(slot.key);
-    setDragMode(mode);
+    beginSweep(slot.day, slot.minute);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -221,32 +250,29 @@ export default function GuestTimeGrid({
     if (!touch) return;
     const slot = getSlotFromCoords(touch.clientX, touch.clientY);
     if (!slot) return;
-
-    handleCellAction(slot.key, dragMode);
+    applyRectangleSweep(slot.day, slot.minute, dragMode);
   };
 
   const handleTouchEnd = () => {
     setIsDragging(false);
     setDragMode(null);
+    sweepStartRef.current = null;
   };
 
   // Mouse handlers (Desktop fallback/previews)
   const handleMouseDown = (day: string, minute: number) => {
-    const key = voteKey({ day, start_minute: minute });
-    setIsDragging(true);
-    const mode = handleCellAction(key);
-    setDragMode(mode);
+    beginSweep(day, minute);
   };
 
   const handleMouseEnterCell = (day: string, minute: number) => {
     if (!isDragging || !dragMode) return;
-    const key = voteKey({ day, start_minute: minute });
-    handleCellAction(key, dragMode);
+    applyRectangleSweep(day, minute, dragMode);
   };
 
   const handleMouseUp = () => {
     setIsDragging(false);
     setDragMode(null);
+    sweepStartRef.current = null;
   };
 
   // Clean timeouts on unmount

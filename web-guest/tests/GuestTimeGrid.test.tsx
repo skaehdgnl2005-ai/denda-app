@@ -351,21 +351,123 @@ describe('GuestTimeGrid', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // 잔여 spec drift skip — 본 ship 외 범위. 별도 sub-task 필요.
+  // Cross-day sweep — RN `applySweepToRecord` 사각형 spec 채택 (D23 cross-platform 정합)
   // ---------------------------------------------------------------------------
 
-  describe.skip('Cross-day sweep — RN 사각형 spec 채택 결정 필요 (별도 sub-task)', () => {
-    // 현재 `handleMouseEnterCell`은 mouse가 지난 경로 cell만 toggle (사각형 영역 미구현).
-    // RN `applySweepToRecord`는 사각형 영역 (rowMin~rowMax, colMin~colMax).
-    // UX 의도(경로 vs 사각형) 결정이 별도 — 결정 후 unskip + spec 정합.
-    test('mousedown D1 540 → mouseEnter D2 540 → 두 셀 모두 select (경로)', () => { /* placeholder */ });
-    test('mousedown D1 540 → mouseEnter D2 555 → 사각형 4셀 (RN spec)', () => { /* placeholder */ });
-  });
+  describe('Cross-day sweep (RN applySweepToRecord 사각형 spec)', () => {
+    test('같은 minute 다른 day — mousedown D1:540 → mouseEnter D2:540 → 두 셀 모두 select', () => {
+      const { container } = render(<GuestTimeGrid {...baseProps} />);
+      const cellD1 = container.querySelector(
+        '[data-day="2026-05-24"][data-minute="540"]',
+      ) as HTMLElement;
+      const cellD2 = container.querySelector(
+        '[data-day="2026-05-25"][data-minute="540"]',
+      ) as HTMLElement;
 
-  describe.skip('Realtime broadcast listen (D11 수신 path) — S05a payload 확정 후 unskip', () => {
-    // self-broadcast send 코드는 S14-violations-fix(2026-05-26)에서 제거 완료 (D11 책임 분리).
-    // broadcast `heatmap_update` 수신 시 votes 상태 refresh 검증은 S05a Edge Function payload spec
-    // (D11 day_index 포함) 확정 후 별도 sub-task (mock channel.on 콜백 trigger + fetch chain mock).
-    test('broadcast `heatmap_update` 수신 시 votes 상태 refresh', () => { /* placeholder */ });
+      fireEvent.mouseDown(cellD1);
+      fireEvent.mouseEnter(cellD2);
+
+      expect(cellD1).toHaveClass('border-brand-500');
+      expect(cellD2).toHaveClass('border-brand-500');
+    });
+
+    test('다른 day + 다른 minute — D1:540 → D2:555 사각형 4셀 모두 select (hover 안 한 D1:555·D2:540 포함)', () => {
+      const { container } = render(<GuestTimeGrid {...baseProps} />);
+      const d1m540 = container.querySelector(
+        '[data-day="2026-05-24"][data-minute="540"]',
+      ) as HTMLElement;
+      const d1m555 = container.querySelector(
+        '[data-day="2026-05-24"][data-minute="555"]',
+      ) as HTMLElement;
+      const d2m540 = container.querySelector(
+        '[data-day="2026-05-25"][data-minute="540"]',
+      ) as HTMLElement;
+      const d2m555 = container.querySelector(
+        '[data-day="2026-05-25"][data-minute="555"]',
+      ) as HTMLElement;
+
+      fireEvent.mouseDown(d1m540);
+      fireEvent.mouseEnter(d2m555);
+
+      // 사각형: col[D1, D2] × row[540, 555] = 4셀 모두 select
+      expect(d1m540).toHaveClass('border-brand-500');
+      expect(d1m555).toHaveClass('border-brand-500');
+      expect(d2m540).toHaveClass('border-brand-500');
+      expect(d2m555).toHaveClass('border-brand-500');
+    });
+
+    test('역방향 sweep — D2:555 → D1:540 도 동일한 사각형 4셀', () => {
+      const { container } = render(<GuestTimeGrid {...baseProps} />);
+      const d1m540 = container.querySelector(
+        '[data-day="2026-05-24"][data-minute="540"]',
+      ) as HTMLElement;
+      const d1m555 = container.querySelector(
+        '[data-day="2026-05-24"][data-minute="555"]',
+      ) as HTMLElement;
+      const d2m540 = container.querySelector(
+        '[data-day="2026-05-25"][data-minute="540"]',
+      ) as HTMLElement;
+      const d2m555 = container.querySelector(
+        '[data-day="2026-05-25"][data-minute="555"]',
+      ) as HTMLElement;
+
+      fireEvent.mouseDown(d2m555);
+      fireEvent.mouseEnter(d1m540);
+
+      expect(d1m540).toHaveClass('border-brand-500');
+      expect(d1m555).toHaveClass('border-brand-500');
+      expect(d2m540).toHaveClass('border-brand-500');
+      expect(d2m555).toHaveClass('border-brand-500');
+    });
+
+    test('mouseEnter mid-drag 후 다른 종점으로 이동 → baseline 기준 새 사각형 (이전 영역 자동 deselect)', () => {
+      const { container } = render(<GuestTimeGrid {...baseProps} />);
+      const d1m540 = container.querySelector(
+        '[data-day="2026-05-24"][data-minute="540"]',
+      ) as HTMLElement;
+      const d1m555 = container.querySelector(
+        '[data-day="2026-05-24"][data-minute="555"]',
+      ) as HTMLElement;
+      const d2m540 = container.querySelector(
+        '[data-day="2026-05-25"][data-minute="540"]',
+      ) as HTMLElement;
+
+      fireEvent.mouseDown(d1m540);
+      // 일단 D2:540으로 확장 → 사각형 [D1, D2] × [540] = 2셀
+      fireEvent.mouseEnter(d2m540);
+      expect(d1m540).toHaveClass('border-brand-500');
+      expect(d2m540).toHaveClass('border-brand-500');
+
+      // 종점을 D1:555로 되돌림 → baseline 기준 새 사각형 [D1] × [540, 555] = 2셀
+      // D2:540은 baseline에 없었으므로 deselect 되어야 함 (사각형 spec의 핵심)
+      fireEvent.mouseEnter(d1m555);
+      expect(d1m540).toHaveClass('border-brand-500');
+      expect(d1m555).toHaveClass('border-brand-500');
+      expect(d2m540).not.toHaveClass('border-brand-500');
+    });
+
+    test('cross-day deselect — initialVotes 사각형 영역 mousedown 후 종점 이동으로 전부 deselect', () => {
+      const initialVotes = [
+        { day: '2026-05-24', start_minute: 540, end_minute: 555, guest_token: 'guest-token-123', user_id: null },
+        { day: '2026-05-24', start_minute: 555, end_minute: 570, guest_token: 'guest-token-123', user_id: null },
+        { day: '2026-05-25', start_minute: 540, end_minute: 555, guest_token: 'guest-token-123', user_id: null },
+        { day: '2026-05-25', start_minute: 555, end_minute: 570, guest_token: 'guest-token-123', user_id: null },
+      ];
+      const { container } = render(<GuestTimeGrid {...baseProps} votes={initialVotes} />);
+      const d1m540 = container.querySelector(
+        '[data-day="2026-05-24"][data-minute="540"]',
+      ) as HTMLElement;
+      const d2m555 = container.querySelector(
+        '[data-day="2026-05-25"][data-minute="555"]',
+      ) as HTMLElement;
+
+      // 시작 cell이 selected → mode = 'deselect'
+      fireEvent.mouseDown(d1m540);
+      fireEvent.mouseEnter(d2m555);
+
+      // 사각형 4셀 모두 deselect
+      expect(d1m540).not.toHaveClass('border-brand-500');
+      expect(d2m555).not.toHaveClass('border-brand-500');
+    });
   });
 });

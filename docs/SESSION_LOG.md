@@ -42,6 +42,42 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S14-cross-day-sweep — RN 사각형 sweep spec 채택 + 잔여 lint 0 (2026-05-26) — DONE (S14 spec drift close)
+- Depends: S14-e2e-residual ship 2026-05-26 (commit 1e36904 — e2e 일체 0 skip 후 잔여 task 정리), [D12](DECISIONS.md#d12--60fps-시간-그리드-구현-spec) (worklet drag pattern), [D23](DECISIONS.md#d23--web-guest-page--nextjs-별도-codebase) (cross-platform spec drift 방지)
+- Branch: main 직접 (web-guest 격리)
+- Changes:
+  - **`web-guest/components/GuestTimeGrid.tsx`** — sweep 로직 사각형 spec 채택:
+    - `sweepBaselineRef` + `sweepStartRef` 도입 — drag 시작 시 selectedSlots snapshot + 시작 cell 기록
+    - `applyRectangleSweep(endDay, endMinute, mode)` 신규 — RN `src/lib/heatmap/sweep.ts::applySweepToRecord` 정합. `dates.indexOf(day)` = col, start_minute = row. baseline + 사각형 영역 모든 cell을 mark 값으로 덮어쓰기
+    - `beginSweep(day, minute)` 신규 — mouseDown/touchStart 공통 로직: baseline snapshot + start 기록 + mode 결정 + 시작 cell 즉시 sweep
+    - 기존 `handleCellAction` 제거 (single-cell toggle path는 사각형 sweep with start==end로 자연 통합)
+    - `handleMouseDown` / `handleMouseEnterCell` / `handleTouchStart` / `handleTouchMove` 모두 사각형 sweep으로 변경 — 경로 기반 토글 → baseline 기반 사각형
+    - `handleMouseUp` / `handleTouchEnd`에 `sweepStartRef.current = null` 추가
+  - **`web-guest/tests/GuestTimeGrid.test.tsx`** — Cross-day sweep describe.skip 제거 + 5 신규 test:
+    - 같은 minute 다른 day (D1:540 → D2:540)
+    - 다른 day + 다른 minute → 사각형 4셀 (D1:540 → D2:555, hover 안 한 D1:555·D2:540 포함)
+    - 역방향 sweep (D2:555 → D1:540 동일 사각형)
+    - mid-drag 종점 이동 → baseline 기준 새 사각형 (이전 영역 자동 deselect) — 사각형 spec의 핵심 동작
+    - cross-day deselect (initialVotes 사각형 영역 + 시작 cell selected → mode='deselect' → 4셀 모두 해제)
+    - 동시에 `Realtime broadcast listen` describe.skip 제거 — S14-e2e-residual의 playwright spec이 해당 path를 검증하므로 jest 영역에서 중복 placeholder 불필요
+  - **lint errors fix** (사전 존재 2건 정리):
+    - `web-guest/jest.config.js`: `require('next/jest')` next/jest CJS → eslint-disable-next-line 주석 + 사유 + 단일 require 허용
+    - `web-guest/tailwind.config.ts`: anonymous default export → `const tailwindConfig = {...}; export default tailwindConfig;` 패턴
+- Tests: web-guest **Jest 84 passed + 0 skipped + 0 failed** (기존 79+3 skip → 신규 cross-day 5 + realtime placeholder 제거. spec drift 위장 placeholder 0). Playwright **18 passed + 0 skipped + 0 failed** (사각형 sweep 도입으로 기존 spec drift 없이 모두 green). typecheck 0, lint 0 (사전 잔여까지 close)
+- Next:
+  - **S14 acceptance 완료** — TASK_BACKLOG S14 status DONE 업데이트 권고. cross-platform sweep spec drift 0 (D23 정합), e2e 일체 0 skip, jest 일체 0 skip, lint 0
+  - **잔여 S14 운영 task**: 시각 회귀(Percy/Argos), 카톡 native share intent, 본인 vote 불러오기, dev 모드 외 production binary regression — backlog 등록
+- Notes:
+  - **사각형 spec의 UX 정당화**: 사용자가 mousedown 시작 후 종점만 정확히 hover하면 됨 (직선 경로 hover 불필요). 평행 사각형 다중 슬롯 선택이 mobile + desktop 모두 자연스러움. RN쪽 `applySweepToRecord`는 D12 worklet pattern으로 60fps 보장 + 본 web-guest 정합은 mouse·touch에서 동일 결과. 사용자가 "그쪽 spec이 정식이고 따라가야" 의도였다고 해석
+  - **사각형 ⊃ 경로**: 같은 col(day) 안에서 row만 이동하면 사각형 = 경로 (동일 결과). cross-day에만 차이 발생. 기존 path-based test는 모두 통과 — 사각형이 경로의 superset
+  - **mid-drag 종점 이동 = baseline 기준 새 사각형** = 사각형 spec의 핵심 동작. 사용자가 멀리 swipe했다가 다시 돌아오면 처음 안 건드린 셀이 자동으로 해제됨. RN `applySweepToRecord` + `useSweepGesture::onUpdate`에서 매번 `applySweepToRecord(baseline.value, start, end, toggleAdd.value)`로 baseline 기반 재계산하는 패턴과 정확히 정합
+  - **mouse + touch 통합 — `beginSweep` helper**: 기존 `handleCellAction`을 single-cell + start-end same 케이스로 흡수하여 코드 path 단일화. mouseDown / touchStart 모두 `beginSweep(day, minute)` 호출만으로 동작
+  - **lint errors가 본 ship의 적정 범위인가**: jest.config.js + tailwind.config.ts 잔여는 본 ship 이전부터 존재한 사전 noise. 그러나 본 ship에서 다른 변경과 함께 정리하지 않으면 다음 commit에서도 같은 lint output 노출. 사용자가 "여기서 발견해서 만들어진 task는 여기서 다 처리" 요청 → 적정 범위로 판단
+  - **realtime describe.skip 제거 정당화**: S14-e2e-residual에서 playwright `Realtime broadcast listen path` describe로 클라 listen-and-refresh 검증 ship됨. jest 영역의 동일 placeholder는 이제 중복 — 제거가 단일 진실 원천 유지
+  - **사각형 sweep도 1회 commit + 100ms debounce 유지** — applyRectangleSweep 매 mouseEnter마다 호출되지만 debouncedCommit이 가장 마지막 selection만 RPC로 보냄 (기존 spec 그대로). 60fps에서 사각형 면적 변화 시 DB write 0회 (drag 종료 시 1회만)
+
+---
+
 ## S14-e2e-residual — Turbopack root fix + 4종 unskip + realtime broadcast spec (2026-05-26) — DONE (S14 partial 진척, e2e 일체 0 skip)
 - Depends: S14-e2e-full-fix (commit 9dea7e7 — 9 passed + 6 skipped 잔여), [D11](DECISIONS.md#d11--realtime-히트맵--edge-function-합산-후-broadcast-옵션-b) (broadcast publisher = Edge Function), Q-B21 close (broadcast payload day_index spec)
 - Branch: main 직접 (web-guest 격리)
