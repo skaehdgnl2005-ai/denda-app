@@ -56,6 +56,7 @@ export const PUSH_FAIL_REASONS = {
   rateLimit: 'rate_limit',
   network: 'network',
   unknown: 'unknown',
+  appleEnqueueFailed: 'apple_enqueue_failed',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -69,12 +70,23 @@ export interface PushContext {
   googleClientSecret: string;
   /** Token 만료 비교 + 새 만료 시각 계산용 unix ms. */
   nowMs: () => number;
+  /**
+   * 현재 push 처리 중인 group id (apple_pending INSERT용). worker가 group iterate 시 ctx에 주입.
+   * Apple/both 분기에서만 필요 — google-only는 무관.
+   */
+  currentGroupId?: string;
 }
 
 /**
  * 멤버 캘린더 push — calendar_preference 분기.
- * 본 sub-task(S06-worker-google-integration): Google 분기만 실 구현.
- * Apple/none은 silent ok (다음 sub-task S06-worker-apple-trigger에서 apple_pending INSERT 추가).
+ * - 'google'/'both' → Google API events.insert (S06-worker-google-integration)
+ * - 'apple_ios'/'both' → calendar_push_apple_pending row INSERT (S06-worker-apple-trigger, D34)
+ *   클라이언트(useApplePendingSync hook)가 foreground 진입 시 SELECT → expo-calendar insert → completed_at UPDATE
+ * - 'none'/NULL → silent ok (F5 알림만으로 충분)
+ *
+ * 'both' 케이스: Google + Apple 모두 처리. Promise.all로 fail-first — 한쪽 실패 시 throw로
+ * decideGroupPushOutcome이 retry 처리. apple_pending INSERT는 ON CONFLICT DO NOTHING으로
+ * idempotent, Google insert는 retry max 3 회복.
  */
 export async function pushToMemberCalendar(
   ctx: PushContext,
@@ -84,17 +96,21 @@ export async function pushToMemberCalendar(
   const pref = await fetchCalendarPreference(ctx.service, memberId);
 
   if (pref === null || pref === 'none') {
-    // 사용자가 캘린더 거부 또는 첫 모달 미진행 — F5 시간 확정 알림만으로 충분
     return;
   }
 
-  if (pref === 'apple_ios') {
-    // S06-worker-apple-trigger에서 calendar_push_apple_pending row INSERT로 교체 (D34)
+  const tasks: Promise<void>[] = [];
+  if (pref === 'google' || pref === 'both') {
+    tasks.push(pushGoogleForUser(ctx, memberId, payload));
+  }
+  if (pref === 'apple_ios' || pref === 'both') {
+    tasks.push(enqueueApplePending(ctx, memberId, payload));
+  }
+  if (tasks.length === 0) {
+    // 알 수 없는 preference 값 (CHECK constraint에 막혀야 하지만 방어적)
     return;
   }
-
-  // 'google' or 'both' → Google API events.insert
-  await pushGoogleForUser(ctx, memberId, payload);
+  await Promise.all(tasks);
 }
 
 async function fetchCalendarPreference(
@@ -241,6 +257,59 @@ function memberFailureReason(reason: string): Error {
 }
 
 // ---------------------------------------------------------------------------
+// Apple pending — D34 클라 polling 패턴
+// ---------------------------------------------------------------------------
+
+/**
+ * calendar_push_apple_pending에 row INSERT (멤버별 pending).
+ * (group_id, user_id) UNIQUE → ON CONFLICT DO NOTHING으로 idempotent (worker가 retry 시 안전).
+ * INSERT 실패는 reason='apple_enqueue_failed'로 throw → partial_fail_list 누적.
+ *
+ * 클라이언트(`src/lib/calendar/applePending.ts`)가 본 row를 SELECT → 처리 → completed_at UPDATE.
+ * worker는 INSERT만 책임 — 실제 expo-calendar 호출은 클라 디바이스에서.
+ */
+async function enqueueApplePending(
+  ctx: PushContext,
+  userId: string,
+  payload: CalendarEventPayload,
+): Promise<void> {
+  // CalendarEventPayload → group_id 추출은 worker 측에서 별도 전달 필요.
+  // 본 함수 signature는 멤버 push와 일관 (memberId, payload)만 받음.
+  // group_id는 payload.title이 아닌 별도 필드가 필요 — 임시: payload 안에 안 들어있으므로
+  // worker가 enqueue 함수 직접 호출 시점에 ctx에 group_id 주입할 수도 있음.
+  //
+  // 본 함수는 ctx에 currentGroupId가 없으므로 _enqueueApplePendingRow로 우회 — pushToMemberCalendar
+  // 호출 측에서 group_id를 ctx로 묶어 전달해야 함.
+  //
+  // 단순화: payload에 (Google body와 무관한) groupId 필드를 추가하는 대신, ctx.currentGroupId로 전달.
+  const groupId = ctx.currentGroupId;
+  if (!groupId) {
+    throw new Error('enqueueApplePending: ctx.currentGroupId가 필요합니다.');
+  }
+
+  // payload는 plain object (CalendarEventPayload). JSONB로 직렬화는 supabase client가 자동.
+  const { error } = await ctx.service
+    .from('calendar_push_apple_pending')
+    .upsert(
+      [
+        {
+          group_id: groupId,
+          user_id: userId,
+          payload,
+        },
+      ],
+      { onConflict: 'group_id,user_id', ignoreDuplicates: true },
+    );
+
+  if (error) {
+    console.error(
+      `calendar_push_apple_pending INSERT 실패 (group=${groupId}, user=${userId}): ${error.message}`,
+    );
+    throw memberFailureReason(PUSH_FAIL_REASONS.appleEnqueueFailed);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Worker entry — processCalendarPushQueue (export for test + manual invoke)
 // ---------------------------------------------------------------------------
 
@@ -284,15 +353,13 @@ export async function processCalendarPushQueue(
     deps.googleClientSecret ?? Deno.env.get('GOOGLE_CLIENT_SECRET') ?? '';
   const nowMs = deps.nowMs ?? (() => Date.now());
 
-  const ctx: PushContext = {
+  const ctxBase: Omit<PushContext, 'currentGroupId'> = {
     service,
     fetch: fetchFn,
     googleClientId,
     googleClientSecret,
     nowMs,
   };
-  const push =
-    deps.push ?? ((memberId, payload) => pushToMemberCalendar(ctx, memberId, payload));
 
   const summary: WorkerSummary = {
     scanned: 0,
@@ -321,10 +388,15 @@ export async function processCalendarPushQueue(
   summary.scanned = pending.length;
 
   for (const group of pending) {
+    // group마다 ctx에 currentGroupId 주입 (apple_pending INSERT에 필요)
+    const ctxForGroup: PushContext = { ...ctxBase, currentGroupId: group.id };
+    const groupPush =
+      deps.push ??
+      ((memberId, payload) => pushToMemberCalendar(ctxForGroup, memberId, payload));
     const decision = await processOneGroup({
       service,
       group,
-      push,
+      push: groupPush,
       occurredAtKstIso,
     });
     if (decision === null) {

@@ -42,6 +42,38 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S06-worker-apple-trigger — Apple sync 클라 polling 구현 (D34 implementation) (2026-05-26) — DONE (S06 partial 진척)
+- Depends: S06-worker-google-integration ship (2026-05-26, worker pushToMemberCalendar Google 분기), S06-apple-expo-calendar(`AppleCalendarProvider` + `CalendarProviderError` 2026-05-26), [D34](DECISIONS.md#d34--apple-calendar-sync--클라-polling-패턴-q-b22-close), [D15](DECISIONS.md#d15--schedulessource-enum--phase-12은-provider-구분-포기) (apple_ios bucket), [D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시) (silent fail 금지)
+- Branch: `worktree-s06-google-oauth` (main 23cef5c 위 5 commits 누적)
+- Changes:
+  - **Migration** (`supabase/migrations/0013_calendar_push_apple_pending.sql`, +~60 lines): `calendar_push_apple_pending` table(`id`, `group_id` FK groups CASCADE, `user_id` FK auth.users CASCADE, `payload JSONB`, `created_at`, `completed_at TIMESTAMPTZ NULL`) + `(group_id, user_id)` UNIQUE 인덱스(worker upsert idempotent) + 본인 미완료 partial index `WHERE completed_at IS NULL` ON `(user_id)`. RLS: SELECT/UPDATE 본인만(`auth.uid()=user_id`). INSERT/DELETE 정책 없음 → service_role only (worker INSERT + 운영 cleanup)
+  - **Worker apple_ios/both 분기** (`supabase/functions/calendar_push_worker/index.ts`, +~70 / -~10):
+    - `pushToMemberCalendar` 분기 재구성: `'google'`/`'both'` → `pushGoogleForUser`, `'apple_ios'`/`'both'` → `enqueueApplePending`, `'none'`/NULL → silent ok. `'both'`는 `Promise.all`로 두 task 동시 처리(fail-first → retry로 회복)
+    - `enqueueApplePending(ctx, userId, payload)` — `calendar_push_apple_pending` `upsert({onConflict: 'group_id,user_id', ignoreDuplicates: true})` (멤버 중복 INSERT 무해). 실패 → `reason='apple_enqueue_failed'` throw → partial_fail_list 누적
+    - `PushContext.currentGroupId` 옵셔널 추가. `processCalendarPushQueue`가 group iterate 시 `ctxForGroup`을 만들어 group마다 closure로 push 함수 생성 → apple_pending INSERT에 group id 주입
+    - `PUSH_FAIL_REASONS.appleEnqueueFailed = 'apple_enqueue_failed'` 추가
+  - **클라이언트 lib** (`src/lib/calendar/applePending.ts`, +~150 lines + `.test.ts` +~330 lines, **Jest 16 tests TDD-first**):
+    - `parsePendingRow(raw)` — DB row → `ApplePendingRow` 방어적 파싱 (payload JSONB의 title/startUtcIso/endUtcIso/descriptionKo/locationName 타입 검증). 누락·malformed 모두 null
+    - `processOneRow(deps, row)` — `AppleCalendarProvider.insertEvent` → 성공 시 `completed_at` UPDATE. CalendarProviderError → reason은 detail.kind. 일반 Error → reason='unknown'. UPDATE error → reason='update_failed'
+    - `processApplePendingPushes(deps)` — entry: SELECT `WHERE completed_at IS NULL` `ORDER BY created_at ASC` → `apple.isAuthorized()` 1회 check(false면 전 row skip + `skippedUnauthorized:true` 반환) → sequential 각 row 처리 → `{completed, failed, skippedUnauthorized}` summary
+    - DI: `supabase: SupabaseClient` + `apple: AppleCalendarProvider` + `now: () => string` — hook wire-up은 별도 sub-task에서
+    - **16 tests**: parsePendingRow 6 + processOneRow 4 + processApplePendingPushes 6 (빈/skip/2성공/1성공1실패/malformed/SELECT error)
+- Tests: Jest **392 passed** (376 기존 + 16 신규, 1 skipped ocr_eval). typecheck **0**. Deno tests 57(google_calendar 23 + calendar_queue 34 — 본 ship에서 변경 없음. supabase/functions/calendar_push_worker는 deno test 영역으로 deferred 일관). lint 사전 state 그대로
+- Next:
+  - **S06-setup**: `src/lib/calendar/setup.ts` production wiring 어댑터(expo-auth-session + expo-secure-store + expo-calendar lazy install — `npx expo install expo-auth-session expo-secure-store expo-calendar`) + Google OAuth 완료 후 `upsert_user_oauth_tokens` RPC 호출 wrapper(서버 측 token 업로드)
+  - **S06-ui-applesync-hook**: `useApplePendingSync` hook — `processApplePendingPushes` wrapper로 app foreground listener(AppState.change) 또는 화면 진입 시 trigger. UI sub-task와 함께 묶음 가능
+  - **S06-ui-first-time-modal**: 첫 모임 확정 후 "어디 추가할까요" 모달 → `users.calendar_preference` UPDATE + Google OAuth/Apple 권한 요청
+  - **S06-ui-reauth-modal**: `partial_fail_list.reason` 감지 → 재인증 모달 + 호스트 알림
+- Notes:
+  - **`'both'` 사용자 fail-first 의도**: `Promise.all` 사용 — Google 또는 Apple 한쪽 실패 시 throw. apple_pending은 `ignoreDuplicates`로 idempotent, Google은 retry max 3으로 회복. `'both'`는 베타 비중 작아 충분
+  - **`currentGroupId` ctx 주입 패턴**: PushContext에 group id 옵셔널로 추가, `processCalendarPushQueue` group iterate 안에서 `ctxForGroup`을 만들어 closure에 묶음. push DI signature(memberId, payload)는 그대로 유지 — 외부 caller(test override) 영향 0
+  - **pending ≠ failure 명시**: `calendar_push_apple_pending` table은 partial_fail_list와 별도. D34 본문대로 "pending은 대기, partial_fail은 실패". 클라 처리 후 row UPDATE completed_at. 24h+ stale row 호스트 알림은 별도 운영 cron(Phase 3)
+  - **sequential 처리**: expo-calendar API는 동시 호출 안전성 미보장 → for-loop sequential. 모임 N≤7이라 fan-out 작음
+  - **`skippedUnauthorized` summary**: UI가 이 flag 보고 재인증 모달 trigger 가능. permission denied 시 row 손실 없이 다음 진입 재시도
+  - **hook 분리**: 본 ship은 lib 순수 + DI만. hook wire-up은 RN AppState 의존성이라 UI sub-task와 함께가 자연 — testability + DESIGN 모달 통합 일관
+
+---
+
 ## S06-worker-google-integration — calendar_push_worker Google API 통합 + D34/D35 신규 (2026-05-26) — DONE (S06 partial 진척)
 - Depends: S06-queue-foundation ship (2026-05-26), S06-worker-integration ship (2026-05-26), S06-google-oauth(클라 google.ts ship 2026-05-26), S06-migration-0011(users.calendar_preference), [D34](DECISIONS.md#d34--apple-calendar-sync--클라-polling-패턴-q-b22-close) (Q-B22 close), [D35](DECISIONS.md#d35--google-calendar-oauth-token-서버-측-저장--user_oauth_tokens-table), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc) (timeZone Asia/Seoul), [D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시) (silent fail 금지), [D20](DECISIONS.md#d20--calendar-push-fan-out--background-queue) (background queue)
 - Branch: `worktree-s06-google-oauth` (main 23cef5c 위 4 commits: 303471c·67c4dca·bccfe11·본 ship)
