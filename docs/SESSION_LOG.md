@@ -66,6 +66,57 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S05-cleanup — S05b 머지 후 중복 sub-task 정리 + useHeatmapSubscription에 30s polling 통합 (2026-05-26) — DONE
+- Depends: S05b (origin/main PR #3 머지 commit 78c8fe9 2026-05-26 09:49 KST), 본 세션 S05c+S05d ship (commit 61d2063 2026-05-26)
+- Context: S05b PR이 base가 옛 main (S03a 이전)이라 local main과 8 commit 분기. local pull 안 한 채 S05c+S05d ship → S05b의 `heatmap/debounce.ts`·`useHeatmapSubscription.ts`와 책임 중복 발견. 사용자 지시(옵션 A): merge + 중복 폐기 + 30s polling 통합
+- Changes:
+  - **`origin/main` merge** (8 commit + S05b 통합): docs 충돌 3종 (PROGRESS·SESSION_LOG·TASK_BACKLOG) HEAD ours 채택(local이 더 최신 — S03·S07·D31·D32·S05c·S05d 모두 보유) 후 S05b 정보 inline inject
+  - **중복 src 폐기**:
+    - `src/lib/votes/debouncer.ts` + `.test.ts` 삭제 (S05b `heatmap/debounce.ts`가 같은 trailing-edge debouncer). `votes/api.ts`는 debouncer 미의존(voteSet만 의존) → 영향 0
+    - `src/lib/realtime/useRealtimeStatus.ts` + `.test.ts` 삭제 (S05b `useHeatmapSubscription`이 channel subscribe + isConnected 추적까지 cover)
+    - `src/lib/realtime/connectionStateMachine.ts` + `.test.ts` 삭제 (useRealtimeStatus 폐기로 사용처 0 — 30s polling 전이 로직만 useHeatmapSubscription에 inline 통합)
+  - **S05b useHeatmapSubscription에 30s polling 전이 통합** (`src/lib/heatmap/useHeatmapSubscription.ts` +~30 lines): 기존 `isConnected: boolean` → `{status: 'connecting'|'connected'|'disconnected'|'polling', isConnected, cells}` 확장. CHANNEL_ERROR/TIMED_OUT/CLOSED → disconnected, 30s 후 polling 전이. SUBSCRIBED는 항상 connected로 recovery. `disconnectTimeoutMs` prop 추가(default 30000, testable). 기존 8 test는 status 추출로 호환, 30s polling 시나리오 +3 test 추가. **`RealtimeStatus` chip의 prop은 `isConnected`로 동일 유지**(DESIGN §11.4 ramp 변경 없음)
+  - **보존된 내 작업**: `src/lib/votes/voteSet.ts` + `.test.ts` (10 케이스, VoteSlot diff 순수), `src/lib/votes/api.ts` + `.test.ts` (7 케이스, commitVoteDiff INSERT/DELETE). S05b가 안 만든 영역
+- Tests: Jest **{N} passed** (전체 — voteSet 10 + api 7 + S05b 37 + 기타 기존 + 30s polling 신규 3). typecheck 0, lint 0
+- Next: **S05e** (60fps 부하 테스트) — production binary + 저사양 baseline. S05의 worklet drag 통합 (gesture-handler + reanimated lazy install)도 별도 sub-task 잔여
+- Notes:
+  - **sub-task 명칭 충돌 해소**: S05b의 commit 메시지가 "S05c=worklet drag, S05d=DB write, S05e=60fps"로 정의했으나, 본 세션이 다른 의미로 "S05c=vote commit debounce, S05d=Realtime disconnect UI"를 ship. 양쪽 모두 main에 있어 sub-task naming은 본 cleanup이 정정 — TASK_BACKLOG S05 entry의 sub-task 매핑이 단일 source. S05e만 60fps 부하 테스트로 정의 유지
+  - **30s polling 통합 정당화**: 기존 useHeatmapSubscription의 `isConnected` boolean은 DESIGN §11.4의 "30s 후 폴링" 전이 미구현이었음 → cleanup 기회에 state machine inline 통합. state machine 분리 파일 안 만든 이유는 사용처 1곳(useHeatmapSubscription)이라 over-engineering 회피
+  - **votes/api.ts는 S05b 의존 안 함**: voteSet만 의존. S05b의 sweep/classify/applyPayload와 직교
+  - **S05c entry는 그대로 유지**: 본 cleanup으로 일부 파일 폐기됐지만 `voteSet.ts` + `api.ts`는 살아 있어 entry 자체는 의미 유지. debouncer.ts 폐기는 본 entry Notes로 기록 — S05c entry rewrite 안 함(history 보존)
+  - **Q-B21 closure 미진행**: S05b가 등록한 D11 payload day_index 차원 누락 question — S05a Edge Function patch 필요. 별도 task
+
+---
+
+## S05b — TimeGrid heatmap pure 헬퍼 + Realtime subscribe hook (2026-05-26) — DONE (origin/main PR #3 merged, S05 partial)
+- Branch: `worktree-s05b-worklet-drag` → PR #3 → main merge (commit 78c8fe9)
+- Depends: S00 (votes table, time_slots, Realtime), S05a (votes_aggregate Edge Function — PR 대기, D11 spec-driven 진행), [D10](DECISIONS.md#d10--히트맵-5단계-색-램프-heat-0--중립-그레이), [D11](DECISIONS.md#d11--realtime-히트맵--edge-function-합산-후-broadcast-옵션-b), [D12](DECISIONS.md#d12--60fps-시간-그리드-구현-spec), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc), [D14](DECISIONS.md#d14--시간-슬롯-단위-15분--db-check)
+- Changes:
+  - src/lib/heatmap/types.ts (+24 lines) — CellState/SlotKey 공유 타입
+  - src/lib/heatmap/classify.ts (+34 lines) — D10 5-stop ramp (count→heat-0~4), edge clamp
+  - src/lib/heatmap/classify.test.ts (+50 lines, 7 tests)
+  - src/lib/heatmap/applyPayload.ts (+94 lines) — payload→60×7 CellState[][] 변환. selfMarks override(D10). 범위 밖 슬롯 graceful 무시
+  - src/lib/heatmap/applyPayload.test.ts (+125 lines, 9 tests)
+  - src/lib/heatmap/sweep.ts (+45 lines) — slotKey/computeSweepKeys/toggleSlot (Gesture.Pan worklet에서 호출 가능한 pure 함수)
+  - src/lib/heatmap/sweep.test.ts (+72 lines, 7 tests)
+  - src/lib/heatmap/debounce.ts (+50 lines) — createDebouncer(cb, 100ms) — D12 본문 vote commit debounce
+  - src/lib/heatmap/debounce.test.ts (+62 lines, 5 tests jest fake timers)
+  - src/lib/heatmap/useHeatmapSubscription.ts (+90 lines) — supabase.channel(`group:${groupId}`).on('broadcast',{event:'heatmap_update'}) listen + applyHeatmapPayload + isConnected 추적 + unmount cleanup
+  - src/lib/heatmap/useHeatmapSubscription.test.ts (+220 lines, 8 tests, supabase channel mock)
+  - jest.config.js (+1 testPathIgnorePatterns, ±2 testMatch glob) — Windows worktree path normalization 깨짐 fix
+  - docs/OPEN_QUESTIONS.md (+18 lines) — Q-B21 신규 (D11 payload day_index 차원 누락)
+- Tests: 122 passed (21 suite), 본 ship 신규 37 (5 suite). typecheck 0, lint 0 (S05b 영역)
+- Next: **S05-cleanup** (본 머지 후속, 위 entry), **S05e** (60fps 부하 테스트), worklet drag 통합(gesture-handler + reanimated lazy install + jest mock 환경 필요)
+- Notes:
+  - **D11 spec extension** — 본문은 `start_minute`만 있으나 votes 테이블에 `day DATE` 컬럼이 있고 7일 grid 필수 → 본 헬퍼는 `{day_index, start_minute, count}` 확장 가정. S05a Edge Function patch + D11 본문 update 권고 (Q-B21)
+  - **D10 본인 슬롯 별도 시각** 정확히 구현 — payload ramp 위에 selfMarks가 override (state='self' + raw count 유지)
+  - **graceful 입력 검증** — payload의 start_minute<540 / ≥1440 / %15≠0 / day_index 범위 밖 모두 silent skip (서버 CHECK 책임이지만 클라 안전망)
+  - **jest.config glob fix** — Windows worktree path에서 `<rootDir>/src/**/*.test.{ts,tsx}` glob이 mixed forward/backslash로 broken. `**/src/**/*.test.{ts,tsx}` + `/web-guest/` ignore로 해결
+  - **Reanimated worklet 통합은 별도 sub-task** — useSharedValue + Gesture.Pan은 jest-expo mock 환경에서 통합 테스트 까다로움. 본 ship은 worklet에서 호출 가능한 pure 함수만 (classifyHeat, applyHeatmapPayload, computeSweepKeys, createDebouncer)
+  - **sub-task 명명**: 본 entry의 Next에 적힌 "S05c=worklet drag / S05d=DB write" 명명은 본 세션 S05c+S05d ship (다른 의미)과 충돌 — S05-cleanup entry에서 정정. TASK_BACKLOG S05 entry가 단일 source
+
+---
+
 ## S05c — Vote commit debouncer + diff INSERT/DELETE (2026-05-26) — DONE (S05 partial 진척)
 - Depends: S00 (votes table + RLS 0001:284, 0002), S05a (votes_aggregate Edge Function ship 2026-05-26, broadcast 합산 결과를 받는 쪽이 client), [D11](DECISIONS.md#d11--realtime-히트맵--edge-function-합산-후-broadcast-옵션-b) (100ms debounce 명시), [D12](DECISIONS.md#d12--60fps-시간-그리드-구현-spec) (drag 종료 시 1회 commit), [D14](DECISIONS.md#d14--시간-슬롯-단위-15분--db-check) (SLOT_DURATION_MINUTES=15)
 - Changes:

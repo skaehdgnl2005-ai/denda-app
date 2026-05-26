@@ -3,9 +3,10 @@ module.exports = {
   preset: 'jest-expo',
   setupFiles: ['<rootDir>/jest.setup.js'],
   testMatch: [
-    '<rootDir>/src/**/*.test.{ts,tsx}',
-    '<rootDir>/tests/**/*.test.{ts,tsx}',
+    '**/src/**/*.test.{ts,tsx}',
+    '**/tests/**/*.test.{ts,tsx}',
   ],
+  testPathIgnorePatterns: ['/node_modules/', '/web-guest/', '/.claude/'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
