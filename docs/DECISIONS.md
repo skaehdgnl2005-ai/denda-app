@@ -808,6 +808,21 @@ const BranchAttribution = lazy(() => import('@/lib/branch/attribution'));
 
 ---
 
+## D33 — 모임 확정 fan-out = 단일 dispatcher (Q-B5 close)
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | "모임 확정" 같은 다중 listener 이벤트는 **`group_confirm` Edge Function 1곳에서만 publish**하고, 후속 fan-out(F5 push, Calendar push, 그 외)은 `supabase/functions/_lib/dispatcher.ts`의 `register(type, handler)` + `dispatch(event)` pattern으로 in-process 라우팅. DB trigger·중복 trigger·여러 Edge Function의 분산 listen 금지. F5 같은 즉시성 push는 dispatcher 내부에서 직접 호출 (low fan-out, <1s). Calendar push처럼 fan-out 큰 작업은 dispatcher가 `groups.calendar_pushed_at IS NULL` queue row만 표시하고 실제 외부 호출은 D20의 pg_cron worker가 처리. |
+| 근거 | (1) DB trigger 분산 listen은 디버깅·관측 비용 ↑ (어떤 trigger가 어떤 순서로 발화했는지 추적 어려움). Edge Function 1곳 publish + in-process handler list가 stack trace + 로그 명확. (2) F5는 mailing list 작아(모임 N≤7) Edge Function 60s timeout 안에 충분. Calendar push는 D20 background queue로 분리 — dispatcher가 publish하고 worker는 별도 cron이 처리하는 2-layer로 책임 분리. (3) `dispatcher.ts` stub이 이미 0001 시점 작성됨 (Q-B5 대기 명시) — 본 결정으로 stub → real impl. (4) handler register는 group_confirm/index.ts 모듈 초기화 단계에서 진행 — `notify_f5` import 시 `register('group_confirmed', notifyF5Handler)` 호출. testability 확보. |
+| 대안 | (A) DB trigger fan-out — 거부: groups.confirmed_at AFTER UPDATE → 여러 trigger에서 net.http_post로 각각 Edge Function 호출. trigger 순서·실패 격리·재시도 모두 SQL에서 처리 → 디버깅 cost ↑. Postgres에서 외부 HTTP 호출은 silent fail risk(D11의 GUC 패턴과 같은 GUC 사전 설정 의무 외에도 retry 정책 부재). (B) 2-trigger 단순 (deferred dispatcher) — 거부: S06/S12 ship 시 group_confirm Edge Function의 호출 경로를 다시 갈아엎어야 함 → ripping out 비용. (C) 외부 메시지 브로커 (RabbitMQ/Kafka) — 거부: Phase 1+2 인프라 단순성 원칙(D22) 위배. dispatcher in-process로 베타 충분. Phase 3 fan-out 폭증 시 재평가. |
+| 소유자 | Backend (Founder approval) |
+| 결정일 | 2026-05-26 |
+| 의존 | [Q-B5](OPEN_QUESTIONS.md#q-b5--edge-function-단일-dispatcher) closed. [D17](DECISIONS.md#d17--push-f4-idempotency-groupsf4_sent_at-column) (f4_sent_at idempotency pattern은 f5_sent_at에도 mirror), [D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시) (partial fail), [D20](DECISIONS.md#d20--calendar-push-fan-out--background-queue) (calendar는 별도 queue), [D22](DECISIONS.md#d22--phase-12-tech-stack) (인프라 단순성) |
+| 결과 영향 | (1) S04 `group_confirm` Edge Function이 dispatcher의 단일 publisher. (2) `_lib/dispatcher.ts` stub → real impl (register/dispatch + Promise.allSettled로 한 handler 실패가 다른 handler 차단 X). (3) `notify_f5` Edge Function이 dispatcher handler로 register. (4) S06 calendar push는 dispatcher에서 `groups.calendar_pushed_at IS NULL` 큐잉만 (D20 worker가 별도 발송). (5) S12 `notify_f1`/`f2`/`f3`도 같은 dispatcher pattern follow (각 trigger event type 별로 register). (6) F1-F3 trigger 위치 부분 정합 — [Q-B3](OPEN_QUESTIONS.md#q-b3--푸시-알림-트리거-위치)는 본 결정으로 partial 해소 (Edge Function 통일), F1/F2/F3의 publisher 식별은 S12 작업 시 결정. |
+| 출처 | 본 세션 (2026-05-26) — S04 시작 전 Q-B5 closure 필요 → founder가 권고(단일 dispatcher) 채택. dispatcher stub은 0001 시점 작성된 placeholder |
+
+---
+
 ## 향후 결정 추가 템플릿
 
 새 결정을 추가할 때 다음 형식을 복사:

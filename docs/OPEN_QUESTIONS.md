@@ -102,12 +102,11 @@
 - **마감**: S10 (Step 6 지도) 식당 사진 표시 시점
 - **상태**: 미결정. **권고**: Supabase Storage (단일 vendor 유지)
 
-### Q-B5 — Edge Function 단일 dispatcher
+### Q-B5 — Edge Function 단일 dispatcher ✅ Closed by D33 (2026-05-26)
 - **출처**: ENG_REVIEW §9.4, §11
 - **질문**: Calendar push(Step 5) + Push 알림(Step 9) 둘 다 모임 확정 trigger를 듣는데 단일 dispatcher EventBus pattern 적용 여부
-- **소유자**: Backend
-- **마감**: S04 (Step 4 모임 확정) 시작 전
-- **상태**: 미결정. **권고**: 단일 dispatcher 적용
+- **결정**: 단일 dispatcher 채택 ([D33](DECISIONS.md#d33--모임-확정-fan-out--단일-dispatcher-q-b5-close)). `group_confirm` Edge Function 1곳이 publisher, `_lib/dispatcher.ts`의 `register`/`dispatch`로 in-process fan-out. F5는 dispatcher 내부 직접 호출, Calendar는 D20 background queue로 분리. DB trigger 분산 거부.
+- **상태**: Closed (2026-05-26, S04 시작 시점)
 
 ### Q-B6 — Realtime disconnect UI
 - **출처**: ENG_REVIEW §8 #3, §11

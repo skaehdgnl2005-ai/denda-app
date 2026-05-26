@@ -12,11 +12,11 @@
 
 ## 🟢 활성 작업
 
-### S04 모임 확정 + F5 push (backend)
-- **상태**: 시작 (D33 dispatcher 결정 + Q-B5 close 완료)
-- **다음 단계**: dispatcher.ts stub → real impl (register/dispatch + Promise.allSettled 격리) + Deno test
-- **블로커**: 없음 (Sprint 3 잔여 S05 worklet drag와 직교, S04 의존 S00·S05 데이터 layer ready)
-- **Scope**: backend only — group_confirm Edge Function + notify_f5 Edge Function + dispatcher impl + 클라 wrapper. UI(`confirm.tsx`)는 S05b 그리드 통합 후 별도 sub-task
+### S14-utils (web-guest 순수 유틸 TDD 도입 + RN spec mirror)
+- **상태**: 시작
+- **다음 단계**: 3종 순수 유틸 TDD red→green — `web-guest/lib/heatmap.ts`(classifyHeat quartile, RN src/lib/heatmap/classify.ts mirror) + `lib/time.ts`(luxon Asia/Seoul dayOfWeek·formatHeaderDate, D13 강제) + `lib/voteKey.ts`(VoteSlot/voteKey/parseVoteKey/diffVoteSets, RN src/lib/votes/voteSet.ts mirror)
+- **블로커**: 없음. jest 환경(jest-environment-jsdom + ts-jest + @testing-library/jest-dom) skeleton에서 이미 셋업됨
+- **Scope**: S14 acceptance "시간 그리드(RN과 별도 구현, 같은 동작 spec)" 의 spec drift 방지 — RN classify/voteSet과 quartile/edge-case 정확히 mirror. 컴포넌트 refactor + D13 `new Date()` violation fix + D11 client self-broadcast 제거는 별도 sub-task
 - **마지막 update**: 2026-05-26 KST
 
 

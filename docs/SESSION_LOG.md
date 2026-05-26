@@ -42,6 +42,45 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S04-backend — group_confirm + notify_f5 + dispatcher (D33 close Q-B5) (2026-05-26) — PARTIAL (S04 backend 100%, UI deferred)
+- Depends: S00 (groups.confirmed_at·confirmed_start_at·confirmed_end_at·confirmed_place_id + CHECK constraint atomic + f5_sent_at·partial_fail_list 0001:198-218, group_members·notification_settings·push_tokens), S05 (votes 합산 — votes_aggregate가 별도 path), [D33](DECISIONS.md#d33--모임-확정-fan-out--단일-dispatcher-q-b5-close) (본 세션 신규), [Q-B5](OPEN_QUESTIONS.md#q-b5--edge-function-단일-dispatcher) closed by D33, [D17](DECISIONS.md#d17--push-f4-idempotency-groupsf4_sent_at-column) (idempotent UPDATE WHERE NULL pattern mirror → f5_sent_at·confirmed_at), [D14](DECISIONS.md#d14--시간-슬롯-단위-강제-15분--db-check) (15분 단위 application 검증 + DB CHECK 2중 방어), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc), [D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시) (partial fail → partial_fail_list JSONB), [D22](DECISIONS.md#d22--phase-12-tech-stack)
+- Changes:
+  - **D33 신규 결정 + Q-B5 closure**:
+    - `docs/DECISIONS.md` (+~15 lines) — D33 본문: group_confirm 1곳 publisher + in-process dispatcher fan-out. F5는 dispatcher 내부 직접 호출, Calendar는 D20 background queue로 분리. 대안 3종(DB trigger / 2-trigger 단순 / 외부 broker) 거부 사유 명시. F1-F3는 S12 작업 시 동일 pattern follow.
+    - `docs/OPEN_QUESTIONS.md` — Q-B5 "Closed by D33 (2026-05-26)" 표기 + 결정 inline
+  - **dispatcher real impl** (Q-B5 대기 stub → real):
+    - `supabase/functions/_lib/dispatcher.ts` (+~70 lines, stub 30 lines 교체) — register/dispatch/clearHandlers/listHandlers. Promise.allSettled 격리, sync throw도 Promise.resolve().then() wrap으로 rejected 변환. PromiseSettledResult[] 반환 → publisher가 failure logging 결정 가능. 모듈 singleton state + 테스트용 clearHandlers
+    - `supabase/functions/_lib/dispatcher_test.ts` (+~210 lines, **Deno 8 tests TDD-first**) — register+dispatch / 다중 handler / 격리(throw) / no handler no-op / clearHandlers full+selective / 다른 type 매칭 / sync throw 격리
+  - **notify_f5 Edge Function 신규** (S04 F5 push):
+    - `supabase/functions/notify_f5/index.ts` (+~340 lines) — 순수 함수 6종(filterRecipientUserIds / formatF5Title / formatF5Body / buildF5PushMessages / partitionPushResponses / buildPartialFailList) + Expo Push API (chunk 100) + HTTP handler. 호스트 제외 + f5_enabled opt-in 교차, 1user 다device fan-out, no_token/no_ticket/DeviceNotRegistered 분기 partial_fail JSONB 누적 (`channel: 'f5_push'`), f5_sent_at IS NULL idempotent UPDATE
+    - `supabase/functions/notify_f5/_test.ts` (+~210 lines, **Deno 15 tests TDD-first**) — filterRecipient 4 (호스트 제외 / opt-in skip / 빈 멤버 / 1인 모임) + formatBody 2 (KST 변환 + 자정 직전 날짜 넘김) + buildMessages 4 (1user1tok / 1user多tok / 多user多tok / 빈) + partitionResponses 4 (전부 ok / DeviceNotRegistered / no_ticket / 같은 user 부분 실패) + buildPartialFailList 2 (JSONB shape + 빈)
+  - **group_confirm Edge Function 신규** (S04 핵심):
+    - `supabase/functions/group_confirm/index.ts` (+~290 lines) — 순수 함수 3종(parseConfirmRequest / validateConfirmInput / buildConfirmedTimestamps) + dispatcher F5 handler registration (notify_f5/index.ts handler 직접 호출, HTTP overhead 회피 in-process) + HTTP handler. anon client UPDATE WHERE confirmed_at IS NULL → RLS groups_update_host가 자연 차단 + race/권한 부족 구분(0 rows 시 service_role로 recheck). dispatch(group_confirmed) 후 PromiseSettledResult[] 카운트 응답
+    - `supabase/functions/group_confirm/_test.ts` (+~225 lines, **Deno 14 tests TDD-first**) — parseConfirmRequest 4 (정상 / place_id null / UUID invalid throw / day_index 음수 throw) + validateConfirmInput 6 (D14 15분 강제 / 09:00 이전 throw / 24:00 초과 throw / start≥end throw / day_index ≥ datesCount throw / 유효 no-op) + buildConfirmedTimestamps 3 (KST→UTC 변환 / 자정 직전 / Z suffix)
+  - **클라이언트 wrapper**:
+    - `src/lib/groups/validation.ts` (+50 lines) — `validateConfirmGroupInput` (UUID·dayIndex·D14·범위·start<end·placeId UUID) ValidationResult discriminated union (한국어 에러)
+    - `src/lib/groups/validation.test.ts` (+~125 lines, **Jest 11 tests**) — 정상/null place_id/UUID invalid/dayIndex 음수/D14 위반/09:00 이전/24:00 초과/start≥end/start==end/placeId invalid/end=1440 exact OK
+    - `src/lib/groups/confirm.ts` (+~55 lines) — `confirmGroup` Edge `group_confirm` wrapper. snake_case body / camelCase response 변환. 사전 validation 통과 → invoke. 에러 한국어(403 호스트만 / 401 로그인 필요 / 기타)
+    - `src/lib/groups/confirm.test.ts` (+~142 lines, **Jest 9 tests**) — 정상 + snake_case mapping / already_confirmed=true / place_id null / 사전 validation 차단 invoke 0 / 403 한국어 / 401 한국어 / 기타 에러 / data null / partial dispatch
+- Tests: Jest **293 passed** (1 skipped ocr_eval by design — 회귀 0, S04 신규 20 추가). typecheck 0. lint 0 (prettier auto-fix 적용). Deno **37 tests TDD-first** (dispatcher 8 + notify_f5 15 + group_confirm 14, Deno CLI 미설치로 실행 deferred — votes_aggregate/blocking_test 동일 패턴)
+- Next:
+  - **S04-UI (별도 sub-task)**: 호스트 확정 화면 (`app/group/[id]/confirm.tsx`) + 시간 그리드 위 "확정" 버튼 + 더블 탭 disable + confirmGroup 호출 + 성공 토스트 + already_confirmed/partial f5_dispatch 분기 메시지. **S05b 그리드 worklet drag 통합과 동시 작업 권장** — 같은 화면 surface 공유
+  - **S06 calendar push**: dispatcher.register('group_confirmed', calendarPushHandler) 추가. D20 background queue (pg_cron `groups.calendar_pushed_at IS NULL` 큐잉 + worker 별도)는 S06 본체에서
+  - **S12 F1-F3 push**: dispatcher register pattern follow (`friend_requested`, `friend_accepted`, `group_invited` event handler 별도 Edge Function로 register). Q-B3 partial 해소
+  - **운영 deploy 사전 조건**: `EXPO_ACCESS_TOKEN` Supabase secret 설정 (없어도 발송은 되지만 enhanced security 권장)
+- Notes:
+  - **PARTIAL — backend 100%, UI deferred**: TASK_BACKLOG S04 acceptance 5개 중 backend 모든 책임 충족(RLS 호스트 권한 + idempotency UPDATE WHERE NULL + F5 push fan-out + partial_fail + 단일 dispatcher). UI gate("확정" 버튼 + disable)는 S05b 그리드와 동시 작업 권장
+  - **D33 in-process dispatch 정당화**: F5는 모임 N≤7 멤버 → push 호출 짧음(<1s) → Edge 60s timeout 안에 inline 처리 OK. Calendar처럼 fan-out 큰 작업은 dispatcher가 queue row 표시만 하고 worker(D20 pg_cron)가 별도. 2-layer 책임 분리
+  - **dispatcher register 위치**: group_confirm/index.ts가 notify_f5/index.ts handler를 import 후 module 초기화 시점에 register. 테스트 reset 위해 `_resetDispatcherRegistration()` export
+  - **anon client UPDATE 선택 근거**: service_role UPDATE는 RLS bypass → 코드 가드 명시 호스트 체크 필요. anon client (사용자 JWT) UPDATE는 groups_update_host가 자연 차단 → 0 rows 시 race vs 권한 부족 구분만 처리. 단일 책임 (RLS가 권한 검증, 코드는 idempotency만)
+  - **idempotency 2단**: (1) UPDATE WHERE confirmed_at IS NULL — race·더블 탭 안전. (2) confirmed_at NOT NULL이면 immediate 200 already_confirmed=true (UPDATE 0 round-trip)
+  - **partial_fail_list race 수용**: 동시 F5 호출 시 lastWriteWins. 베타 N≤7 + f5_sent_at IS NULL idempotency가 사실상 single trigger 보장 → race 미발생 expect. Phase 3 fan-out 증가 시 JSONB append RPC로 전환 후보
+  - **`new Date()` design-guard 차단 → luxon로 교체**: notify_f5 index.ts에서 `new Date().toISOString()` 3곳을 `nowKst().toISO()`로 교체. Hook이 KST 미명시 즉시 차단 (D13)
+  - **F1-F5의 dispatcher pattern unification**: F4 push도 같은 dispatcher로 통합 가능 — `votes_all_in` event를 votes_aggregate Edge에서 publish (전원 투표 완료 감지 후) + notify_f4 handler가 register. 별도 task
+  - **migration 변경 0**: groups.confirmed_at·f5_sent_at·partial_fail_list 모두 0001에 이미 있음. S04는 코드만
+
+---
+
 ## S05 worklet drag 통합 — Reanimated 4 + Gesture.Pan sweep selection (2026-05-26) — PARTIAL
 - Depends: S00 (votes), [D12](DECISIONS.md#d12--60fps-시간-그리드-구현-spec), [D25](DECISIONS.md#d25--cold-start-target--2초--lazy-loading)
 - Changes:

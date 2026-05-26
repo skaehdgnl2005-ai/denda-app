@@ -10,8 +10,8 @@
 
 - **총 17 태스크** (S00 ~ S16)
 - **DONE**: 4 (S00, S01, S03, S07)
-- **IN_PROGRESS**: 1 (S05 sub-task 4/5)
-- **TODO**: 11
+- **IN_PROGRESS**: 2 (S04 backend done UI 잔여, S05 sub-task 6/7)
+- **TODO**: 10
 - **BLOCKED**: 1 (S10 — D1 지도 부분 답변 대기)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
@@ -89,15 +89,17 @@
 
 ### S04 — 모임 확정 + 멤버 푸시 (F5)
 
-- **Status**: TODO | **Owner**: Backend + Mobile | **Sprint**: 4 | **Lane**: A
-- **Depends**: S05 (votes), S00 (groups.confirmed_at, f4_sent_at)
+- **Status**: IN_PROGRESS (backend 100% 완료 2026-05-26, UI sub-task 잔여) | **Owner**: Backend + Mobile | **Sprint**: 4 | **Lane**: A
+- **Depends**: S05 (votes), S00 (groups.confirmed_at·confirmed_*_at·confirmed_place_id·f5_sent_at·partial_fail_list), [D33](DECISIONS.md#d33--모임-확정-fan-out--단일-dispatcher-q-b5-close) (본 세션 신규)
 - **Acceptance**:
-  - 호스트 권한 체크 (RLS + UI gate)
-  - "확정" 더블 탭 idempotency (D17 f4_sent_at 활용 또는 별도 lock)
-  - F5 push Edge Function (전원 발송 + partial fail report — D19)
-  - Push fan-out background queue (D20)
-  - 단일 dispatcher (Q-B5 결정 후) → Calendar push(S06) + Push 알림(S12) 둘 다 듣지 않도록
-- **Files**: `src/screens/group/[id]/confirm.tsx`, `supabase/functions/group_confirm/`
+  - ✅ 호스트 권한 체크 (RLS `groups_update_host` + anon client UPDATE 자연 차단) — UI gate(버튼 disable)는 S04-UI에서
+  - ✅ "확정" 더블 탭 idempotency (D17 mirror — `UPDATE WHERE confirmed_at IS NULL` + `.select()` 0 rows 시 already_confirmed 응답)
+  - ✅ F5 push Edge Function (`notify_f5/` — 전원 발송 + partial_fail_list JSONB 누적 — D19)
+  - ✅ Push fan-out — F5는 N≤7 즉시(<1s, Edge 60s 안에 inline). Calendar push의 D20 background queue는 S06 본체 (dispatcher.register 추가)
+  - ✅ 단일 dispatcher ([D33](DECISIONS.md#d33--모임-확정-fan-out--단일-dispatcher-q-b5-close)) — `_lib/dispatcher.ts` real impl. `group_confirm`이 publisher, `notify_f5`가 handler register
+  - ⏸️ **S04-UI sub-task**: `app/group/[id]/confirm.tsx` + 시간 그리드 위 "확정" 버튼 (disable on inflight) + `confirmGroup` 호출 + already_confirmed/partial f5_dispatch 분기 토스트. S05b 그리드 worklet drag와 동시 작업 권장 (surface 공유)
+- **Files (ship됨)**: `supabase/functions/_lib/dispatcher.ts`, `supabase/functions/notify_f5/`, `supabase/functions/group_confirm/`, `src/lib/groups/{validation,confirm}.ts(.test)`
+- **Files (S04-UI 잔여)**: `app/group/[id]/confirm.tsx` 또는 그리드 위 inline confirm button + `useState` inflight guard
 - **Worktree 분기**: S06, S12와 logical 의존 — 합류 시점 조율
 
 ### S05 — 시간 그리드 + 투표 + Realtime 히트맵

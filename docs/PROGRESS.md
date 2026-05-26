@@ -15,7 +15,7 @@
 | **Sprint 1** | W0 | S00, S11, S13 skeleton | S00 ✅, **S11 ✅ (백필 2026-05-26, 다크 검증 deferred)**, S13 eas.json (S01 portfolio) | DONE (S00·S11) |
 | **Sprint 2** | W1 | S01 + S10 + S14 병행 (★ Kakao 답변 review) | **S01 ✅** (D29), **S14 skeleton ✅ (백필)**, S10 BLOCKED (Q-A2), **UI-§17 ✅ 2026-05-26** | IN_PROGRESS (S10 BLOCKED) |
 | **Sprint 3** | W2 | S05 + S07 + S03 + S08 (baseline 시작) | **S05-UI ✅ + S05a ✅ + S05b ✅ (PR #3 78c8fe9) + S05c ✅ + S05d ✅ + S05 worklet drag ✅** = S05 partial (S05e 60fps 부하만 남음 — 실기기 필요) / **S07 ✅ DONE 2026-05-26** / **S03 ✅ DONE 2026-05-26 (a+b)** / S08 미시작 | IN_PROGRESS |
-| **Sprint 4** | W3 | S04 + S06 + S12 + S15 (TestFlight) | 미시작 | — |
+| **Sprint 4** | W3 | S04 + S06 + S12 + S15 (TestFlight) | **S04-backend ✅ 2026-05-26 (D33 dispatcher + group_confirm + notify_f5 + 클라 wrapper, UI deferred)** / S06·S12·S15 미시작 | IN_PROGRESS (early start) |
 | **W3.5** | W3.5 | S17 QA 종합 + 안암 invite-only launch | 미시작 | — |
 
 ---
@@ -26,12 +26,12 @@
 
 ```
 DONE 정식:  ████▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  4 / 17 (23.5%) — S00, S01, S03, S07
-Active:    █████████▒▒▒▒▒▒▒▒▒▒▒  7 / 17 (41%) — + S05 partial, S11 partial, S13 partial, S14 partial
+Active:    █████████▒▒▒▒▒▒▒▒▒▒▒  8 / 17 (47%) — + S04 backend, S05 partial, S11 partial, S13 partial, S14 partial
 ```
 
 | Lane | TODO | IN_PROGRESS (partial) | DONE | BLOCKED |
 |---|---|---|---|---|
-| **A (Foundation·Auth·Time grid·OCR)** | 1 (S04) | 1 (S05 sub-task 6/7 — S05e 잔여) | 4 (S00, S01, S03, S07) | 0 |
+| **A (Foundation·Auth·Time grid·OCR)** | 0 | 2 (S04 backend done UI deferred · S05 sub-task 6/7 — S05e 잔여) | 4 (S00, S01, S03, S07) | 0 |
 | **B (Map·Click-through·지도-일정)** | 2 (S08, S15-mapmode) | 0 | 0 | 1 (S10) |
 | **C (Web guest)** | 1 (S15 deeplink) | 1 (S14 skeleton) | 0 | 0 |
 | **D (Cross-cutting)** | 3 (S06, S12, S17) | 2 (S11 tokens / S13 eas.json) | 0 | 1 (S16) |
@@ -128,7 +128,7 @@ Active:    █████████▒▒▒▒▒▒▒▒▒▒▒  7 / 17 
 | W0 (Sprint 1) | S11 (백필 partial) | 2 | design system + Pretendard |
 | W1 (Sprint 2) | S01, S14-skel, S05-UI, S07-UI (백필), UI-§17, S05a + S07-backend (PR 대기) | ~8 (정식 DONE 1: S01) | ★ D29 OIDC 채택 + §17 신설 + worktree backend 2건 |
 | W2 (Sprint 3) | S03a+S03b → S03 ✅, S07-d16-audit + S07-report + S07-block-supabase → S07 ✅, D31 + D32, S05b ✅ (PR #3 merged 78c8fe9) + S05c + S05d + S05-cleanup + **S05a + Q-B21 close** + **S05 worklet drag ✅** | 4 (S03·S07 DONE 정식) | OCR 끝. S07 완성. S05 sub-task 6/7 완료 — S05e 60fps 부하만 잔여(실기기 필요). worklet drag = reanimated 4 + gesture-handler 2 + worklets 0.8 lazy install + D12 의무 패턴 통합 |
-| W3 (Sprint 4) | — | — | TestFlight |
+| W3 (Sprint 4) | **S04-backend ✅** (D33 dispatcher + group_confirm Edge + notify_f5 Edge + 클라 wrapper, UI deferred to S05b 동시 작업) | 1 | Sprint 4 early start. Q-B5 close by D33 |
 | W3.5 | — | — | Launch |
 
 ---
@@ -136,5 +136,5 @@ Active:    █████████▒▒▒▒▒▒▒▒▒▒▒  7 / 17 
 ## 📅 마지막 업데이트
 
 - **날짜**: 2026-05-26
-- **업데이트한 사람**: S05 worklet drag ship — useSweepGesture hook + Grid GestureDetector wrap. Reanimated 4 + gesture-handler 2 + worklets 0.8 lazy install + babel/jest 인프라
-- **다음 update**: S04 (모임 확정 + F5) wiring 또는 실기기 확보 후 S05e 60fps 부하 테스트 시
+- **업데이트한 사람**: S04-backend ship — D33 단일 dispatcher 결정 + Q-B5 close + group_confirm + notify_f5 Edge Function + 클라 wrapper. Jest 293 + Deno 37 TDD-first
+- **다음 update**: S04-UI (S05b confirm 화면 통합) 또는 S06 Calendar push(dispatcher.register) 시
