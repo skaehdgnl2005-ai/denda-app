@@ -8,10 +8,10 @@
 
 ## 진행 현황 요약
 
-- **총 17 태스크** (S00 ~ S16)
+- **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** 신규 sub-task (S04 UI + S05 화면 묶음)
 - **DONE**: 4 (S00, S01, S03, S07)
 - **IN_PROGRESS**: 3 (S04 backend done UI 잔여, S05 sub-task 6/7, S14 skeleton+utils)
-- **TODO**: 9
+- **TODO**: 10 (S05-screen-confirm 추가)
 - **BLOCKED**: 1 (S10 — D1 지도 부분 답변 대기)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
@@ -121,6 +121,28 @@
 - **Files**: `src/screens/group/[id]/grid.tsx`(미작성), `src/components/TimeGrid/` (Grid에 panGesture/onCellWidthChange/onScrollY props 추가), `src/lib/votes/` (voteSet + api + useSweepGesture), `src/lib/heatmap/` (S05b types/classify/applyPayload/sweep/debounce/useHeatmapSubscription/coords), `supabase/functions/votes_aggregate/`
 - **Worktree 분기**: 가능 (S03 OCR, S07 친구와 worktree 병행)
 - **Notes**: 7.3 ASCII flow 참조. **회사 운명이 60fps에 걸린 부분 (ENG_REVIEW §1.4)**. 잔여 S05e 60fps 부하 테스트는 production binary + 실기기 필수 (iPhone SE 2 + Galaxy A14 — D12 측정 기준). worklet drag 중 60fps 시각 피드백(drag rect 셀 색 즉시 반영 SelectionOverlay)은 mock-only 검증 한계로 S05e와 함께 통합 검증 예정 — selection sharedValue는 useSweepGesture가 노출하므로 후속 sub-task에서 Animated.View overlay 또는 Cell sharedValue 구독 패턴으로 통합 가능. **Q-B21 closure 완료 (2026-05-26)**. **Reanimated 4 worklet runtime = react-native-worklets 분리** — babel plugin `react-native-worklets/plugin` 필수 (Reanimated 3의 `react-native-reanimated/plugin`과 다름)
+
+### S05-screen-confirm — 모임 화면 + 호스트 확정 surface (S05 그리드 + S04-UI 묶음)
+
+- **Status**: TODO | **Owner**: Mobile | **Sprint**: 3-4 cross | **Lane**: A
+- **Depends**: S04-backend ship (`src/lib/groups/confirm.ts`, commit d01482b, 2026-05-26), S05 worklet drag ship (`useSweepGesture` + `Grid` GestureDetector), S00 (groups·group_members·dates·votes·confirmed_* 컬럼), [D9](DECISIONS.md#d9--시간-그리드-8pt-시각-셀--44pt-hit-area), [D17](DECISIONS.md#d17--push-f4-idempotency-groupsf4_sent_at-column) (UI inflight guard로 더블 탭 추가 방어), DESIGN §10.1 (그리드) + §11.4 (Realtime chip)
+- **Acceptance**:
+  - **routing**: `app/group/_layout.tsx` (Stack) + `app/group/[id]/index.tsx` 신규
+  - **데이터 fetch**: groups (host_id·name·dates·confirmed_at·confirmed_start_at·confirmed_end_at·confirmed_place_id) + group_members + useAuth 호스트 식별 + useHeatmapSubscription wiring (channel `group:${id}`)
+  - **그리드 통합**: `src/components/TimeGrid/Grid.tsx` + RealtimeStatus chip + heat-0~4 분류 + drag sweep selection (useSweepGesture)
+  - **호스트 surface**: 호스트만 "확정" 버튼 노출 (비호스트는 read-only)
+  - **확정 액션**: 버튼 tap → 선택된 슬롯 → day_index + start_minute + end_minute 산출 → `confirmGroup({groupId, dayIndex, startMinute, endMinute, confirmedPlaceId: null})` 호출. inflight `useState` disable (D17 더블 탭 UI 추가 방어 — backend도 idempotent)
+  - **결과 분기 토스트**: `already_confirmed=true` → "이미 확정된 모임이에요" / `f5_dispatch.rejected > 0` → "확정했어요. 일부 멤버 알림은 실패" / 에러 → wrapper 한국어 메시지 propagate
+  - **확정 후 read-only 전환**: confirmed_at NOT NULL → 그리드 disable + 확정 시간·장소 표시 카드
+  - **§17 anti-AI-feel 적용**: brand-500 CTA 1개(확정), surface-2 disabled, 친근체 토스트
+- **Files**: `app/group/_layout.tsx`, `app/group/[id]/index.tsx`, 필요 시 `src/components/group/HostConfirmButton.tsx` + `ConfirmedTimeCard.tsx` + `src/lib/groups/queries.ts` (group + members fetch wrapper)
+- **Worktree 분기**: 불필요 (`app/group/` 디렉토리 현재 비어 있음 — 충돌 0)
+- **Notes**:
+  - **본 task ship → S04 정식 DONE 마킹 가능** (S04 acceptance ⏸️ UI 항목 close)
+  - **본 task ship → S05 acceptance "그리드 화면" 자연 만족** — S05 sub-task 6/7 → 7/7 (S05e 실기기 부하 테스트만 잔여)
+  - 모임 생성 화면(`app/group/new.tsx` 또는 (+)FAB)은 본 task 외부. 임시로 supabase dashboard 또는 dev fixture로 group_id 확보해 동작 검증
+  - 비로그인 진입 fallback: redirect to onboarding (S01 패턴)
+  - **다음 unblock 대상**: S04 정식 DONE 후 S04 sprint 카운트 +1. S05도 sub-task 7/7로 사실상 정식 DONE 가까이 (S05e만 별도 운영 task)
 
 ### S07 — 친구 시스템 + 신고/차단
 
