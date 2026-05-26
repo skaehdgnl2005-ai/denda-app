@@ -56,6 +56,18 @@
 - **상태**: SaaS 선택 = 자체 구축 ([D28](DECISIONS.md#d28--자체-deferred-deep-link-구축-attribution-saas-회피-도메인-구매-회피)). 4가지 risk 명시 수용. 정확도 50% 이하 가능 → 4자리 코드 fallback 의무 활성 가능성 ↑
 - **노트**: 이전 Branch.io 대상 → Singular 대상([D27](DECISIONS.md#d27--attribution-saas--singular-베타-한정-phase-3-재평가) invalid) → 자체 구축으로 두 번 재정의
 
+### Q-A8 — 차단된 호스트의 모임이 차단자(멤버)에게 보여야 하는가
+- **출처**: S07-d16-audit (2026-05-26) — D16 propagation audit 중 발견
+- **질문**: A가 B를 차단했을 때, B가 호스트인 모임에 A가 이미 멤버로 참여 중이라면 A의 "내 모임" list에 그 모임을 노출할 것인가?
+- **트레이드오프**:
+  - 노출 X(`groups SELECT`에 `NOT is_blocked(auth.uid(), host_id)` 추가) → D16 정신 100% 일치. 단 A가 이미 참여한 모임이 갑자기 사라져 UX 깨짐. 일정·투표·확정 흐름 단절
+  - 노출 O(현 상태 유지) → 멤버십 연속성 보존. 호스트 식별만 클라이언트에서 마스킹(닉네임 가림, 프로필 hidden) 권고
+  - 부분 노출 → 모임은 보이되 호스트 user 데이터는 `users SELECT` (이미 is_blocked 적용)으로 자연 차단. **현재 0002 RLS만으로 이 결과 달성됨**
+- **권고**: 부분 노출 채택. `groups SELECT` 변경 없음 + 클라이언트 호스트 표시 mask UI로 처리(S07-UI follow-up). 멤버십 연속성 우선
+- **소유자**: Founder (UX 결정)
+- **마감**: S04(모임 확정 + F5 push) 시작 전 — 호스트 마스킹 UX 영향
+- **상태**: 미결정 (audit 결과 권고만 제시)
+
 ### Q-A7 — Kakao RN 패키지의 native nonce 미지원 → 베타 수용 (option c)
 - **출처**: S01 구현 중 발견 (2026-05-23)
 - **결정**: 베타 launch까지는 option (c) 수용. `setup.ts`의 supabaseAuth 어댑터에서 Supabase에 nonce 전달 자체를 skip (Supabase 측 "nonce_hash mismatch" 거부 회피). replay 공격 risk는 카카오 id_token 짧은 만료(~10분) + Supabase JWT 자체 검증으로 완화. 결정일: 2026-05-24 (S01 스모크 테스트 통과)

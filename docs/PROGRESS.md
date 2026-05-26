@@ -14,7 +14,7 @@
 | **Sprint 0** | W-1 (2026-05-22 ~ 2026-05-28) | 12 인프라 항목 + 디자인 자산 | Expo init + Supabase + EAS Build + 카카오 portal + Supabase Auth Kakao + 키해시 등록 완료 | ON_TRACK |
 | **Sprint 1** | W0 | S00, S11, S13 skeleton | S00 ✅, **S11 ✅ (백필 2026-05-26, 다크 검증 deferred)**, S13 eas.json (S01 portfolio) | DONE (S00·S11) |
 | **Sprint 2** | W1 | S01 + S10 + S14 병행 (★ Kakao 답변 review) | **S01 ✅** (D29), **S14 skeleton ✅ (백필)**, S10 BLOCKED (Q-A2), **UI-§17 ✅ 2026-05-26** | IN_PROGRESS (S10 BLOCKED) |
-| **Sprint 3** | W2 | S05 + S07 + S03 + S08 (baseline 시작) | **S05-UI ✅ + S05a ✅ (PR 대기)** = S05 partial / **S07-UI ✅ + S07-backend ✅ (PR 대기)** = S07 partial / **S03a ✅ (backend)** = S03 partial / S08 미시작 | IN_PROGRESS |
+| **Sprint 3** | W2 | S05 + S07 + S03 + S08 (baseline 시작) | **S05-UI ✅ + S05a ✅ (PR 대기)** = S05 partial / **S07-UI ✅ + S07-backend ✅ (PR 대기) + S07-d16-audit ✅ 2026-05-26** = S07 partial / **S03a ✅ (backend)** = S03 partial / S08 미시작 | IN_PROGRESS |
 | **Sprint 4** | W3 | S04 + S06 + S12 + S15 (TestFlight) | 미시작 | — |
 | **W3.5** | W3.5 | S17 QA 종합 + 안암 invite-only launch | 미시작 | — |
 
@@ -127,7 +127,7 @@ Active:    ████████▒▒▒▒▒▒▒▒▒▒▒▒  7 / 17 
 | W-1 (Sprint 0) | S00 | 1 | 인프라 셋업 + Backend foundation |
 | W0 (Sprint 1) | S11 (백필 partial) | 2 | design system + Pretendard |
 | W1 (Sprint 2) | S01, S14-skel, S05-UI, S07-UI (백필), UI-§17, S05a + S07-backend (PR 대기) | ~8 (정식 DONE 1: S01) | ★ D29 OIDC 채택 + §17 신설 + worktree backend 2건 |
-| W2 (Sprint 3) | S03a (backend partial) | 1 partial | baseline 시작 (S03b UI + S05b worklet 진행 예정) |
+| W2 (Sprint 3) | S03a (backend partial), S07-d16-audit | 2 partial | baseline 시작 (S03b UI + S05b worklet 진행 예정). D16 RLS hardening |
 | W3 (Sprint 4) | — | — | TestFlight |
 | W3.5 | — | — | Launch |
 
@@ -136,5 +136,5 @@ Active:    ████████▒▒▒▒▒▒▒▒▒▒▒▒  7 / 17 
 ## 📅 마지막 업데이트
 
 - **날짜**: 2026-05-26
-- **업데이트한 사람**: S03a (OCR Edge Function backend + ground truth eval 인프라) ship
+- **업데이트한 사람**: S07-d16-audit (D16 propagation audit migration 0007) ship
 - **다음 update**: S03b UI 진행 또는 S05b worklet drag 진행 시

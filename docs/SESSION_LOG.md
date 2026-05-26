@@ -42,6 +42,24 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S07-d16-audit — D16 propagation audit (group_members + votes SELECT) (2026-05-26) — DONE (S07 partial 진척)
+- Depends: S00 (`is_blocked` helper at 0001 + 0002 RLS skeleton), S07-backend(0005 group_invitations 보강은 worktree PR 대기, audit는 main 위에서 독립 진행), [D16](DECISIONS.md#d16--차단신고-일관성-helper-function--rls)
+- Changes:
+  - supabase/migrations/0007_d16_propagation_audit.sql (+78 lines) — `group_members_select_same_group` + `votes_select_same_group` DROP+CREATE에 `AND (auth.uid() = user_id OR NOT public.is_blocked(auth.uid(), user_id))` 절 보강
+  - docs/OPEN_QUESTIONS.md (+15 lines) — Q-A8 신규 (groups SELECT host_id 차단 UX 결정, 권고: 부분 노출 — `users` SELECT의 기존 is_blocked로 자연 mask)
+  - docs/NOW.md (+7 lines, ship 시 제거) — S07-d16-audit 항목 활성·완료 사이클
+- Tests: typecheck 0 (내 SQL 변경 영역) / RLS 동작 검증은 Supabase local instance 필요 → S07-backend·S05a 패턴 동일 deferred. SQL syntax는 0002:291-305 `comments_select_same_group` 패턴 mirror — manual review OK
+- Next: Q-A8 founder 결정 → 결정 b(부분 노출) 채택 시 S07-UI에 호스트 mask 컴포넌트 follow-up. 신고 UI는 별도 task (운영 카톡 채널 prereq)
+- Notes:
+  - **S03·S05 세션 병렬 진행 중에 worktree 없이 main에서 격리 가능 — file 충돌 0** (SQL migration + docs만, src/* 미접촉)
+  - **Self exception 필수 근거**: 0001/0002의 `blocks` table INSERT policy가 `blocker_id = blocked_id` (self-block)을 막지 않음 → `is_blocked(auth.uid(), auth.uid())`이 true가 될 수 있음 → 본인 row가 안 보일 risk. `auth.uid() = user_id OR NOT is_blocked(...)` 패턴으로 safety 보장
+  - **groups SELECT host_id 차단 SKIP 이유**: 멤버십 연속성 깨짐 (이미 참여 모임이 host 차단 후 갑자기 사라짐). `users SELECT`이 이미 `host_id` row를 차단자에게 가리므로 자연스러운 부분 mask 효과. UX 결정은 Q-A8로 founder에게 위임
+  - **votes SELECT 하드닝 정당화**: D11 (Edge Function 합산 + broadcast)가 raw vote의 클라이언트 합산을 금지하지만, service_role bypass 외 모든 RLS path를 hardening. 정상 경로(votes_aggregate Edge Function service_role)에는 영향 없음
+  - **Migration prefix 0007 선택 이유**: 0005(S07-backend worktree) + 0006(S05a worktree) 이 main에 미머지지만 reserved. 0007로 충돌 회피. 두 worktree PR 머지 순서가 어찌되든 0007은 unique
+  - **S03b session typecheck 빨강**: 동시 진행 중인 S03b의 미완 `courseListEditor.test.ts` 7건 — 내 ship 영역 외부, S03 세션 owner
+
+---
+
 ## S03a — 에브리타임 OCR Edge Function 핵심 로직 + ground truth eval 인프라 (2026-05-26) — PARTIAL (S03 backend)
 - Depends: S00 (schedules table + source enum 'everytime' — migration 0001:315), S01 (auth.users JWT), [D2](DECISIONS.md#d2--phase-12-scope-reduction-다크-디테일만-reduce) (OCR keep), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc), [D15](DECISIONS.md#d15--schedulessource-enum--phase-12은-provider-구분-포기)
 - Done:
