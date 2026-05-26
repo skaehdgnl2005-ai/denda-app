@@ -16,7 +16,9 @@
 // 다음 sub-task: worker stub 교체 + migration 0011(users.calendar_preference) +
 //                서버 측 token 저장 architecture 결정.
 
-const STORAGE_KEY = 'denda_google_calendar_token';
+/** SecureStore에 GoogleTokenState JSON 직렬화로 저장하는 key. setup.ts wrapper에서도 사용. */
+export const GOOGLE_TOKEN_STORAGE_KEY = 'denda_google_calendar_token';
+const STORAGE_KEY = GOOGLE_TOKEN_STORAGE_KEY;
 const GOOGLE_EVENTS_INSERT_URL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 const GOOGLE_CALENDAR_SCOPES = ['https://www.googleapis.com/auth/calendar.events'];
 const KST_TIMEZONE = 'Asia/Seoul';
