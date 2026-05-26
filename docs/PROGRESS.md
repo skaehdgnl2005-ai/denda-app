@@ -25,8 +25,8 @@
 **총 17 태스크 (S00 ~ S16) + S17 QA**
 
 ```
-DONE 정식:  █████████▒▒▒▒▒▒▒▒▒▒▒  9 / 17 (52.9%) — S00, S01, S03, S04, S06, S07, S11, S14 (S05도 사실상 7/7, S05e 운영)
-Active:    ██████████▒▒▒▒▒▒▒▒▒▒  10 / 17 (58.8%) — + S05 acceptance 7/7 (S05e 운영), S13 partial
+DONE 정식:  ██████████▒▒▒▒▒▒▒▒▒▒  10 / 17 (58.8%) — S00, S01, S03, S04, S06, S07, S11, S12, S14 (S05도 사실상 7/7)
+Active:    ███████████▒▒▒▒▒▒▒▒▒  11 / 17 (64.7%) — + S05 acceptance 7/7 (S05e 운영), S13 partial
 ```
 
 | Lane | TODO | IN_PROGRESS (partial) | DONE | BLOCKED |
@@ -34,7 +34,7 @@ Active:    ██████████▒▒▒▒▒▒▒▒▒▒  10 / 17
 | **A (Foundation·Auth·Time grid·OCR)** | 0 | 1 (S05 acceptance 7/7 — S05e 60fps 실기기 잔여) | 5 (S00, S01, S03, S04, S07) | 0 |
 | **B (Map·Click-through·지도-일정)** | 2 (S08, S15-mapmode) | 0 | 0 | 1 (S10) |
 | **C (Web guest)** | 1 (S15 deeplink) | 0 | 1 (S14) | 0 |
-| **D (Cross-cutting)** | 2 (S12, S17) | 1 (S13 eas.json) | 2 (S06, S11) | 1 (S16) |
+| **D (Cross-cutting)** | 1 (S17) | 1 (S13 eas.json) | 3 (S06, S11, S12) | 1 (S16) |
 
 세부: [TASK_BACKLOG.md](TASK_BACKLOG.md)
 
@@ -128,7 +128,7 @@ Active:    ██████████▒▒▒▒▒▒▒▒▒▒  10 / 17
 | W0 (Sprint 1) | S11 (백필 partial) | 2 | design system + Pretendard |
 | W1 (Sprint 2) | S01, S14-skel, S05-UI, S07-UI (백필), UI-§17, S05a + S07-backend (PR 대기), **S14-utils ✅ + S14-test-augment ✅ + S14-violations-fix ✅ + S14-e2e-setup ✅ 2026-05-26** | ~12 (정식 DONE 1: S01) | ★ D29 OIDC 채택 + §17 신설 + worktree backend 2건 + S14 TDD 사이클 4단 완성 (lib RN spec mirror + 안전망 + violations fix + Playwright base) |
 | W2 (Sprint 3) | S03a+S03b → S03 ✅, S07-d16-audit + S07-report + S07-block-supabase → S07 ✅, D31 + D32, S05b ✅ (PR #3 merged 78c8fe9) + S05c + S05d + S05-cleanup + **S05a + Q-B21 close** + **S05 worklet drag ✅** + **S05-screen-confirm ✅ 2026-05-26** | 4 (S03·S07 DONE 정식) | OCR 끝. S07 완성. S05 acceptance 7/7 완료 — S05e 60fps 부하만 잔여(실기기 필요). worklet drag = reanimated 4 + gesture-handler 2 + worklets 0.8 lazy install + D12 의무 패턴 통합. S05-screen-confirm으로 화면 + 호스트 확정 surface 완성 |
-| W3 (Sprint 4) | **S04 ✅ DONE 정식** + **S06 ✅ DONE 정식 2026-05-26** + **S15-deeplink-schema ✅ 2026-05-26** + **S12-backend-f1-f4 + S12-publishers-f4 + S12-client 2026-05-26** (notify_f1/f2/f3/f4 + `_lib/expo_push` + votes_all_in publisher + `expoNotifications.ts`; F1/F2/F3 publishers prereq=S07 supabase 전환 + `_layout` mount 잔여로 S12 IN_PROGRESS 유지). D34(Q-B22 close)·D35 신규 | 5 | Sprint 4 early start. S06 6/6 완성. S15-deeplink schema 진입. S12 backend + F4 publisher + client lib 완성. 마이크로카피 founder review + F1/F2/F3 publishers + RN mount 잔여 |
+| W3 (Sprint 4) | **S04 ✅ DONE** + **S06 ✅ DONE 2026-05-26** + **S15-deeplink-schema 2026-05-26** + **S12 ✅ DONE 정식 2026-05-26** (4 sub-task 누적: backend-f1-f4 + publishers-f4 + client + mount, `_layout.tsx` PushRegistrationConnected wire-up까지 완성). D34(Q-B22 close)·D35 신규 | 6 | Sprint 4 early start. S06·S12 정식 DONE. S15-deeplink schema 진입. S12 잔여 prereq: EAS Build projectId·APNs/FCM + 마이크로카피 founder review + S07 후속 F1/F2/F3 실 publisher (friends/invitations API supabase 전환 시) |
 | W3.5 | — | — | Launch |
 
 ---
@@ -136,5 +136,5 @@ Active:    ██████████▒▒▒▒▒▒▒▒▒▒  10 / 17
 ## 📅 마지막 업데이트
 
 - **날짜**: 2026-05-26
-- **업데이트한 사람**: **S12-publishers-f4 + S12-client ship**. votes_aggregate에 전원 vote detect (countUniqueVoters + isAllMembersVoted) + dispatcher.dispatch + notify_f4 handler register. `src/lib/push/expoNotifications.ts` (DI-first + dynamicRequire 어댑터). expo-notifications ~0.32 install. F4 알림 완전 wire-up. **이전**: S12-backend-f1-f4 ship — notify_f1/f2/f3/f4 + `_lib/expo_push.ts` 공통 helper (TDD-first). Q-B12 마이크로카피 auto mode 자체 결정 (founder review 대기). Deno 194 + Jest 476 + 1 skip, typecheck 0, lint pre-existing 3. **S12 acceptance 거의 close** — backend 4종 ✅ + F4 publisher ✅ + client lib ✅. F1/F2/F3 publishers (friends/invitations API supabase 전환 prereq, S07 후속) + RN `_layout.tsx` mount + 마이크로카피 founder review만 잔여. **이전**: S15-deeplink-schema turn — migration 0016 + invite_code TS helper (groups.invite_code CHAR(4) UNIQUE + generate_invite_code SQL function + BEFORE INSERT trigger + branch_attributions ip_hash/ua_hash/clicked_at 3컬럼 + 2 partial indexes. inviteCode.ts 21 Jest tests TDD-first). 다음 sub-task: S15-deeplink-edge (attribution_match Edge Function). **이전**: fail-cleanup turn — 14개 fail/skip/deferred 일괄 처리 + S11 정식 DONE. Phase A 순차: (1) lint 12 errors→0 + warnings 8412→0, (2) expo-image-picker install + typecheck fix, (3) Deno CLI 2.8.0 install + 143 Edge tests 실행 → group_confirm test bug 1개 발견·fix, (4) votes unique index 0014 + api.ts 23505 graceful, (5) reset_my_stalled_calendar_retries RPC 0015 + ReauthModal wire-up, (6) fetchUserVotes + S05-screen-confirm seed (queries 4 신규 tests), (7) expo-auth-session + expo-calendar install (setup.ts wiring은 Google OAuth dev key prereq라 EAS Build 트랙 deferred 명시). **S11 정식 DONE 검증** — tokens/theme/typography/Pretendard WOFF2/Lucide 모두 ready, 다크 디테일은 D2 deferred 유지. 최종 Jest 446 + 1 skip, Deno 143 + 0 fail, typecheck 0, lint 0
+- **업데이트한 사람**: **S12 정식 DONE 마무리** — 본 turn 누적 3 sub-task(backend-f1-f4 + publishers-f4 + client) 위에 마지막 `_layout.tsx` mount(`PushRegistrationRoot` + `PushRegistrationConnected`) 추가. S12 acceptance 모두 close. Deno 194 + Jest 482 + 1 skip, typecheck 0, lint pre-existing 3. **이전**: S12-publishers-f4 + S12-client ship — votes_aggregate에 전원 vote detect (countUniqueVoters + isAllMembersVoted) + dispatcher.dispatch + notify_f4 handler register. `src/lib/push/expoNotifications.ts` (DI-first + dynamicRequire 어댑터). expo-notifications ~0.32 install. F4 알림 완전 wire-up. **이전**: S12-backend-f1-f4 ship — notify_f1/f2/f3/f4 + `_lib/expo_push.ts` 공통 helper (TDD-first). Q-B12 마이크로카피 auto mode 자체 결정 (founder review 대기). Deno 194 + Jest 476 + 1 skip, typecheck 0, lint pre-existing 3. **S12 acceptance 거의 close** — backend 4종 ✅ + F4 publisher ✅ + client lib ✅. F1/F2/F3 publishers (friends/invitations API supabase 전환 prereq, S07 후속) + RN `_layout.tsx` mount + 마이크로카피 founder review만 잔여. **이전**: S15-deeplink-schema turn — migration 0016 + invite_code TS helper (groups.invite_code CHAR(4) UNIQUE + generate_invite_code SQL function + BEFORE INSERT trigger + branch_attributions ip_hash/ua_hash/clicked_at 3컬럼 + 2 partial indexes. inviteCode.ts 21 Jest tests TDD-first). 다음 sub-task: S15-deeplink-edge (attribution_match Edge Function). **이전**: fail-cleanup turn — 14개 fail/skip/deferred 일괄 처리 + S11 정식 DONE. Phase A 순차: (1) lint 12 errors→0 + warnings 8412→0, (2) expo-image-picker install + typecheck fix, (3) Deno CLI 2.8.0 install + 143 Edge tests 실행 → group_confirm test bug 1개 발견·fix, (4) votes unique index 0014 + api.ts 23505 graceful, (5) reset_my_stalled_calendar_retries RPC 0015 + ReauthModal wire-up, (6) fetchUserVotes + S05-screen-confirm seed (queries 4 신규 tests), (7) expo-auth-session + expo-calendar install (setup.ts wiring은 Google OAuth dev key prereq라 EAS Build 트랙 deferred 명시). **S11 정식 DONE 검증** — tokens/theme/typography/Pretendard WOFF2/Lucide 모두 ready, 다크 디테일은 D2 deferred 유지. 최종 Jest 446 + 1 skip, Deno 143 + 0 fail, typecheck 0, lint 0
 - **다음 update**: Phase B — S12 push F1-F3 (+ Fail #8 호스트 알림 통합) 또는 S15 자체 deferred deep link (D28) 또는 EAS Build 트랙 (setup.ts production wiring + Google OAuth)

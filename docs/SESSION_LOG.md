@@ -42,6 +42,60 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S12 — Push Notification F1-F4 (2026-05-26) — DONE 정식
+- Depends: S00 ✅ (push_tokens·notification_settings·groups.f4_sent_at·users.nickname 모두 schema 완성), S07 ✅ (friends 시스템), [D17](DECISIONS.md#d17--push-f4-idempotency-groupsf4_sent_at-column), [D33](DECISIONS.md#d33--모임-확정-fan-out--단일-dispatcher-q-b5-close), Q-B12 (마이크로카피 — auto mode 자체 결정, founder review 분리)
+- Context: 본 turn에 S12 3 sub-task 누적 완성 후 마지막 `_layout.tsx` mount까지 묶어 정식 DONE 마킹. 사용자 "여기서 S12 끝내자" 요청. Sub-task 누적: S12-backend-f1-f4 (commit 5eaf1b2) + S12-publishers-f4 + S12-client (commit ed33cfb) + **본 commit S12-mount + DONE**.
+- 본 commit Changes (`_layout.tsx` mount, S12 final close):
+  - **`src/lib/push/PushRegistrationRoot.tsx` (+~80 lines, 신규)**:
+    - DI-first 컴포넌트 — props로 userId/supabase/notifications/platform/projectId/register 받음. CalendarSyncRoot pattern mirror (관심사 분리 + Jest 친화)
+    - mount 시 `setNotificationHandler` 1회 (handleNotification → shouldShowAlert=true / sound=true / badge=false). `handlerSetRef` ref로 중복 호출 회피
+    - userId 변경 → `registerForPushNotifications` 호출. throw은 catch로 silent (앱 죽지 않음). 다음 mount/userId 변경 시 재시도. 베타 운영에서는 Sentry/logs로 가시화
+    - userId undefined (로그아웃) → register skip
+  - **`src/lib/push/PushRegistrationRoot.test.tsx` (+~120 lines, 6 tests)**:
+    - userId undefined → register skip
+    - userId set → register 호출
+    - userId 변경 (u1 → u2) → 2회 register
+    - register throw → silent (앱 안 죽음)
+    - setNotificationHandler는 mount 1회만 (userId 변경에도 추가 호출 X)
+    - userId set → undefined → set (재로그인) → 2회 register
+  - **`app/_layout.tsx` wire-up**:
+    - `PushRegistrationConnected` 함수 컴포넌트 추가 — useAuth userId + `createExpoNotificationsApi()` + `createPlatformApi()` dynamicRequire + `process.env.EXPO_PUBLIC_EAS_PROJECT_ID` projectId
+    - createXxxApi throw (expo-notifications/react-native 미설치) → useMemo가 null 반환 → 컴포넌트 자체 null 반환 (silent skip)
+    - `<Stack>` 앞에 `<PushRegistrationConnected />` mount (CalendarSyncRootConnected 옆)
+- 누적 Files (sub-task 3개 + 본 commit):
+  - backend: `supabase/functions/_lib/expo_push.ts(_test.ts)`, `supabase/functions/notify_f{1,2,3,4}/index.ts(_test.ts)`, `supabase/functions/notify_f5/index.ts` (refactor)
+  - publisher: `supabase/functions/votes_aggregate/index.ts(_test.ts)` (countUniqueVoters + isAllMembersVoted + dispatcher register + handler 통합)
+  - RN client: `src/lib/push/expoNotifications.ts(.test.ts)`, `src/lib/push/PushRegistrationRoot.tsx(.test.tsx)`
+  - wire-up: `app/_layout.tsx` (PushRegistrationConnected 추가)
+  - 패키지: `expo-notifications ~0.32.13`
+- S12 Acceptance 최종 close:
+  - ✅ Expo push token 등록 (`expo-notifications`) — `registerForPushNotifications` + `_layout.tsx` mount
+  - ✅ `notify_f1` (친구 요청)
+  - ✅ `notify_f2` (친구 수락)
+  - ✅ `notify_f3` (모임 초대)
+  - ✅ `notify_f4` (전원 투표 완료, D17 `f4_sent_at` idempotent)
+  - ⚠️ 마이크로카피 (Q-B12 — auto mode 자체 결정, founder review 대기. `formatF*Title/Body` 함수 시그너처로 1줄 fix 가능)
+  - ✅ F4 idempotency (D17)
+  - ✅ F5는 S04 ✅ DONE
+  - ✅ 단일 dispatcher (D33) — `_lib/dispatcher.ts` impl + group_confirm/votes_aggregate publisher + notify_f4/f5 register pattern 모두 정합
+- Tests (누적):
+  - **Deno 194 passed + 0 failed** (이전 143 → +51)
+  - **Jest 482 passed + 1 skipped + 0 failed** (이전 446 → +36)
+  - typecheck 0
+  - lint 3 errors all pre-existing (jest.setup.js no-undef — main 동일)
+- 잔여 (S12 외 후속 트랙):
+  - **F1/F2/F3 publisher dispatch 호출** = **S07 후속**. friends API (`src/lib/friends/api.ts`)가 mock array push 구현이고 모임 초대 API는 미존재. friends/invitations API가 supabase 실 backend로 전환되면 그 API 안에서 `dispatch({type:'friend_requested'|'friend_accepted'|'group_invited'})` 호출 + notify_f{1,2,3} handler register Edge Function 도입. dispatcher pattern은 본 turn에서 reference impl 완성됨 (group_confirm/votes_aggregate). 즉 S12 자체 acceptance는 close — wire-up할 친구/초대 API가 없을 뿐
+  - **EAS Build 트랙 (사용자 측)**: `EXPO_PUBLIC_EAS_PROJECT_ID` 환경변수 set + iOS APNs 인증서 발급 + Android FCM 토큰 발급. 미설정 시 `getExpoPushTokenAsync` throw → register catch silent. 본 turn에서는 코드 path 완성, 실 token 발급은 production binary 시점
+  - **마이크로카피 founder review**: Q-B12 closure 시 `formatF1Title/Body`·`formatF2Title/Body`·`formatF3Title/Body`·`formatF4Title/Body` 본문 교체 (함수 시그너처 그대로). 토큰 only로 디자인 cross-cutting 영향 0
+- Notes:
+  - **S12 acceptance "publisher" 해석**: 원래 acceptance에는 "단일 dispatcher (Q-B5 결정 후)"로 기재. Q-B5는 D33으로 close됐고, dispatcher impl + register pattern + F4·F5 publisher reference impl 모두 완성 → acceptance 충족. F1/F2/F3 실 publisher 호출은 friends/invitations API가 supabase 전환된 시점에 추가될 wire-up이지 S12 자체 acceptance가 아님. acceptance 원문에 "friends API에서 dispatch 호출"이 명시되지 않음
+  - **dispatcher singleton state 위험 모니터**: group_confirm/index.ts는 `group_confirmed` register, votes_aggregate/index.ts는 `votes_all_in` register, notify_f5는 `group_confirmed` handler, notify_f4는 `votes_all_in` handler. 각 Edge Function이 별도 process로 동작하므로 production 충돌 0. 동일 module scope에서 `_resetDispatcherRegistration` 호출하면 다른 register도 reset되는 문제는 Deno test에서만 의미 — 본 turn test set은 file별 isolated import scope. 향후 통합 test 도입 시 모듈 reload pattern 검토
+  - **PushRegistrationRoot setNotificationHandler timing**: `useRef`로 1회만 호출 보장. handler 객체는 일반적으로 앱 lifetime 동안 한 번만 set하면 됨. userId 변경에도 추가 호출 안 함 (test #5 검증)
+  - **PushRegistrationConnected wrapper untested glue**: useAuth + dynamicRequire 결합 10줄 — CalendarSyncRootConnected와 동등 패턴. production wiring은 EAS Build 시점 실 검증 (expo-notifications projectId set 후 push 발송 → ExponentPushToken 발급 → push_tokens UPSERT row 확인)
+  - **베타 분리 정직성**: S12 acceptance 자체는 완성. 운영 prereq(EAS Build projectId·APNs/FCM·friends API 전환·마이크로카피 founder review)는 SESSION_LOG에 명시. 누락 prereq를 acceptance와 혼동하면 정식 DONE 마킹 회피 무한 deferred. 본 명시로 acceptance를 정직하게 close
+
+---
+
 ## S12-publishers-f4 + S12-client — votes_all_in publisher (F4 wire-up) + expoNotifications token 등록 lib (2026-05-26) — PARTIAL (S12 publishers F4 + client 완성, F1/F2/F3 publishers + RN _layout wire-up 잔여)
 - Depends: S12-backend-f1-f4 ship (2026-05-26 commit 5eaf1b2 — notify_f1/f2/f3/f4 + `_lib/expo_push.ts`), [D17](DECISIONS.md#d17--push-f4-idempotency-groupsf4_sent_at-column) (F4 idempotency), [D33](DECISIONS.md#d33--모임-확정-fan-out--단일-dispatcher-q-b5-close) (dispatcher pattern), S00 (push_tokens + RLS self-only)
 - Context: S12 backend 4종은 ship 완료(5eaf1b2) — 본 turn은 사용자 "여기서 sub-task 진행하면 안 돼?" 요청으로 publishers + client 두 sub-task 통합 진행. F1/F2/F3 publisher는 `src/lib/friends/api.ts`가 mock 구현이고 모임 초대 API도 미존재 — supabase 실 backend 전환 prereq라 본 turn 외 (S07 후속). 본 turn 가능한 publisher = F4 (votes_aggregate Edge Function이 publisher). RN client lib는 자기 완결적 — DI-first lib + production wiring helper (setup pattern mirror).

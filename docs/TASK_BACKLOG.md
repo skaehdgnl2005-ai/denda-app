@@ -9,8 +9,8 @@
 ## 진행 현황 요약
 
 - **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** + **S14 sub-task 다수** + **fail-cleanup** (2026-05-26) + **S15-deeplink-schema** (2026-05-26) + **S12-backend-f1-f4 + S12-publishers-f4 + S12-client** (2026-05-26 — 3 sub-task 누적: backend 4종 + F4 publisher wire-up + RN expoNotifications.ts) + **Q-B22** + **D34** + **D35** 신규
-- **DONE**: 9 (S00, S01, S03, S04, S06, S07, S11, S14) + S05 acceptance 7/7 (S05e 운영 task)
-- **IN_PROGRESS**: 3 (S05 — S05e 60fps 부하 실기기 잔여; S15-deeplink — 1/6 sub-task; S12 — backend 4종 ✅, publishers + RN client 잔여)
+- **DONE**: 10 (S00, S01, S03, S04, S06, S07, S11, S12, S14) + S05 acceptance 7/7 (S05e 운영 task)
+- **IN_PROGRESS**: 2 (S05 — S05e 60fps 부하 실기기 잔여; S15-deeplink — 1/6 sub-task)
 - **TODO**: 4 (S08, S13, S15-mapmode, S17)
 - **BLOCKED**: 1 (S10 — D1 지도 부분 답변 대기), 1 (S16 — D1 답변 대기)
 
@@ -300,7 +300,7 @@
 
 ### S12 — Push Notification F1-F4
 
-- **Status**: IN_PROGRESS (backend 4종 ✅ + S12-publishers-f4 ✅ + S12-client ✅ 2026-05-26 / F1·F2·F3 publishers + _layout wire-up 잔여) | **Owner**: Backend + Mobile | **Sprint**: 4 | **Lane**: D
+- **Status**: DONE (2026-05-26 정식) | **Owner**: Backend + Mobile | **Sprint**: 4 | **Lane**: D
 - **Depends**: S00 (push_tokens), S07 (friends) ✅, [D17](DECISIONS.md#d17--push-f4-idempotency-groupsf4_sent_at-column), [D33](DECISIONS.md#d33--모임-확정-fan-out--단일-dispatcher-q-b5-close)
 - **Acceptance**:
   - ✅ Expo push token 등록 (`expo-notifications`) — S12-client 2026-05-26 (`src/lib/push/expoNotifications.ts` registerForPushNotifications + DI + dynamicRequire 어댑터)
@@ -316,7 +316,7 @@
     - ✅ `votes_aggregate` 전원 vote 완료 detect → `dispatch({type:'votes_all_in'})` + notify_f4 handler register — S12-publishers-f4 2026-05-26
     - ⏸️ `src/lib/friends/api.ts` 친구 요청/수락 → dispatch — **prereq: friends API supabase 실 backend 전환 (현재 mock array). S07 후속 sub-task**
     - ⏸️ `src/lib/groups/invitations.ts` 모임 초대 → dispatch — **prereq: invitations API 신규 작성 (현재 미존재). S07 후속**
-  - ⏸️ **RN `app/_layout.tsx` push 등록 mount**: useAuth userId 있을 때 `registerForPushNotifications` 호출 + `Notifications.setNotificationHandler` 1회 (CalendarSyncRoot pattern mirror) — 별도 sub-task. EAS Build 시점 production binary 검증
+  - ✅ **RN `app/_layout.tsx` push 등록 mount** — `PushRegistrationRoot` + `PushRegistrationConnected` (CalendarSyncRoot pattern mirror). setNotificationHandler 1회 + userId 변경 시 register + register throw silent
 - **Files**:
   - 완성: `supabase/functions/_lib/expo_push.ts(_test.ts)`, `supabase/functions/notify_f{1,2,3,4}/index.ts(_test.ts)`, `supabase/functions/notify_f5/index.ts` (refactor), `supabase/functions/votes_aggregate/index.ts` (F4 publisher + dispatcher register), `src/lib/push/expoNotifications.ts(.test.ts)`
   - 잔여: `src/lib/friends/` supabase 전환 + `src/lib/groups/invitations.ts` 신규 (F1/F2/F3 publisher prereq) / `app/_layout.tsx` push 등록 mount

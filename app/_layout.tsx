@@ -12,6 +12,11 @@ import { authStore, useAuth } from '@/lib/auth/setup';
 import { CalendarSyncRoot } from '@/lib/calendar/CalendarSyncRoot';
 import { fetchCalendarPreference } from '@/lib/calendar/preference';
 import { createAppStateAdapter, createAppleCalendarProvider } from '@/lib/calendar/setup';
+import {
+  createExpoNotificationsApi,
+  createPlatformApi,
+} from '@/lib/push/expoNotifications';
+import { PushRegistrationRoot } from '@/lib/push/PushRegistrationRoot';
 import { supabase } from '@/lib/supabase/client';
 import { ThemeProvider } from '@/design/theme';
 
@@ -48,6 +53,7 @@ export default function RootLayout() {
       <ThemeProvider>
         <StatusBar style="auto" />
         <CalendarSyncRootConnected />
+        <PushRegistrationConnected />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="(auth)" />
@@ -75,6 +81,39 @@ function CalendarSyncRootConnected(): React.JSX.Element {
       fetchPreference={(id) => fetchCalendarPreference(supabase, id)}
       createAppleProvider={createAppleCalendarProvider}
       appState={appState}
+    />
+  );
+}
+
+/**
+ * production wiring for PushRegistrationRoot — useAuth + dynamicRequire 어댑터로
+ * expo-notifications + react-native Platform 결합. projectId는 EAS Build 시점
+ * `EXPO_PUBLIC_EAS_PROJECT_ID` 환경변수로 set. 미설정 시 빈 문자열 → register 내부에서
+ * silent fail (EAS Build 트랙 prereq).
+ */
+function PushRegistrationConnected(): React.JSX.Element | null {
+  const userId = useAuth((s) => s.session?.user.id);
+  const apis = useMemo(() => {
+    try {
+      return {
+        notifications: createExpoNotificationsApi(),
+        platform: createPlatformApi(),
+      };
+    } catch {
+      // expo-notifications 또는 react-native 미설치 — silent skip
+      return null;
+    }
+  }, []);
+
+  if (!apis) return null;
+
+  return (
+    <PushRegistrationRoot
+      userId={userId}
+      supabase={supabase}
+      notifications={apis.notifications}
+      platform={apis.platform}
+      projectId={process.env.EXPO_PUBLIC_EAS_PROJECT_ID ?? ''}
     />
   );
 }
