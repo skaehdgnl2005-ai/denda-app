@@ -42,6 +42,26 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S06-migration-0011 — users.calendar_preference 컬럼 추가 (2026-05-26) — DONE (S06 partial 진척)
+- Depends: S00 (users table 0001:56-65), [D15](DECISIONS.md#d15--schedulessource-enum--phase-12은-provider-구분-포기) (apple_ios bucket 명칭), S06-google-oauth (`src/lib/calendar/google.ts` 본 컬럼 caller 예정), S06-ui-first-time-modal (모달이 본 컬럼 writer)
+- Changes:
+  - `supabase/migrations/0011_users_calendar_preference.sql` (+30 lines)
+    - `users.calendar_preference TEXT` 컬럼 추가 (default NULL — 첫 모달 노출 신호)
+    - CHECK constraint: `IS NULL OR IN ('google','apple_ios','both','none')` — D15 명칭 일치
+    - Partial index `users_calendar_pref_google_idx ON users(id) WHERE calendar_preference IN ('google','both')` — worker가 SELECT 시 빠른 lookup
+- Tests: SQL migration only, application 변경 0. 본 마이그레이션은 caller 추가까지 unused. typecheck/jest 영향 없음
+- Next:
+  - **S06-apple-expo-calendar** (다음 ship — 본 세션): `src/lib/calendar/apple.ts` (Apple sync는 client-side만 → Q-B22 prereq)
+  - **S06-worker-google-integration** (다음 세션): worker가 본 컬럼 SELECT 후 'google'·'both'면 events.insert 호출. 서버 측 OAuth token 저장 architecture 결정 prereq
+  - **S06-ui-first-time-modal** (다음 세션): "어디 추가할까요" 첫 모달이 본 컬럼 UPDATE
+- Notes:
+  - **컬럼 추가 + index 만**: RLS 정책 변경 0 (기본 users RLS가 자기 행 SELECT/UPDATE 허용). 모달은 anon client UPDATE WHERE id=auth.uid()로 자연 작동
+  - **'apple_ios' 명칭 선택**: schedules.source enum과 일관 ([D15](DECISIONS.md#d15--schedulessource-enum--phase-12은-provider-구분-포기)). 베타 시점 iOS 디바이스 전체 캘린더 bucket 표기
+  - **partial index 적용 조건**: index가 빈 행이 없는 partial은 매우 작음 — 'google'·'both' 사용자만 진입. Phase 1+2 멤버 수 작아 단순 row scan으로도 충분하지만 베타 후반 성장 대비 early 추가
+  - **본 ship은 standalone**: S06-google-oauth와 별도 ship. 의존 caller(worker SELECT)는 후속 sub-task에서 자연 추가
+
+---
+
 ## S06-google-oauth — Google Calendar OAuth + events.insert 클라이언트 lib (2026-05-26) — DONE (S06 partial 진척)
 - Depends: S06-queue-foundation ship 2026-05-26 (`_lib/calendar_queue.ts` CalendarEventPayload shape), S06-worker-integration ship 2026-05-26 (worker stub은 본 ship에서 유지 — 다음 sub-task에서 교체), [D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시) (단방향 + token 만료 silent fail 금지), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc) (외부 캘린더 event timeZone='Asia/Seoul'), AuthProvider DI 패턴 mirror ([KakaoOIDCProvider](../src/lib/auth/KakaoOIDCProvider.ts) — native SDK·HTTP·storage 모두 의존성 주입)
 - Branch: `worktree-s06-google-oauth` (main 23cef5c 위에서 신규 진행, PR 후 main fast-forward 예정)
