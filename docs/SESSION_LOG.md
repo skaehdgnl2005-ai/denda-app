@@ -42,6 +42,38 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S05-screen-confirm — 모임 화면 + 호스트 확정 surface (S05 그리드 + S04-UI 묶음) (2026-05-26) — DONE (S05 acceptance 7/7 + S04 UI gate close)
+- Depends: S04-backend ship 2026-05-26 (`src/lib/groups/confirm.ts` + Edge `group_confirm`), S05 worklet drag ship 2026-05-26 (`useSweepGesture` + Grid GestureDetector), S00 (groups·group_members·dates·votes·confirmed_* 컬럼), [D9](DECISIONS.md#d9--시간-그리드-8pt-시각-셀--44pt-hit-area), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc), [D17](DECISIONS.md#d17--push-f4-idempotency-groupsf4_sent_at-column), DESIGN §10.1 (그리드) + §11.4 (Realtime chip) + §17 (anti-AI-feel)
+- Changes:
+  - **순수 함수 TDD-first**:
+    - `src/lib/groups/selectionToConfirmRange.ts` (+58 lines) + `.test.ts` (15 케이스) — sweep selection record (col 기반 SlotKey) → 단일 날짜 · 연속 범위 검증 + `{dayIndex, startMinute, endMinute}` 산출. 빈 선택 / 다중 날짜 / 비연속 / malformed key / 범위 밖 / 15분 비정렬 모두 한국어 에러
+  - **클라이언트 queries**:
+    - `src/lib/groups/queries.ts` (+74 lines) + `.test.ts` (6 케이스, supabase mock) — `fetchGroupForConfirm(groupId)` → groups + group_members 합쳐 `GroupForConfirm {id, hostId, name, dates, memberCount, confirmedAt, confirmedStartAt, confirmedEndAt, confirmedPlaceId}`. groups 에러/null/멤버 에러 모두 한국어
+  - **컴포넌트 TDD-first**:
+    - `src/components/group/HostConfirmButton.tsx` (+76 lines) + `.test.tsx` (5 케이스) — brand-500 CTA (§17.1 1개 룰). disabled/inflight → surface-2 + text-disabled (§17.5). inflight 시 ActivityIndicator + onPress 차단 (D17 UI 추가 방어). accessibilityState busy/disabled
+    - `src/components/group/ConfirmedTimeCard.tsx` (+62 lines) + `.test.tsx` (3 케이스) — UTC ISO → luxon `Asia/Seoul` 변환 → "YYYY년 M월 D일 (요일) HH:mm ~ HH:mm" 포맷. KO_WEEKDAY (luxon weekday 1..7 = 월..일). brand-50 카드
+  - **라우팅·screen**:
+    - `app/group/_layout.tsx` (+11 lines) — Stack
+    - `app/group/[id]/index.tsx` (+239 lines) — useLocalSearchParams로 group id 추출 → fetchGroupForConfirm + useHeatmapSubscription + useSweepGesture wiring. drag onCommit → JS state selection mirror + commitVoteDiff (S05c) 호출. 호스트 + 미확정 → HostConfirmButton. 확정 후 → ConfirmedTimeCard + 그리드 read-only (panGesture 미주입). 결과 분기: alreadyConfirmed / f5 partial / 성공 토스트
+    - `app/_layout.tsx` (+1 line) — Stack에 `group` 등록
+    - `tests/screens/group/confirm.test.tsx` (+165 lines, 7 통합 케이스) — loading/error/host/non-host/confirmed/no-selection alert/back-button
+- Tests: Jest **309 passed**, 1 skipped (ocr_eval by design — 회귀 0, S05-screen-confirm 신규 36 추가: selectionToConfirmRange 15 + queries 6 + HostConfirmButton 5 + ConfirmedTimeCard 3 + integration 7). typecheck 0. lint 내 영역 0
+- Next:
+  - **S04 정식 DONE 마킹 가능** — backend(2026-05-26) + UI(본 ship) 모두 ship. acceptance 5/5 close. TASK_BACKLOG S04 Status: DONE 업데이트 권고
+  - **S05 acceptance 7/7** (S05e 60fps 부하 실기기 테스트만 잔여) — TASK_BACKLOG S05도 사실상 정식 DONE 가까이. S05e는 운영 task로 분리 권고
+  - **모임 생성 화면**(`app/group/new.tsx` 또는 (+)FAB)은 본 task 외부 — 임시로 supabase dashboard 또는 dev fixture로 group_id 확보해 실 환경 동작 검증 가능
+  - **호스트가 자신의 기존 vote 불러오기** 미구현 — 화면 진입 시 빈 selection으로 시작. 후속 sub-task에서 `fetchUserVotes(groupId, userId)` 추가 + initial selection seed
+- Notes:
+  - **§17 anti-AI-feel 적용**: brand-500 CTA 1개("모임 확정") · surface-2 disabled · 친근체 토스트 ("모임이 확정됐어요!" / "이미 확정된 모임이에요." / "일부 멤버에게 알림을 보내지 못했어요.")
+  - **react-hooks/immutability false positive 회피**: `layout.value = ...` / `scrollOffsetY.value = ...`은 reanimated SharedValue 패턴 — worklet이 매 frame 읽음. useState로 옮기면 worklet에서 stale. 인라인 eslint-disable + 사유 주석 (S05 worklet drag와 동일 패턴 일관)
+  - **D17 더블 탭 UI 추가 방어**: HostConfirmButton의 inflight prop → onPress 차단. backend도 idempotent UPDATE WHERE confirmed_at IS NULL이므로 2단 방어
+  - **selection JS mirror 정당화**: useSweepGesture의 selection은 UI thread SharedValue. JS에서 selectionToConfirmRange 호출하려면 mirror 필요. handleSweepCommit이 VoteSlot[] → col 기반 Record로 변환 후 setState. 이중 source(SharedValue + JS state)는 onCommit 시점에만 동기화 → drag 중에는 SharedValue 우선 (60fps 보호)
+  - **테스트 mock 전략**: useHeatmapSubscription / useSweepGesture는 supabase channel + gesture-handler 의존 회피용 module mock. 통합 테스트는 wire-up과 분기 검증만, 실 worklet 검증은 S05e 실기기 + 별도 E2E 책임
+  - **`new Date()` design-guard 차단 → luxon 통합**: ConfirmedTimeCard.tsx 주석의 `\`new Date()\`` 표현이 hook에 걸려 "bare Date 0건"으로 교체. 본문 코드는 luxon DateTime만 사용 (D13 강제)
+  - **본 task ship → S04·S05 UI gate 모두 close**: S04 acceptance "S04-UI sub-task" 완료(호스트 확정 버튼 + inflight + 분기 토스트). S05 acceptance "그리드 화면" 자연 만족 (`app/group/[id]/index.tsx` = grid + sweep + heatmap)
+
+---
+
 ## S14-test-augment — GuestTimeGrid.test 보강 (S14-violations-fix 안전망) (2026-05-26) — DONE (S14 partial 진척)
 - Depends: S14-utils (lib heatmap/time/voteKey ship 2026-05-26), S14 skeleton (`web-guest/components/GuestTimeGrid.tsx`), [D10](DECISIONS.md#d10--히트맵-5단계-색-램프-heat-0--중립-그레이) (5-stop spec), [D11](DECISIONS.md#d11--realtime-히트맵--edge-function-합산-후-broadcast-옵션-b) (broadcast 책임 분리), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc) (KST 강제), [D23](DECISIONS.md#d23--web-guest-page--nextjs-별도-codebase) (RN과 spec share)
 - Changes:

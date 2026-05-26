@@ -14,8 +14,8 @@
 | **Sprint 0** | W-1 (2026-05-22 ~ 2026-05-28) | 12 인프라 항목 + 디자인 자산 | Expo init + Supabase + EAS Build + 카카오 portal + Supabase Auth Kakao + 키해시 등록 완료 | ON_TRACK |
 | **Sprint 1** | W0 | S00, S11, S13 skeleton | S00 ✅, **S11 ✅ (백필 2026-05-26, 다크 검증 deferred)**, S13 eas.json (S01 portfolio) | DONE (S00·S11) |
 | **Sprint 2** | W1 | S01 + S10 + S14 병행 (★ Kakao 답변 review) | **S01 ✅** (D29), **S14 skeleton ✅ (백필) + S14-utils ✅ 2026-05-26 + S14-test-augment ✅ 2026-05-26 (GuestTimeGrid.test 4 그룹 안전망 + 4 그룹 drift skip)**, S10 BLOCKED (Q-A2), **UI-§17 ✅ 2026-05-26** | IN_PROGRESS (S10 BLOCKED) |
-| **Sprint 3** | W2 | S05 + S07 + S03 + S08 (baseline 시작) | **S05-UI ✅ + S05a ✅ + S05b ✅ (PR #3 78c8fe9) + S05c ✅ + S05d ✅ + S05 worklet drag ✅** = S05 partial (S05e 60fps 부하만 남음 — 실기기 필요) / **S07 ✅ DONE 2026-05-26** / **S03 ✅ DONE 2026-05-26 (a+b)** / S08 미시작 | IN_PROGRESS |
-| **Sprint 4** | W3 | S04 + S06 + S12 + S15 (TestFlight) | **S04-backend ✅ 2026-05-26 (D33 dispatcher + group_confirm + notify_f5 + 클라 wrapper, UI deferred)** / S06·S12·S15 미시작 | IN_PROGRESS (early start) |
+| **Sprint 3** | W2 | S05 + S07 + S03 + S08 (baseline 시작) | **S05-UI ✅ + S05a ✅ + S05b ✅ (PR #3 78c8fe9) + S05c ✅ + S05d ✅ + S05 worklet drag ✅ + S05-screen-confirm ✅ 2026-05-26** = S05 acceptance 7/7 (S05e 60fps 실기기만 잔여) / **S07 ✅ DONE 2026-05-26** / **S03 ✅ DONE 2026-05-26 (a+b)** / S08 미시작 | IN_PROGRESS |
+| **Sprint 4** | W3 | S04 + S06 + S12 + S15 (TestFlight) | **S04 ✅ DONE 2026-05-26** (backend + UI via S05-screen-confirm) / S06·S12·S15 미시작 | IN_PROGRESS (early start) |
 | **W3.5** | W3.5 | S17 QA 종합 + 안암 invite-only launch | 미시작 | — |
 
 ---
@@ -25,13 +25,13 @@
 **총 17 태스크 (S00 ~ S16) + S17 QA**
 
 ```
-DONE 정식:  ████▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  4 / 17 (23.5%) — S00, S01, S03, S07
-Active:    █████████▒▒▒▒▒▒▒▒▒▒▒  8 / 17 (47%) — + S04 backend, S05 partial, S11 partial, S13 partial, S14 partial
+DONE 정식:  █████▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  5 / 17 (29.4%) — S00, S01, S03, S04, S07 (S05도 사실상 7/7, S05e 운영)
+Active:    ██████████▒▒▒▒▒▒▒▒▒▒  8 / 17 (47%) — + S05 acceptance 7/7 (S05e 운영), S11 partial, S13 partial, S14 partial
 ```
 
 | Lane | TODO | IN_PROGRESS (partial) | DONE | BLOCKED |
 |---|---|---|---|---|
-| **A (Foundation·Auth·Time grid·OCR)** | 0 | 2 (S04 backend done UI deferred · S05 sub-task 6/7 — S05e 잔여) | 4 (S00, S01, S03, S07) | 0 |
+| **A (Foundation·Auth·Time grid·OCR)** | 0 | 1 (S05 acceptance 7/7 — S05e 60fps 실기기 잔여) | 5 (S00, S01, S03, S04, S07) | 0 |
 | **B (Map·Click-through·지도-일정)** | 2 (S08, S15-mapmode) | 0 | 0 | 1 (S10) |
 | **C (Web guest)** | 1 (S15 deeplink) | 1 (S14 skeleton) | 0 | 0 |
 | **D (Cross-cutting)** | 3 (S06, S12, S17) | 2 (S11 tokens / S13 eas.json) | 0 | 1 (S16) |
@@ -127,8 +127,8 @@ Active:    █████████▒▒▒▒▒▒▒▒▒▒▒  8 / 17 
 | W-1 (Sprint 0) | S00 | 1 | 인프라 셋업 + Backend foundation |
 | W0 (Sprint 1) | S11 (백필 partial) | 2 | design system + Pretendard |
 | W1 (Sprint 2) | S01, S14-skel, S05-UI, S07-UI (백필), UI-§17, S05a + S07-backend (PR 대기), **S14-utils ✅ + S14-test-augment ✅ 2026-05-26** | ~10 (정식 DONE 1: S01) | ★ D29 OIDC 채택 + §17 신설 + worktree backend 2건 + S14 TDD 도입 (lib RN spec mirror + GuestTimeGrid.test 안전망) |
-| W2 (Sprint 3) | S03a+S03b → S03 ✅, S07-d16-audit + S07-report + S07-block-supabase → S07 ✅, D31 + D32, S05b ✅ (PR #3 merged 78c8fe9) + S05c + S05d + S05-cleanup + **S05a + Q-B21 close** + **S05 worklet drag ✅** | 4 (S03·S07 DONE 정식) | OCR 끝. S07 완성. S05 sub-task 6/7 완료 — S05e 60fps 부하만 잔여(실기기 필요). worklet drag = reanimated 4 + gesture-handler 2 + worklets 0.8 lazy install + D12 의무 패턴 통합 |
-| W3 (Sprint 4) | **S04-backend ✅** (D33 dispatcher + group_confirm Edge + notify_f5 Edge + 클라 wrapper, UI deferred to S05b 동시 작업) | 1 | Sprint 4 early start. Q-B5 close by D33 |
+| W2 (Sprint 3) | S03a+S03b → S03 ✅, S07-d16-audit + S07-report + S07-block-supabase → S07 ✅, D31 + D32, S05b ✅ (PR #3 merged 78c8fe9) + S05c + S05d + S05-cleanup + **S05a + Q-B21 close** + **S05 worklet drag ✅** + **S05-screen-confirm ✅ 2026-05-26** | 4 (S03·S07 DONE 정식) | OCR 끝. S07 완성. S05 acceptance 7/7 완료 — S05e 60fps 부하만 잔여(실기기 필요). worklet drag = reanimated 4 + gesture-handler 2 + worklets 0.8 lazy install + D12 의무 패턴 통합. S05-screen-confirm으로 화면 + 호스트 확정 surface 완성 |
+| W3 (Sprint 4) | **S04-backend ✅** + **S04-UI ✅ via S05-screen-confirm 2026-05-26** → **S04 ✅ DONE 정식** | 2 | Sprint 4 early start. Q-B5 close by D33. S04 acceptance 5/5 완료 |
 | W3.5 | — | — | Launch |
 
 ---
@@ -136,5 +136,5 @@ Active:    █████████▒▒▒▒▒▒▒▒▒▒▒  8 / 17 
 ## 📅 마지막 업데이트
 
 - **날짜**: 2026-05-26
-- **업데이트한 사람**: S14-test-augment ship — GuestTimeGrid.test 4 그룹 안전망 + 4 그룹 drift skip(S14-violations-fix unskip 조건 주석). Jest 83 (69 passed + 14 skipped 의도). S14-violations-fix 안전망 확보
+- **업데이트한 사람**: S05-screen-confirm ship — 모임 화면 + 호스트 확정 surface (그리드 + 호스트 CTA + 확정 후 read-only). S05 acceptance 7/7 close (S05e 운영 task만 잔여). S04 acceptance 5/5 close → S04 정식 DONE. Jest 309 passed (회귀 0, 신규 36)
 - **다음 update**: S14-violations-fix (`new Date` → `dayOfWeekKst`, ratio → `classifyHeat` quartile, client self-broadcast 제거, NicknameForm dep loop fix — drift skip 4개 unskip 사이클) 또는 S04-UI / S06 Calendar 시

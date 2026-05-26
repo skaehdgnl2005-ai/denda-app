@@ -8,10 +8,10 @@
 
 ## 진행 현황 요약
 
-- **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** 신규 sub-task (S04 UI + S05 화면 묶음)
-- **DONE**: 4 (S00, S01, S03, S07)
-- **IN_PROGRESS**: 3 (S04 backend done UI 잔여, S05 sub-task 6/7, S14 skeleton+utils)
-- **TODO**: 10 (S05-screen-confirm 추가)
+- **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** sub-task (DONE 2026-05-26)
+- **DONE**: 5 (S00, S01, S03, S04, S07) + S05 acceptance 7/7 (S05e 운영 task)
+- **IN_PROGRESS**: 2 (S05 — S05e 60fps 부하 실기기 잔여, S14 skeleton+utils+test-augment)
+- **TODO**: 9
 - **BLOCKED**: 1 (S10 — D1 지도 부분 답변 대기)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
@@ -89,7 +89,7 @@
 
 ### S04 — 모임 확정 + 멤버 푸시 (F5)
 
-- **Status**: IN_PROGRESS (backend 100% 완료 2026-05-26, UI sub-task 잔여) | **Owner**: Backend + Mobile | **Sprint**: 4 | **Lane**: A
+- **Status**: DONE (2026-05-26, backend + UI via S05-screen-confirm) | **Owner**: Backend + Mobile | **Sprint**: 4 | **Lane**: A
 - **Depends**: S05 (votes), S00 (groups.confirmed_at·confirmed_*_at·confirmed_place_id·f5_sent_at·partial_fail_list), [D33](DECISIONS.md#d33--모임-확정-fan-out--단일-dispatcher-q-b5-close) (본 세션 신규)
 - **Acceptance**:
   - ✅ 호스트 권한 체크 (RLS `groups_update_host` + anon client UPDATE 자연 차단) — UI gate(버튼 disable)는 S04-UI에서
@@ -124,7 +124,7 @@
 
 ### S05-screen-confirm — 모임 화면 + 호스트 확정 surface (S05 그리드 + S04-UI 묶음)
 
-- **Status**: TODO | **Owner**: Mobile | **Sprint**: 3-4 cross | **Lane**: A
+- **Status**: DONE (2026-05-26) | **Owner**: Mobile | **Sprint**: 3-4 cross | **Lane**: A
 - **Depends**: S04-backend ship (`src/lib/groups/confirm.ts`, commit d01482b, 2026-05-26), S05 worklet drag ship (`useSweepGesture` + `Grid` GestureDetector), S00 (groups·group_members·dates·votes·confirmed_* 컬럼), [D9](DECISIONS.md#d9--시간-그리드-8pt-시각-셀--44pt-hit-area), [D17](DECISIONS.md#d17--push-f4-idempotency-groupsf4_sent_at-column) (UI inflight guard로 더블 탭 추가 방어), DESIGN §10.1 (그리드) + §11.4 (Realtime chip)
 - **Acceptance**:
   - **routing**: `app/group/_layout.tsx` (Stack) + `app/group/[id]/index.tsx` 신규

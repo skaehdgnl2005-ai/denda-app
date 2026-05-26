@@ -12,11 +12,4 @@
 
 ## 🟢 활성 작업
 
-### S05-screen-confirm 모임 화면 + 호스트 확정 surface
-- **상태**: 시작
-- **다음 단계**: app/group/_layout.tsx + app/group/[id]/index.tsx (그리드 + 호스트 확정 + read-only 전환)
-- **블로커**: 없음
-- **마지막 update**: 2026-05-26 KST
-
-
 
