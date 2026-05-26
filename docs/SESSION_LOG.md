@@ -42,6 +42,42 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S06-applesync-hook — useApplePendingSync hook (AppState change + concurrent guard) (2026-05-26) — DONE (S06 partial 진척)
+- Depends: S06-worker-apple-trigger ship(`processApplePendingPushes` + `ApplePendingDeps` 2026-05-26), [D34](DECISIONS.md#d34--apple-calendar-sync--클라-polling-패턴-q-b22-close) (클라 polling 패턴)
+- Branch: `worktree-s06-google-oauth` (main 23cef5c 위 7 commits 누적)
+- Changes:
+  - **Hook** (`src/lib/calendar/useApplePendingSync.ts`, +~100 lines):
+    - `useApplePendingSync({supabase, apple, now, enabled?, appState?, onSummary?})` → `{isProcessing, lastSummary, triggerSync}`
+    - **mount 시 1회 trigger** — 앱 진입 즉시 backlog 처리
+    - **AppState 'active' 전환 시 추가 trigger** — 사용자가 background에서 복귀 시 자동 처리. AppState는 DI(`AppStateAdapter` 타입) — production은 `react-native AppState` 주입, 테스트는 mock
+    - **concurrent guard** — `useRef<boolean>` inFlight flag로 처리 중 새 trigger skip(디바이스 expo-calendar API 동시 호출 회피)
+    - **enabled=false** — AppState listener 등록 안 함 + mount trigger 안 함. 사용자가 캘린더 연동 안 한 경우
+    - **triggerSync 외부 호출 가능** — UI 모달 닫힌 후 수동 trigger(설정 화면 등)
+    - **에러 격리** — `processApplePendingPushes` throw 시 hook 외부에 부담 X. `lastSummary`는 null 유지, 다음 trigger 재시도. caller가 명시 에러 처리 원하면 `processApplePendingPushes`를 직접 호출
+    - **deps 최신값 ref 패턴** — `depsRef`/`onSummaryRef`로 closure stale issue 회피. `triggerSync`는 `useCallback`으로 stable identity
+  - **Jest tests** (`src/lib/calendar/useApplePendingSync.test.ts`, +~250 lines, **8 tests TDD-first**):
+    - mount 1회 호출 + onSummary 전달
+    - enabled=false → 호출 안 함
+    - AppState 'background → active' → 추가 호출 (mount 1회 + active 1회 = 총 2회)
+    - AppState 'active 외'(background/inactive/unknown) → 호출 안 함
+    - concurrent guard — Promise resolve 전 추가 fire → skip
+    - throw 시 lastSummary null + isProcessing 해제 + 다음 trigger 재시도
+    - unmount → AppStateListener.remove 호출
+    - triggerSync — UI 수동 호출 path
+- Tests: Jest **394 passed** (전회 +8 신규, 1 skipped ocr_eval by design). typecheck **0**. Deno 변경 0. lint 사전 state 그대로
+- Next:
+  - **S06-ui-first-time-modal**: 첫 모임 확정 후 "어디 추가할까요" 모달(DESIGN §11.2 베이지 surface + brand-500 CTA 1개). 사용자 선택 → `users.calendar_preference` UPDATE → Google는 `signInGoogleAndUpload` / Apple은 `AppleCalendarProvider.requestPermission`. 모달 trigger 위치는 `app/group/[id]/index.tsx` confirmGroup 성공 분기
+  - **S06-ui-reauth-modal**: `partial_fail_list` SELECT(reason='token_expired'/'unauthorized') → 프로필 진입 시 재인증 모달. 호스트에게 별도 알림은 F-style 신규 또는 F5 확장
+  - **useApplePendingSync wire-up 위치**: `app/_layout.tsx`(앱 전역) 또는 `app/group/[id]/index.tsx`(모임 화면) — UI 모달 sub-task와 묶음 결정
+- Notes:
+  - **AppState DI 패턴 정당화**: RN AppState는 production 의존성이지만 hook 자체는 platform-agnostic 가능. DI로 받으면 unit test가 RN 모듈 mock 없이 가능 + 본 hook의 logic(concurrent guard + 'active' 전환 분기)만 검증 가능. production 진입 시 `import { AppState } from 'react-native'` 그대로 주입
+  - **에러 격리 디자인 선택**: `processApplePendingPushes` throw는 SELECT 실패(드문 케이스). 디바이스 expo-calendar 실패는 row-level로 격리(processOneRow의 result.ok=false → summary.failed). 본 hook은 background 호출이라 사용자에게 noisy alert 띄울 필요 X — caller가 `lastSummary` 또는 `triggerSync` Promise를 직접 await하면 명시적 처리 가능
+  - **deps 최신값 ref 패턴 이유**: hook을 사용하는 컴포넌트가 매 render마다 새 supabase·apple·onSummary 참조를 만들면 useEffect deps 변경 → AppState listener 매번 재등록. 해결: `depsRef.current = ...`로 매 render에서 latest 유지하되, useEffect deps에는 stable한 enabled/appState/triggerSync만. AppState listener는 안정적 등록
+  - **mount 자동 호출이 enabled=false면 안 함**: 사용자가 캘린더 연동 'none' 상태인 경우 hook을 활성 안 함이 자연. 첫 모달에서 'apple_ios'/'both' 선택하면 caller가 enabled=true로 hook 시작 가능
+  - **본 ship은 hook 자체만**: 어디서 `useApplePendingSync`을 호출할지(wire-up 위치)는 UI 모달 sub-task와 묶음 — first-time-modal에서 사용자가 캘린더 선택 후 enabled 토글 또는 app/_layout에 전역 wire-up + enabled=`calendar_preference` watch
+
+---
+
 ## S06-setup — production wiring 어댑터 + 서버 token RPC wrapper (2026-05-26) — DONE (S06 partial 진척)
 - Depends: S06-google-oauth ship(`GoogleCalendarProvider` + DI 인터페이스 2026-05-26), S06-apple-expo-calendar ship(`AppleCalendarProvider` + `AppleCalendarApi` 2026-05-26), S06-worker-google-integration ship(migration 0012 `user_oauth_tokens` + `upsert_user_oauth_tokens` RPC 2026-05-26), [D35](DECISIONS.md#d35--google-calendar-oauth-token-서버-측-저장--user_oauth_tokens-table) (서버 측 token storage), [D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시) (silent fail 금지)
 - Branch: `worktree-s06-google-oauth` (main 23cef5c 위 6 commits 누적)
