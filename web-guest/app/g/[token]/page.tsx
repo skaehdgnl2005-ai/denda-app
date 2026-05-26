@@ -45,7 +45,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
-  const hostNickname = (group as any).users?.nickname || '친구';
+  const hostNickname = (group as { users?: { nickname?: string } }).users?.nickname || '친구';
   const title = `${group.name} | 모임 시간 투표 - 된다`;
   const description = `${hostNickname}님이 모임에 초대했습니다. 가능 시간을 드래그해서 선택해 주세요.`;
 
@@ -82,7 +82,7 @@ export default async function Page({ params }: Props) {
       groupId={group.id}
       groupName={group.name}
       dates={group.dates}
-      hostNickname={(group as any).users?.nickname || '방장'}
+      hostNickname={(group as { users?: { nickname?: string } }).users?.nickname || '방장'}
     />
   );
 }

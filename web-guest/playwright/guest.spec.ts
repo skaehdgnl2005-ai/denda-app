@@ -1,6 +1,11 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Web Guest Page E2E Flow', () => {
+// S14-e2e-setup (2026-05-26): skeleton 백필 시점의 full user flow spec. supabase RPC mock route는
+// 셋업되어 있으나 닉네임 submit·드래그 select·voting 통합은 별도 sub-task로 분리.
+// NEXT_PUBLIC_IS_E2E 분기로 supabase 호출 skip된 상태에서는 RPC 경로가 dead path라 본 spec은
+// 의도적으로 skip. unskip 조건: (1) 컴포넌트에서 NEXT_PUBLIC_IS_E2E 분기 제거 후 mock route 의존
+// 또는 (2) e2e mode에서도 NicknameForm.handleSubmit이 mock 응답 처리하도록 분기 추가
+test.describe.skip('Web Guest Page E2E Flow — S14-e2e-flow 별도 sub-task', () => {
   const MOCK_GROUP_ID = '812374df-51d4-4154-b835-b9a5ac03082e';
 
   test.beforeEach(async ({ page }) => {

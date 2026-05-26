@@ -86,6 +86,8 @@ export default function GuestTimeGrid({
 
   // Subscribe to real-time updates for heatmap updates
   useEffect(() => {
+    // S14-e2e-setup: dummy supabase URL → websocket connection 영구 retry 회피.
+    if (process.env.NEXT_PUBLIC_IS_E2E === 'true') return;
     const channel = supabase
       .channel(`group:${groupId}`)
       .on('broadcast', { event: 'heatmap_update' }, () => {

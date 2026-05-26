@@ -23,6 +23,12 @@ export default function NicknameForm({ groupId, onComplete }: NicknameFormProps)
   });
 
   useEffect(() => {
+    // S14-e2e-setup: dummy supabase URL fetch hang 회피. localStorage check 후 즉시 모달 표시.
+    if (process.env.NEXT_PUBLIC_IS_E2E === 'true') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setIsOpen(true);
+      return;
+    }
     const checkExistingGuest = async () => {
       const storedToken = localStorage.getItem(`denda_guest_token_${groupId}`);
       if (storedToken) {

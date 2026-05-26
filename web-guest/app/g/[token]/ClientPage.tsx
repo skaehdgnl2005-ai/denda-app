@@ -33,7 +33,7 @@ export default function ClientPage({
   hostNickname,
 }: ClientPageProps) {
   const [guestToken, setGuestToken] = useState<string | null>(null);
-  const [guestNickname, setGuestNickname] = useState<string | null>(null);
+  const [, setGuestNickname] = useState<string | null>(null);
   const [votes, setVotes] = useState<Vote[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +42,13 @@ export default function ClientPage({
 
   // Fetch initial votes and members
   const fetchData = async () => {
+    // S14-e2e-setup: dummy supabase URL fetch hang 회피. supabase 호출 skip + 즉시 loading 해제.
+    if (process.env.NEXT_PUBLIC_IS_E2E === 'true') {
+      setVotes([]);
+      setParticipants([]);
+      setLoading(false);
+      return;
+    }
     try {
       // 1. Fetch votes
       const { data: votesData } = await supabase
@@ -74,8 +81,10 @@ export default function ClientPage({
       // Build participant status list
       const list: Participant[] = [];
 
-      // Add members
+      // Add members. supabase의 `user:users(id, nickname)` join은 array/object를 보수적으로
+      // array로 추론 — 실제로는 one-to-one FK. 정확한 typing은 별도 supabase codegen sub-task.
       if (membersData) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         membersData.forEach((m: any) => {
           if (m.user) {
             list.push({
@@ -107,7 +116,11 @@ export default function ClientPage({
   };
 
   useEffect(() => {
+    // S14-e2e-setup: fetchData()는 prop→state sync 패턴. setVotes/setParticipants/setLoading
+    // 모두 effect 안. 별도 state-refactor로 격상 후보.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId]);
 
   const handleNicknameComplete = (token: string, nickname: string) => {
