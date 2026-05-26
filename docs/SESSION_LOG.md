@@ -42,6 +42,35 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S06-queue-foundation — calendar push background queue 기반 (DB schema + 순수 함수) (2026-05-26) — DONE (S06 partial 진척)
+- Depends: S04-backend ship 2026-05-26 (group_confirm Edge Function publisher + dispatcher real impl + `group_confirmed` event type 정의), S00 (groups.confirmed_*·partial_fail_list 컬럼 — 0001:198-218), [D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시) (단방향 + partial fail report + token expiry not silent), [D20](DECISIONS.md#d20--calendar-push-fan-out--background-queue) (background queue + retry max 3 + pg_cron), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc) (KST 표기), [D15](DECISIONS.md#d15--schedulessource-enum--phase-12은-provider-구분-포기) (apple_ios 통합 bucket)
+- Branch: `worktree-s06-calendar-sync` (origin/main에서 ff → local main까지 fast-forward 8 commit 통합)
+- Changes:
+  - **Migration**:
+    - `supabase/migrations/0009_calendar_push_queue.sql` (+30 lines) — `groups.calendar_pushed_at TIMESTAMPTZ` + `groups.calendar_retry_count INTEGER NOT NULL DEFAULT 0` 추가. CHECK `calendar_retry_count >= 0` (defensive). partial index `groups_calendar_push_pending_idx ON groups(confirmed_at) WHERE confirmed_at NOT NULL AND calendar_pushed_at IS NULL` — pg_cron worker 매 1분 SELECT 비용 ↓
+  - **순수 함수 TDD-first** (`supabase/functions/_lib/calendar_queue.ts`, +160 lines + `_test.ts` Deno 17 케이스):
+    - `isCalendarPushPending(group)` — queue selection 조건 (confirmed_at NOT NULL && calendar_pushed_at IS NULL && retry < MAX). 5 tests (confirmed null / pending / retry 미달 / retry max 도달 / 이미 push 완료)
+    - `nextRetryState(currentCount)` — retry policy. 0→{1,false} / 1→{2,false} / 2→{3,true} / 3→{3,true idempotent} / 음수 throw / 비정수 throw + MAX 상수 = 3 검증. 7 tests
+    - `buildCalendarEventPayload(group)` — group → 외부 캘린더 event spec (title=name, descriptionKo=한국어 KST 표기 `[된다] yyyy년 M월 d일 (요일) HH:mm ~ HH:mm KST`, locationName optional). 5 tests (기본 / placeName 있음 / null / undefined / KST 자정 종료 "24:00" 표기 / name 빈/whitespace throw / end≤start throw / invalid ISO throw). luxon `setZone('Asia/Seoul')` + KO_WEEKDAY manual map (ICU locale 의존 회피)
+- Tests: Deno **17 tests TDD-first** (5 isCalendarPushPending + 7 nextRetryState + 5 buildCalendarEventPayload — Deno CLI 미설치로 실행 deferred, S04-backend·votes_aggregate·dispatcher 동일 패턴). tsconfig.json이 `supabase/functions` excludes → RN jest/tsc 영역 영향 0. design-guard 위반 0건 (bare Date 0 / hex 0)
+- Next:
+  - **S06-worker-integration** (다음 sub-task): `supabase/functions/calendar_push_worker/index.ts` 신규 (D20 pg_cron + 매 1분 SELECT pending → 본 sub-task 순수 함수로 payload 생성 → Google/Apple push) + `supabase/migrations/0010_calendar_cron.sql` (pg_cron schedule). dispatcher handler register는 worker가 작동하는 단계에서 필요(현재는 confirmed_at NOT NULL 자체가 큐 마킹이라 즉시 등록 불필요)
+  - **S06-google-oauth**: Google Calendar OAuth flow (`src/lib/calendar/google.ts`) + token SecureStore + `events.insert` wrapper
+  - **S06-apple-expo-calendar**: `expo-calendar` lazy install + iOS 17+ write-only 권한 wrapper (`src/lib/calendar/apple.ts`)
+  - **S06-ui-first-time-modal**: "어디 추가할까요" 첫 모달 + `users.calendar_preference` 컬럼 (D15 통합 bucket)
+  - **S06-ui-reauth-modal**: D19 token 만료 → 프로필 + 다음 진입 모달
+- Notes:
+  - **본 sub-task는 S06 acceptance 항목별 close 0** — 6 acceptance(Google OAuth / expo-calendar / 첫 모달 / 재인증 / partial fail 호스트 알림 / Background queue) 모두 본 sub-task 단독으로는 미충족. 본 sub-task가 제공하는 것은 worker가 의지할 데이터 모델·정책·payload 변환. S05a (votes_aggregate Edge Function ship 후 S05c·d worktree에서 활용)와 동일 패턴 — foundation부터 ship하고 후속 sub-task가 활용
+  - **dispatcher handler register 의도적 deferred** — 본 sub-task 시점에는 worker가 없어 register해도 호출되는 게 없음. handler register는 worker Edge Function ship 시점에 함께 추가하는 게 자연 (HTTP overhead 회피 in-process pattern). 큐 마킹 자체는 confirmed_at NOT NULL + calendar_pushed_at IS NULL 자체가 표시이므로 group_confirm publish 이전에도 worker가 동작 가능
+  - **partial_fail_list는 0001에서 이미 D20 주석** — JSONB DEFAULT '[]'로 존재. worker가 3회 fail 후 멤버 list append (호스트 알림용 — D19) — 본 sub-task는 컬럼 추가 0
+  - **`buildCalendarEventPayload`의 24:00 표기 처리**: KST 자정 종료(end_minute=1440 → 다음날 00:00 KST)는 시간 그리드와 동일하게 "24:00" 표시. `endKst.hasSame(startKst, 'day')` 검사로 multi-day 케이스 (S04 spec상 미지원이지만 정합 정확성) 회피
+  - **`luxon@3.4.4` npm: import**: 기존 group_confirm/index.ts와 동일 spec(`npm:luxon@3.4.4`) — Deno runtime의 npm: import 패턴. `setZone: true`로 UTC offset 보존
+  - **worktree 정리**: 본 sub-task가 ship되면 worktree `worktree-s06-calendar-sync`는 PR 생성·머지 후 cleanup. local main 위에 fast-forward로 가져온 후 진행했으므로 base 깨끗
+  - **migration 0009 prefix 정합성**: 0001~0008 이미 사용. 0010은 S06-worker-integration의 pg_cron schedule용으로 reserved
+  - **`groups_calendar_push_pending_idx` 적용 row 수**: 본 시점 groups row 0. 본 인덱스는 worker가 매 1분 SELECT할 때 sequential scan 회피용 — 데이터 증가 후 효율 본격 발현. early bird 최적화이지만 비용 미미
+
+---
+
 ## S05-screen-confirm — 모임 화면 + 호스트 확정 surface (S05 그리드 + S04-UI 묶음) (2026-05-26) — DONE (S05 acceptance 7/7 + S04 UI gate close)
 - Depends: S04-backend ship 2026-05-26 (`src/lib/groups/confirm.ts` + Edge `group_confirm`), S05 worklet drag ship 2026-05-26 (`useSweepGesture` + Grid GestureDetector), S00 (groups·group_members·dates·votes·confirmed_* 컬럼), [D9](DECISIONS.md#d9--시간-그리드-8pt-시각-셀--44pt-hit-area), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc), [D17](DECISIONS.md#d17--push-f4-idempotency-groupsf4_sent_at-column), DESIGN §10.1 (그리드) + §11.4 (Realtime chip) + §17 (anti-AI-feel)
 - Changes:
