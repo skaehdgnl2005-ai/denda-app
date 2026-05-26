@@ -1,17 +1,56 @@
 // 프로필 탭 — 닉네임 + 로그아웃 (placeholder, S15 정식 UI는 후속).
 
 import { router } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/Icon';
+import { ReauthModal } from '@/components/calendar/ReauthModal';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { authStore, useAuth } from '@/lib/auth/setup';
+import { isGoogleReauthNeeded } from '@/lib/calendar/reauth';
+import {
+  createGoogleCalendarProvider,
+  signInGoogleAndUpload,
+} from '@/lib/calendar/setup';
+import { supabase } from '@/lib/supabase/client';
 
 export default function ProfileScreen() {
   const { colors, space, radius } = useTheme();
   const nickname = useAuth((s) => s.session?.user.nickname ?? '');
+  const userId = useAuth((s) => s.session?.user.id);
+  const [showReauth, setShowReauth] = useState(false);
+
+  // S06: profile 진입 시 Google 재인증 필요 여부 체크. true면 ReauthModal 노출.
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    isGoogleReauthNeeded(supabase, userId).then((needs) => {
+      if (!cancelled && needs) setShowReauth(true);
+    });
+    return (): void => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  // S06: signInGoogle lazy 구성 — createGoogleCalendarProvider 호출 시점 expo-* dynamicRequire.
+  const handleSignInGoogle = useCallback(async (): Promise<void> => {
+    const clientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? '';
+    const { provider, storage } = createGoogleCalendarProvider({
+      oauthConfig: { clientId, redirectUri: 'denda://oauth' },
+    });
+    await signInGoogleAndUpload({ provider, storage, supabase });
+  }, []);
+
+  const handleReauthSuccess = useCallback((): void => {
+    // 성공 후 다시 체크 — token row 존재 확인되면 모달 노출 종료
+    if (!userId) return;
+    isGoogleReauthNeeded(supabase, userId).then((needs) => {
+      if (!needs) setShowReauth(false);
+    });
+  }, [userId]);
 
   const handleSignOut = async () => {
     await authStore.getState().signOut();
@@ -89,6 +128,13 @@ export default function ProfileScreen() {
           </Caption>
         </Pressable>
       </View>
+
+      <ReauthModal
+        visible={showReauth}
+        onClose={() => setShowReauth(false)}
+        signInGoogle={handleSignInGoogle}
+        onSuccess={handleReauthSuccess}
+      />
     </SafeAreaView>
   );
 }

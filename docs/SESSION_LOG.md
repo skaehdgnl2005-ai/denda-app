@@ -42,6 +42,37 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S06-ui-reauth-modal — Google 캘린더 재인증 안내 모달 (2026-05-26) — DONE (S06 partial 진척)
+- Depends: S06-ui-first-time-modal ship (`FirstTimeModal` + `signInGoogleAndUpload` 흐름 검증), S06-setup ship (`signInGoogleAndUpload`), migration 0012 (`user_oauth_tokens` table), DESIGN §11 (모달) + §17 (anti-AI-feel)
+- Branch: `worktree-s06-google-oauth` (main 23cef5c 위 9 commits 누적)
+- Changes:
+  - **ReauthModal** (`src/components/calendar/ReauthModal.tsx`, +~165 lines):
+    - "Google 캘린더 연결이 끊겼어요" 헤딩 + 본문 설명 + "나중에"/"다시 로그인" 2 버튼
+    - "다시 로그인" → signInGoogle (DI) → 성공 시 onSuccess + onClose / 에러 분기 (cancelled silent close, unauthorized/network/etc 한국어 inline 메시지 + 모달 유지)
+    - busy 동안 다중 press 차단 + "연결 중..." 라벨
+    - §17 anti-AI-feel: brand-500 fill CTA 1개, secondary "나중에", 친근체, surface-2 disabled, 토큰 only
+  - **isGoogleReauthNeeded helper** (`src/lib/calendar/reauth.ts`, +~45 lines):
+    - 검사 로직: `users.calendar_preference IN ('google', 'both')` + `user_oauth_tokens` (user_id, provider='google_calendar') row 부재 → reauth 필요
+    - 원인 커버: cancelled OAuth / worker invalid_grant token 삭제 / 외부 revoke
+    - 에러 silent false (보수적 — 일시 RLS 문제로 거짓 모달 회피)
+    - Jest 10 tests (preference null/none/apple_ios/google+token/google-token/both+token/both-token + 에러 2종 + null row)
+  - **profile.tsx wire-up** (`app/(tabs)/profile.tsx`, +~50 lines):
+    - useEffect mount 시 isGoogleReauthNeeded → true면 setShowReauth(true)
+    - signInGoogle callback lazy 구성 (createGoogleCalendarProvider 호출 시점 expo-* dynamicRequire)
+    - onSuccess → isGoogleReauthNeeded 재실행해 token row 존재 확인 후 모달 종료
+- **Tests**:
+  - Jest: **433 passed** (+19: 10 reauth helper + 9 ReauthModal), 1 skipped (ocr_eval), 49 suites
+  - typecheck 0
+  - lint 11 errors all pre-existing (변함없음)
+- Next: **S06-applesync-hook app/_layout.tsx 전역 wire-up** — useApplePendingSync mount + skippedUnauthorized=true 시 ReauthModal trigger 연동 검토
+- Notes:
+  - **트리거 위치**: profile 화면 mount 시. 다른 화면 진입은 본 베타에서는 무체크 (단순화). 사용자가 profile 들어와야 알게 됨 — 향후 launch 후 worker 실패 시 push 알림으로 prefetch 가능
+  - **재인증 후 worker 재시도**: signInGoogleAndUpload 성공으로 `user_oauth_tokens` row 복원 → worker 다음 tick(1분)에서 calendar_retry_count 미초과 row 자동 재시도. **retry_count max(3) 초과한 row는 영구 stall** — 베타 한정 founder weekly review로 hand-off (후속 sub-task로 reset_calendar_retry RPC SECURITY DEFINER 검토)
+  - **시각 검증 deferred**: expo-* 패키지 미설치라 에뮬레이터 동작 검증 불가. 토큰·a11y·테스트로 정합 확인
+  - **partial_fail_list 미사용 결정**: 처음 plan은 partial_fail_list scan(token_expired/unauthorized reason 감지)이었지만, calendar_pushed_at 분기·이전 entry stale 처리 등 edge case로 복잡도 ↑. user_oauth_tokens row 부재 단일 신호로 단순화 — 모든 reauth-필요 case(OAuth cancelled / invalid_grant 삭제 / 외부 revoke) 자연 커버
+
+---
+
 ## S06-ui-first-time-modal — 첫 모임 확정 후 캘린더 선택 모달 (2026-05-26) — DONE (S06 partial 진척)
 - Depends: S06-setup ship(`signInGoogleAndUpload` + `createGoogleCalendarProvider` + `createAppleCalendarProvider` 2026-05-26), S05-screen-confirm ship (`app/group/[id]/index.tsx` confirmGroup 성공 분기), migration 0011 (`users.calendar_preference` 컬럼 + CHECK), [D15](DECISIONS.md#d15--schedulessource-enum--phase-12은-provider-구분-포기) (apple_ios bucket), DESIGN §11 (모달) + §17 (anti-AI-feel) + ko-kr (한국어 라벨)
 - Branch: `worktree-s06-google-oauth` (main 23cef5c 위 8 commits 누적)
