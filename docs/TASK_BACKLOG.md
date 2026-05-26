@@ -10,8 +10,8 @@
 
 - **총 17 태스크** (S00 ~ S16)
 - **DONE**: 2 (S00, S01)
-- **IN_PROGRESS**: 0
-- **TODO**: 14
+- **IN_PROGRESS**: 1 (S05 — UI ✅ + a ✅ + b ✅ PR 대기)
+- **TODO**: 13
 - **BLOCKED**: 1 (S10 — D1 지도 부분 답변 대기)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
@@ -102,8 +102,8 @@
 
 ### S05 — 시간 그리드 + 투표 + Realtime 히트맵
 
-- **Status**: TODO | **Owner**: Mobile + Backend | **Sprint**: 3 | **Lane**: A
-- **Depends**: S00 (votes, time_slots, Realtime enabled), D9 (8pt/44pt), D10 (heat ramp), D11 (Edge aggregation), D12 (60fps spec)
+- **Status**: IN_PROGRESS (UI ✅ + S05a ✅ + S05b ✅ PR 대기 / S05c worklet drag + S05d vote commit DB + S05e 60fps 부하 미진행) | **Owner**: Mobile + Backend | **Sprint**: 3 | **Lane**: A
+- **Depends**: S00 (votes, time_slots, Realtime enabled), D9 (8pt/44pt), D10 (heat ramp), D11 (Edge aggregation), D12 (60fps spec), [Q-B21](OPEN_QUESTIONS.md#q-b21--d11-heatmap-broadcast-payload에-day-차원-누락) (S05a alignment)
 - **Acceptance**:
   - Reanimated worklet drag (UI thread)
   - FlashList 또는 React.memo 셀 가상화 (60slot × 7day = 420 cells)
