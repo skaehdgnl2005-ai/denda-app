@@ -74,6 +74,30 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S14-e2e-setup — web-guest Playwright base spec (2026-05-26) — DONE (S14 partial 진척)
+- Depends: S14-violations-fix (시간 그리드 spec 정합 close 2026-05-26), `@playwright/test` 1.60+ devDep (skeleton 백필), [D23](DECISIONS.md#d23--web-guest-page--nextjs-별도-codebase), TEST_PLAN.md "Web guest E2E = Playwright + Vercel + Next.js"
+- Changes:
+  - **playwright.config.ts** (+~25 / -~10) — skeleton에 있던 minimal config를 enhance: `testMatch: '**/*.spec.ts'`, `timeout: 30_000`, reporter CI/local 분기, **webServer.env에 dummy supabase 변수 추가** (`NEXT_PUBLIC_SUPABASE_URL: 'https://e2e-dummy.supabase.co'` + `NEXT_PUBLIC_SUPABASE_ANON_KEY: 'e2e-dummy-anon-key'` — `lib/supabase.ts` import-time throw 회피). projects 3종으로 확장: `mobile-safari` (iPhone 13) + `mobile-chromium` (Pixel 5) + `desktop-chromium` (Desktop Chrome — 데스크톱 안내 화면 검증)
+  - **playwright/guest_flow.spec.ts** (+~50 lines, 3 base 케이스):
+    - `/` root — `된다 (DenDa)` 헤딩 + "모임 초대 링크로 접속해 주세요" 메시지
+    - desktop viewport `/g/[token]` — "모바일에서 열어주세요" 안내 화면 (DESIGN §12.7, `md:flex` desktop blocker)
+    - mobile viewport `/g/[token]` — 모임 헤더(`안암 저녁 모임`) + `방장: 김방장` + `초대장` 배지 + 닉네임 모달(`투표 참여하기` + `닉네임 입력` placeholder + `확인` 버튼)
+  - **package.json scripts** (+3 lines): `e2e` / `e2e:ui` / `e2e:install`
+  - **playwright/README.md** (+~50 lines) — 첫 셋업(`npm run e2e:install`), 실행 명령, 환경 변수 표, base spec 범위, 향후 sub-task (시간 그리드 투표 mock route · Realtime broadcast 수신 · OG 메타 · 시각 회귀)
+- Tests: web-guest jest **82 (79 passed + 3 skipped 의도)** 그대로 (Playwright 영역은 jest `testPathIgnorePatterns` `/playwright/`로 분리). typecheck 0, lint 0. Playwright 자체 실행은 사용자 측 `npm run e2e:install` 후 `npm run e2e` (CI 환경은 docker `mcr.microsoft.com/playwright` 권장)
+- Next:
+  - **시간 그리드 투표 → CTA user flow E2E**: supabase RPC `save_guest_votes` mock 응답 필요 → `page.route('**/e2e-dummy.supabase.co/**', ...)` intercept + JSON fixture. 별도 sub-task
+  - **카톡 OG 메타 검증**: `page.locator('meta[property="og:title"]')` server-rendered metadata. 별도 spec
+  - **S05a Edge Function broadcast 수신 검증**: payload spec(D11 day_index) 확정 후 mock channel.on 콜백 trigger
+- Notes:
+  - **base spec scope 의도적 minimal** — supabase mock route 없이 진행 가능한 분기만 (root 안내 · desktop block · nickname modal). 시간 그리드 투표/CTA는 supabase RPC chain mock이 큰 작업이라 별도 sub-task
+  - **dummy supabase URL의 fetch fail 의존** — NicknameForm useEffect의 `group_guests.select(...).eq(...)`는 `e2e-dummy.supabase.co`로 DNS resolve 실패 → catch 분기 → `setIsOpen(true)` → 모달 표시. ClientPage `fetchData`도 catch → setLoading(false). DNS resolution 타임아웃에 대비해 mobile spec의 모달 검증은 `timeout: 10_000`으로 backoff 설정
+  - **projects 3종** — TEST_PLAN.md는 명시 안 하지만 DESIGN §12.7의 "모바일·태블릿 only + 데스크톱 미지원" spec을 desktop project로 정확히 검증. iOS Safari(WebKit) + Android Chrome(Chromium) 둘 다 mobile project. CI에서는 1 project만 돌릴 수 있도록 `--project=mobile-safari` 패턴 README에 명시
+  - **Playwright는 web-guest 안에 격리** — 메인 RN 영역과 직교. jest의 `testPathIgnorePatterns: ['/playwright/']`로 jest가 spec 파일을 안 잡음 (S14-utils ship 시점에 이미 셋업됨)
+  - **README는 운영자 가이드 위치 분리** — 본 sub-task에서 처음 도입. TEST_PLAN.md의 Edge Function `tests/ocr/README.md` 패턴 mirror
+
+---
+
 ## S14-violations-fix — GuestTimeGrid/NicknameForm D13·D11·D10·dep loop fix (2026-05-26) — DONE (S14 partial 진척, S14 acceptance 시간 그리드 spec 정합 close)
 - Depends: S14-utils (lib heatmap/time/voteKey ship 2026-05-26), S14-test-augment (drift skip 안전망 ship 2026-05-26), [D10](DECISIONS.md#d10--히트맵-5단계-색-램프-heat-0--중립-그레이), [D11](DECISIONS.md#d11--realtime-히트맵--edge-function-합산-후-broadcast-옵션-b), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc), [D23](DECISIONS.md#d23--web-guest-page--nextjs-별도-codebase)
 - Changes:

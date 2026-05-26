@@ -213,7 +213,7 @@
 
 ### S14 — Web Guest Page (Next.js)
 
-- **Status**: IN_PROGRESS (sub-task: skeleton ✅ + S14-utils ✅ + S14-test-augment ✅ + S14-violations-fix ✅ 2026-05-26 — RN spec 정합 + D13/D10/D11/dep loop fix + drift skip 2 그룹 unskip. 잔여: Playwright E2E 셋업 · drift skip 2 그룹(Cross-day sweep spec 결정 · Realtime listen S05a payload 확정)) | **Owner**: Web | **Sprint**: 2-3 | **Lane**: C
+- **Status**: IN_PROGRESS (sub-task: skeleton ✅ + S14-utils ✅ + S14-test-augment ✅ + S14-violations-fix ✅ + S14-e2e-setup ✅ 2026-05-26 — RN spec 정합 + violations fix + Playwright base spec. 잔여: 시간 그리드 투표 → CTA user flow E2E(supabase mock route) · drift skip 2 그룹(Cross-day sweep · Realtime listen) · `lib/voteKey` 채택 optional) | **Owner**: Web | **Sprint**: 2-3 | **Lane**: C
 - **Depends**: S00 (group_guests, votes — migration 0004 ✅), D23 (Next.js 별도 codebase), S05 (시간 그리드 spec 공유)
 - **Acceptance**:
   - ✅ Vercel project 셋업 (Next.js 16.2.6 + React 19.2.4 + Tailwind v4 + Pretendard 셀프호스팅)
@@ -225,14 +225,15 @@
   - ✅ 모바일·태블릿 only (DESIGN §12.7) — `md:hidden` Tailwind responsive guard + 데스크톱 안내 화면
   - ✅ 투표 완료 → "결과 알림 받으려면 → 카톡 공유" CTA + clipboard share
 - **잔여 sub-task**:
-  - **Playwright E2E 셋업**: `web-guest/playwright/guest_flow.spec.ts` — TEST_PLAN.md §3.5 base spec (게스트 토큰 생성 → 시간 그리드 투표 → CTA user flow 회귀 안전망)
+  - **시간 그리드 투표 → CTA user flow E2E**: supabase RPC `save_guest_votes` mock 응답 필요 → `page.route('**/e2e-dummy.supabase.co/**', ...)` intercept + JSON fixture. 닉네임 입력 → 그리드 셀 클릭/드래그 → 저장 → CTA "결과 알림 받으려면 → 카톡 공유" 클릭 → clipboard 확인까지
+  - **카톡 OG 메타 E2E**: `page.locator('meta[property="og:title"]')` server-rendered metadata 검증
   - **drift skip 2 그룹 unskip 잔여**:
     - **Cross-day sweep** — RN `applySweepToRecord` 사각형 vs 현재 `handleMouseEnterCell` 경로 spec 결정 후 unskip
     - **Realtime broadcast listen path** — S05a Edge Function payload spec(D11 day_index 포함) 확정 후 unskip + mock channel.on 콜백 trigger 통합 test
   - **`lib/voteKey` 채택 잔여 (optional)**: GuestTimeGrid의 selectedSlots Record key가 `${day}_${minute}` 사용 → RN `${day}:${minute}` 직렬화와 다름. schema 정합 위해 컴포넌트 직렬화 통일 후보
-- **Files**: `web-guest/` (monorepo subdir, 별도 npm project + jest + tsconfig + tailwind v4)
+- **Files**: `web-guest/` (monorepo subdir, 별도 npm project + jest + playwright + tsconfig + tailwind v4)
 - **Worktree 분기**: 완전 독립 (별도 codebase)
-- **Notes**: S14-violations-fix ship 2026-05-26 — RN spec 정합 + 4 violations close + lib utils caller 0 해소. Jest 82 (79 passed + 3 skipped 의도 = Cross-day 2 + Realtime listen 1). 사전 lint errors(set-state-in-effect / refreshVotes hoisting / `any`) 함께 fix
+- **Notes**: S14-e2e-setup ship 2026-05-26 — Playwright base spec 3 케이스(root 안내 · desktop block · mobile nickname modal) + projects 3종(mobile-safari/mobile-chromium/desktop-chromium) + dummy supabase env + 운영자 README. 브라우저 install은 사용자 측 `npm run e2e:install` 한 번. jest 영역과 격리(`testPathIgnorePatterns: ['/playwright/']`)
 
 ### S15 — 자체 deferred deep link (게스트→회원 전환) — D28
 
