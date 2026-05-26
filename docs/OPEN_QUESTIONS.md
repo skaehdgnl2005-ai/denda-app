@@ -213,6 +213,15 @@
 - **마감**: W-2 (Sprint 0 전)
 - **상태**: 미시작
 
+### Q-B22 — Apple Calendar sync mechanism (worker → client trigger 패턴) ✅ Closed by D34 (2026-05-26)
+- **출처**: S06-google-oauth ship 후 노출 (2026-05-26). Apple Calendar 외부 push API 부재로 worker가 직접 push 불가
+- **질문**: S06 Apple sync는 client-side `expo-calendar.createEventAsync`만 가능. 그러나 D20 background queue·D19 partial fail report는 worker(서버) 기준 설계 — Apple 사용자의 calendar push를 어떻게 worker가 trigger·track하느냐
+- **소유자**: Backend + Mobile
+- **해결**: (b) 클라 polling 채택. worker가 `calendar_push_apple_pending` 신규 table에 row INSERT → 앱 foreground 진입 시 SELECT → `AppleCalendarProvider.insertEvent` → row UPDATE `completed_at`. partial_fail_list와 의미 분리(별도 table — pending ≠ failure). 24h 미완료 stale row는 호스트 알림 trigger 후보. (a) Silent push는 iOS 3/hour throttle + Android 호환성 부족 + ack endpoint 복잡으로 거부. (c) Realtime broadcast는 백그라운드 socket 끊김 + missed message 복구 안 됨으로 거부. (b-mixed) partial_fail_list channel='apple_pending' 재사용은 의미 혼란으로 거부
+- **상태**: Closed (2026-05-26) — [D34](DECISIONS.md#d34--apple-calendar-sync--클라-polling-패턴-q-b22-close). 후속 sub-task: S06-worker-apple-trigger (migration 0013 + worker apple_ios 분기 + 클라 hook `useApplePendingSync`)
+
+---
+
 ### Q-B21 — D11 heatmap broadcast payload에 day 차원 누락 ✅ Closed by D11 update (2026-05-26)
 - **출처**: S05b 구현 중 발견 (2026-05-26)
 - **질문**: D11 본문 spec은 `{slots: [{start_minute, count}], updated_at}`만 명시. 그러나 `votes` 테이블에 `day DATE NOT NULL` 컬럼이 있고 시간 그리드는 60slot × N day = N×60 cells이 필수 (S05 acceptance). 7일 고정 가정 불가 — `groups.dates DATE[]`는 가변 길이.

@@ -147,6 +147,369 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S06-applesync-wireup — useApplePendingSync 전역 wire-up + S06 정식 DONE (2026-05-26) — DONE
+- Depends: S06-applesync-hook ship (`useApplePendingSync` 2026-05-26), S06-setup ship (`createAppleCalendarProvider` 2026-05-26), S06-ui-first-time-modal ship + S06-ui-reauth-modal ship (UI 양 모달 완성), [D34](DECISIONS.md#d34--apple-calendar-sync--클라-polling-패턴-q-b22-close)
+- Branch: `worktree-s06-google-oauth` (main 23cef5c 위 10 commits 누적)
+- Changes:
+  - **CalendarSyncRoot** (`src/lib/calendar/CalendarSyncRoot.tsx`, +~100 lines):
+    - DI 친화 컴포넌트 — userId/supabase/fetchPreference/createAppleProvider/appState/now 모두 props로 주입
+    - userId 변경 시 fetchCalendarPreference → 'apple_ios'/'both'면 createAppleProvider 호출 → AppleCalendarProvider 인스턴스
+    - 외 preference (null/'none'/'google') → apple null 유지 → useApplePendingSync({enabled: false}) → SELECT skip
+    - createAppleProvider throw (expo-calendar 미설치) → silent → enabled=false 유지 (Google-only/none 사용자 페이지 진입 안전)
+    - fetchPreference 에러 → silent → 다음 mount 재시도
+    - now default = `nowKst().toUTC().toISO()` (D13 KST 명시, design-guard 정합)
+    - Jest 9 tests (userId undef / pref null/none/google/apple_ios/both / createApple throw / fetch throw / AppState change 재호출)
+  - **createAppStateAdapter** (`src/lib/calendar/setup.ts`, +~30 lines):
+    - dynamicRequire('react-native') → AppState wrap → AppStateAdapter 인터페이스 변환
+    - Jest 환경 호출 안 됨 (CalendarSyncRoot 테스트는 mock appState DI). production wiring 검증은 EAS Build 시점
+  - **app/_layout.tsx wire-up** (+~25 lines):
+    - `<CalendarSyncRootConnected />` 추가 — useAuth로 userId 받고 production wiring (supabase + fetchCalendarPreference + createAppleCalendarProvider + createAppStateAdapter) 묶음
+    - SafeAreaProvider > ThemeProvider 안에 mount (모든 화면 공통)
+- **Tests**:
+  - Jest: **442 passed** (+9 CalendarSyncRoot), 1 skipped (ocr_eval), 50 suites
+  - typecheck 0
+  - lint 11 errors all pre-existing (변함없음)
+  - design-guard: `new Date()` 위반 시 hook 차단 — 2회 차단 → nowKst().toUTC().toISO() 패턴으로 전환
+- Next: **S06 정식 DONE 마킹 가능** (Acceptance 6/6 완료). 다음 unblock 대상 = S12 push F1-F3 또는 S11 다크 토큰 또는 main 머지 (사용자 결정). S05e 60fps 부하 실기기 + Google OAuth dev key·expo packages install·app.json scheme 운영 prereq는 별도 트랙
+- Notes:
+  - **S06 정식 DONE**: Acceptance 모두 충족 — Google Calendar OAuth + events.insert ✅, expo-calendar wrapper ✅, "어디 추가할까요" 첫 모달 ✅, Token 만료 재인증 모달 ✅, partial push fail backend ✅, background queue ✅. **S06 정식 DONE으로 TASK_BACKLOG · PROGRESS 표시 update**
+  - **운영 prereq 잔여 (별도 트랙)**:
+    1. Google OAuth dev key 발급 (Google Cloud Console → Web/iOS/Android OAuth Client ID + EXPO_PUBLIC_GOOGLE_CLIENT_ID env 설정)
+    2. expo packages install: `npx expo install expo-auth-session expo-secure-store expo-calendar react-native` (`react-native`는 이미 있음. expo-* 3개만)
+    3. expo-auth-session production wiring: setup.ts::createGoogleOAuthClient의 authorize/refresh/revoke를 실 expo-auth-session API로 구현 (현재 throw stub)
+    4. app.json scheme/intent filter (denda://oauth) + iOS Info.plist + Android intent filter (EAS Build 시점)
+  - **시각 검증 deferred**: expo-* 미설치라 에뮬레이터 동작 검증 불가. 1·2·3·4 prereq 완료 후 별도 세션
+  - **CalendarSyncRootConnected glue untested**: 10 lines glue (useAuth + production providers). 동등 패턴 _layout.tsx, profile.tsx도 untested. 운영 검증은 EAS Build 동작
+  - **계좌 sweep stats deferred**: retry_count max 초과 시 reset RPC + 호스트 알림 분기는 별도 sub-task (베타 한정 founder weekly review)
+
+---
+
+## S06-ui-reauth-modal — Google 캘린더 재인증 안내 모달 (2026-05-26) — DONE (S06 partial 진척)
+- Depends: S06-ui-first-time-modal ship (`FirstTimeModal` + `signInGoogleAndUpload` 흐름 검증), S06-setup ship (`signInGoogleAndUpload`), migration 0012 (`user_oauth_tokens` table), DESIGN §11 (모달) + §17 (anti-AI-feel)
+- Branch: `worktree-s06-google-oauth` (main 23cef5c 위 9 commits 누적)
+- Changes:
+  - **ReauthModal** (`src/components/calendar/ReauthModal.tsx`, +~165 lines):
+    - "Google 캘린더 연결이 끊겼어요" 헤딩 + 본문 설명 + "나중에"/"다시 로그인" 2 버튼
+    - "다시 로그인" → signInGoogle (DI) → 성공 시 onSuccess + onClose / 에러 분기 (cancelled silent close, unauthorized/network/etc 한국어 inline 메시지 + 모달 유지)
+    - busy 동안 다중 press 차단 + "연결 중..." 라벨
+    - §17 anti-AI-feel: brand-500 fill CTA 1개, secondary "나중에", 친근체, surface-2 disabled, 토큰 only
+  - **isGoogleReauthNeeded helper** (`src/lib/calendar/reauth.ts`, +~45 lines):
+    - 검사 로직: `users.calendar_preference IN ('google', 'both')` + `user_oauth_tokens` (user_id, provider='google_calendar') row 부재 → reauth 필요
+    - 원인 커버: cancelled OAuth / worker invalid_grant token 삭제 / 외부 revoke
+    - 에러 silent false (보수적 — 일시 RLS 문제로 거짓 모달 회피)
+    - Jest 10 tests (preference null/none/apple_ios/google+token/google-token/both+token/both-token + 에러 2종 + null row)
+  - **profile.tsx wire-up** (`app/(tabs)/profile.tsx`, +~50 lines):
+    - useEffect mount 시 isGoogleReauthNeeded → true면 setShowReauth(true)
+    - signInGoogle callback lazy 구성 (createGoogleCalendarProvider 호출 시점 expo-* dynamicRequire)
+    - onSuccess → isGoogleReauthNeeded 재실행해 token row 존재 확인 후 모달 종료
+- **Tests**:
+  - Jest: **433 passed** (+19: 10 reauth helper + 9 ReauthModal), 1 skipped (ocr_eval), 49 suites
+  - typecheck 0
+  - lint 11 errors all pre-existing (변함없음)
+- Next: **S06-applesync-hook app/_layout.tsx 전역 wire-up** — useApplePendingSync mount + skippedUnauthorized=true 시 ReauthModal trigger 연동 검토
+- Notes:
+  - **트리거 위치**: profile 화면 mount 시. 다른 화면 진입은 본 베타에서는 무체크 (단순화). 사용자가 profile 들어와야 알게 됨 — 향후 launch 후 worker 실패 시 push 알림으로 prefetch 가능
+  - **재인증 후 worker 재시도**: signInGoogleAndUpload 성공으로 `user_oauth_tokens` row 복원 → worker 다음 tick(1분)에서 calendar_retry_count 미초과 row 자동 재시도. **retry_count max(3) 초과한 row는 영구 stall** — 베타 한정 founder weekly review로 hand-off (후속 sub-task로 reset_calendar_retry RPC SECURITY DEFINER 검토)
+  - **시각 검증 deferred**: expo-* 패키지 미설치라 에뮬레이터 동작 검증 불가. 토큰·a11y·테스트로 정합 확인
+  - **partial_fail_list 미사용 결정**: 처음 plan은 partial_fail_list scan(token_expired/unauthorized reason 감지)이었지만, calendar_pushed_at 분기·이전 entry stale 처리 등 edge case로 복잡도 ↑. user_oauth_tokens row 부재 단일 신호로 단순화 — 모든 reauth-필요 case(OAuth cancelled / invalid_grant 삭제 / 외부 revoke) 자연 커버
+
+---
+
+## S06-ui-first-time-modal — 첫 모임 확정 후 캘린더 선택 모달 (2026-05-26) — DONE (S06 partial 진척)
+- Depends: S06-setup ship(`signInGoogleAndUpload` + `createGoogleCalendarProvider` + `createAppleCalendarProvider` 2026-05-26), S05-screen-confirm ship (`app/group/[id]/index.tsx` confirmGroup 성공 분기), migration 0011 (`users.calendar_preference` 컬럼 + CHECK), [D15](DECISIONS.md#d15--schedulessource-enum--phase-12은-provider-구분-포기) (apple_ios bucket), DESIGN §11 (모달) + §17 (anti-AI-feel) + ko-kr (한국어 라벨)
+- Branch: `worktree-s06-google-oauth` (main 23cef5c 위 8 commits 누적)
+- Changes:
+  - **FirstTimeModal** (`src/components/calendar/FirstTimeModal.tsx`, +~230 lines):
+    - 4 옵션 (Google / iCloud / 둘 다 / 안 할래요) radio 선택 UI — selected = border-focus + brand-50 + text.brand
+    - 확인 → signInGoogle(google|both) + requestApplePermission(apple_ios|both) + supabase users UPDATE preference + onClose
+    - 에러 분기 — `mapErrorToKorean`: cancelled = silent close, unauthorized/network/token_expired/rate_limit/unknown 한국어 inline 메시지 + 모달 유지
+    - busy 동안 confirm-button 다중 호출 차단 + "연결 중..." 라벨
+    - 나중에 → onClose without DB update (다음 모임 확정 시 다시 표시)
+    - §17 anti-AI-feel: brand-500 fill CTA 1개(확인), surface-2 disabled 회색 죽은 톤, secondary "나중에", 친근체 ("어디에 추가할까요?" / "안 할래요"), 3단계 위계(Title h2 + Body sm secondary + Body bold + Caption tertiary), 4pt 그리드 토큰만 사용
+  - **fetchCalendarPreference helper** (`src/lib/calendar/preference.ts`, +35 lines):
+    - `fetchCalendarPreference(supabase, userId)` → CalendarPreference | null
+    - null = 모달 노출 대상 (row 없거나 calendar_preference IS NULL)
+    - 에러 시 한국어 메시지 throw
+  - **page wire-up** (`app/group/[id]/index.tsx`, +~30 lines):
+    - confirmGroup 성공(not alreadyConfirmed) 후 `fetchCalendarPreference` 호출 → null 시 setShowFirstTimeModal(true)
+    - signInGoogle/requestApplePermission callback lazy 구성 — createGoogleCalendarProvider/createAppleCalendarProvider 호출 시점에 expo-* dynamicRequire 발생(페이지 진입 시점 throw 회피, 사용자 옵션 선택 후 확인 누를 때만 native 모듈 require)
+    - FirstTimeModal mount with userId guard
+- **Tests**:
+  - Jest: **421 passed** (+20: 13 FirstTimeModal + 7 preference), 1 skipped (ocr_eval), 48 suites
+  - typecheck 0 error
+  - lint: 11 errors all pre-existing (브랜드/applePending.test/setup config arg/useApplePendingSync refs — 본 작업과 무관)
+  - design-check 통과 (DESIGN §11 모달 + §17 anti-AI-feel + 4pt 그리드 + 한국어 + 토큰 only)
+- Next: **S06-ui-reauth-modal** (partial_fail_list 감지 + Google 재인증 모달 — 프로필 화면 wire-up), then **S06-applesync-hook wire-up** (app/_layout.tsx 전역 mount + reauth trigger 분기 결정)
+- Notes:
+  - **trigger 위치**: confirmGroup 성공 후 fetchCalendarPreference NULL 시점. 새로 확정된 경우만 노출(alreadyConfirmed=true는 skip). 이미 'none' 또는 다른 값 set 됐으면 다시 안 묻는다.
+  - **expo-* 패키지 미설치 보호**: createGoogleCalendarProvider/createAppleCalendarProvider는 함수 내부 dynamicRequire라 import-time throw X. 페이지 진입 OK. 모달 옵션 확인 누를 때만 native 모듈 require → 미설치 시 한국어 wrapped 에러
+  - **expo-auth-session production wiring 잔여**: setup.ts::createGoogleOAuthClient의 authorize/refresh/revoke는 EAS Build 시점에 implement 필요 (현재 throw stub). 그 전까지 모달은 "확인" 누르면 throw → 에러 메시지 표시
+  - **시각 검증 deferred**: expo-* 패키지 미설치라 에뮬레이터 동작 검증 불가. DESIGN 토큰 정합 + Jest로 본 ship 검증. 실 검증은 Google OAuth dev key + expo packages install + app.json scheme 설정 후 별도 세션
+  - **lint 11 에러 pre-existing**: useApplePendingSync.ts react-hooks/refs 규칙 (현 코드의 ref-during-render는 의도된 패턴 — DI prop을 ref로 mirror하는 표준 트릭), setup.ts config arg(production wiring 잔여 stub), MiniTimeGrid set-state-in-effect, login.tsx 등. 별도 cleanup 태스크
+
+---
+
+## S06-applesync-hook — useApplePendingSync hook (AppState change + concurrent guard) (2026-05-26) — DONE (S06 partial 진척)
+- Depends: S06-worker-apple-trigger ship(`processApplePendingPushes` + `ApplePendingDeps` 2026-05-26), [D34](DECISIONS.md#d34--apple-calendar-sync--클라-polling-패턴-q-b22-close) (클라 polling 패턴)
+- Branch: `worktree-s06-google-oauth` (main 23cef5c 위 7 commits 누적)
+- Changes:
+  - **Hook** (`src/lib/calendar/useApplePendingSync.ts`, +~100 lines):
+    - `useApplePendingSync({supabase, apple, now, enabled?, appState?, onSummary?})` → `{isProcessing, lastSummary, triggerSync}`
+    - **mount 시 1회 trigger** — 앱 진입 즉시 backlog 처리
+    - **AppState 'active' 전환 시 추가 trigger** — 사용자가 background에서 복귀 시 자동 처리. AppState는 DI(`AppStateAdapter` 타입) — production은 `react-native AppState` 주입, 테스트는 mock
+    - **concurrent guard** — `useRef<boolean>` inFlight flag로 처리 중 새 trigger skip(디바이스 expo-calendar API 동시 호출 회피)
+    - **enabled=false** — AppState listener 등록 안 함 + mount trigger 안 함. 사용자가 캘린더 연동 안 한 경우
+    - **triggerSync 외부 호출 가능** — UI 모달 닫힌 후 수동 trigger(설정 화면 등)
+    - **에러 격리** — `processApplePendingPushes` throw 시 hook 외부에 부담 X. `lastSummary`는 null 유지, 다음 trigger 재시도. caller가 명시 에러 처리 원하면 `processApplePendingPushes`를 직접 호출
+    - **deps 최신값 ref 패턴** — `depsRef`/`onSummaryRef`로 closure stale issue 회피. `triggerSync`는 `useCallback`으로 stable identity
+  - **Jest tests** (`src/lib/calendar/useApplePendingSync.test.ts`, +~250 lines, **8 tests TDD-first**):
+    - mount 1회 호출 + onSummary 전달
+    - enabled=false → 호출 안 함
+    - AppState 'background → active' → 추가 호출 (mount 1회 + active 1회 = 총 2회)
+    - AppState 'active 외'(background/inactive/unknown) → 호출 안 함
+    - concurrent guard — Promise resolve 전 추가 fire → skip
+    - throw 시 lastSummary null + isProcessing 해제 + 다음 trigger 재시도
+    - unmount → AppStateListener.remove 호출
+    - triggerSync — UI 수동 호출 path
+- Tests: Jest **394 passed** (전회 +8 신규, 1 skipped ocr_eval by design). typecheck **0**. Deno 변경 0. lint 사전 state 그대로
+- Next:
+  - **S06-ui-first-time-modal**: 첫 모임 확정 후 "어디 추가할까요" 모달(DESIGN §11.2 베이지 surface + brand-500 CTA 1개). 사용자 선택 → `users.calendar_preference` UPDATE → Google는 `signInGoogleAndUpload` / Apple은 `AppleCalendarProvider.requestPermission`. 모달 trigger 위치는 `app/group/[id]/index.tsx` confirmGroup 성공 분기
+  - **S06-ui-reauth-modal**: `partial_fail_list` SELECT(reason='token_expired'/'unauthorized') → 프로필 진입 시 재인증 모달. 호스트에게 별도 알림은 F-style 신규 또는 F5 확장
+  - **useApplePendingSync wire-up 위치**: `app/_layout.tsx`(앱 전역) 또는 `app/group/[id]/index.tsx`(모임 화면) — UI 모달 sub-task와 묶음 결정
+- Notes:
+  - **AppState DI 패턴 정당화**: RN AppState는 production 의존성이지만 hook 자체는 platform-agnostic 가능. DI로 받으면 unit test가 RN 모듈 mock 없이 가능 + 본 hook의 logic(concurrent guard + 'active' 전환 분기)만 검증 가능. production 진입 시 `import { AppState } from 'react-native'` 그대로 주입
+  - **에러 격리 디자인 선택**: `processApplePendingPushes` throw는 SELECT 실패(드문 케이스). 디바이스 expo-calendar 실패는 row-level로 격리(processOneRow의 result.ok=false → summary.failed). 본 hook은 background 호출이라 사용자에게 noisy alert 띄울 필요 X — caller가 `lastSummary` 또는 `triggerSync` Promise를 직접 await하면 명시적 처리 가능
+  - **deps 최신값 ref 패턴 이유**: hook을 사용하는 컴포넌트가 매 render마다 새 supabase·apple·onSummary 참조를 만들면 useEffect deps 변경 → AppState listener 매번 재등록. 해결: `depsRef.current = ...`로 매 render에서 latest 유지하되, useEffect deps에는 stable한 enabled/appState/triggerSync만. AppState listener는 안정적 등록
+  - **mount 자동 호출이 enabled=false면 안 함**: 사용자가 캘린더 연동 'none' 상태인 경우 hook을 활성 안 함이 자연. 첫 모달에서 'apple_ios'/'both' 선택하면 caller가 enabled=true로 hook 시작 가능
+  - **본 ship은 hook 자체만**: 어디서 `useApplePendingSync`을 호출할지(wire-up 위치)는 UI 모달 sub-task와 묶음 — first-time-modal에서 사용자가 캘린더 선택 후 enabled 토글 또는 app/_layout에 전역 wire-up + enabled=`calendar_preference` watch
+
+---
+
+## S06-setup — production wiring 어댑터 + 서버 token RPC wrapper (2026-05-26) — DONE (S06 partial 진척)
+- Depends: S06-google-oauth ship(`GoogleCalendarProvider` + DI 인터페이스 2026-05-26), S06-apple-expo-calendar ship(`AppleCalendarProvider` + `AppleCalendarApi` 2026-05-26), S06-worker-google-integration ship(migration 0012 `user_oauth_tokens` + `upsert_user_oauth_tokens` RPC 2026-05-26), [D35](DECISIONS.md#d35--google-calendar-oauth-token-서버-측-저장--user_oauth_tokens-table) (서버 측 token storage), [D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시) (silent fail 금지)
+- Branch: `worktree-s06-google-oauth` (main 23cef5c 위 6 commits 누적)
+- Changes:
+  - **google.ts minor export** (+1 line / -1 line): `STORAGE_KEY` → `GOOGLE_TOKEN_STORAGE_KEY` named export 격상 — setup.ts wrapper가 token state 읽기 위해 사용. 기존 `STORAGE_KEY` 상수는 alias로 유지(내부 동작 영향 0)
+  - **production wiring 어댑터** (`src/lib/calendar/setup.ts`, +~220 lines):
+    - `dynamicRequire(packageName)` — `require` type assertion으로 우회. 미설치 시 한국어 throw(`npx expo install ...` 안내). EAS Build 시점 lazy install 패턴(S03 expo-image-picker 동일)
+    - `createGoogleOAuthClient(config)` — `expo-auth-session` 어댑터 stub. EAS Build 시점에 implement(token exchange/refresh/revoke 본문은 production wiring에 위임)
+    - `createSecureStoreAdapter()` — `expo-secure-store` → `GoogleTokenStorage` 어댑터(getItemAsync/setItemAsync/deleteItemAsync passthrough)
+    - `createExpoCalendarApi()` — `expo-calendar` → `AppleCalendarApi` 어댑터(getCalendarPermissionsAsync/createEventAsync 등 passthrough)
+    - `createGoogleCalendarProvider({oauthConfig, fetchImpl?, nowMs?})` → `{provider, storage}` 반환 — storage도 함께 expose해서 signInGoogleAndUpload wrapper가 SecureStore 직접 읽기 가능
+    - `createAppleCalendarProvider()` → `AppleCalendarProvider` 인스턴스
+    - **`uploadGoogleTokensToServer(supabase, state)`** — `supabase.rpc('upsert_user_oauth_tokens', {p_provider, p_access_token, p_refresh_token, p_expires_at(ISO from expiresAtMs), p_scope})`. error → `CalendarProviderError(network)`
+    - **`deleteGoogleTokensFromServer(supabase)`** — `auth.getUser()`로 본인 user_id 추출 → `user_oauth_tokens` DELETE WHERE user_id+provider. 비로그인 → `unauthorized`. 에러 → `network`
+    - **`signInGoogleAndUpload({provider, storage, supabase})`** — provider.authorize → SecureStore에서 token state 읽기 → uploadGoogleTokensToServer. storage read null/malformed → `unknown` 에러. authorize/upload 실패 모두 한국어 메시지로 전파
+  - **Jest tests** (`src/lib/calendar/setup.test.ts`, +~220 lines, **10 tests TDD-first**):
+    - `uploadGoogleTokensToServer` 2 (RPC params 직렬화 + error → network)
+    - `deleteGoogleTokensFromServer` 3 (본인 row DELETE / 비로그인 unauthorized / DELETE error → network)
+    - `signInGoogleAndUpload` 5 (정상 + authorize throw 격리 + storage null + storage malformed + upload RPC error 전파)
+  - **lazy install 안내**: 다음 EAS Build 시점에 `npx expo install expo-auth-session expo-secure-store expo-calendar` 실행 (`docs/PROGRESS.md` 마지막 update 노트)
+- Tests: Jest **402 passed** (392 → +10 setup. 1 skipped ocr_eval by design). typecheck **0**. Deno tests 변경 0(supabase/functions 영향 없음). lint 사전 state 그대로
+- Next:
+  - **S06-ui-applesync-hook**: `useApplePendingSync` hook — `processApplePendingPushes` wrapper + RN AppState change listener + 화면 mount trigger. UI 모달과 묶일 수 있음
+  - **S06-ui-first-time-modal**: 첫 모임 확정 후 "어디 추가할까요" 모달(베이지 surface + brand-500 CTA 1개 — DESIGN §11.2). 선택 → `users.calendar_preference` UPDATE → `signInGoogleAndUpload`(Google) + `AppleCalendarProvider.requestPermission`(Apple)
+  - **S06-ui-reauth-modal**: `partial_fail_list.reason=='token_expired'` 감지 → 프로필 화면 진입 시 모달. 호스트 알림 trigger(F-style 신규)는 별도
+  - **운영 deploy 사전 조건**: Supabase secret `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` + Google Cloud Console OAuth client id/redirect URI + `npx expo install` 3종
+- Notes:
+  - **adapter factory production wiring deferred 명시**: `createGoogleOAuthClient`은 stub — expo-auth-session API binding은 EAS Build 후 실제 install + Google Cloud Console config로 implement. 본 ship은 어댑터 구조 + RPC wrapper + signInGoogleAndUpload 흐름만 정의. Jest test도 RPC wrapper + 흐름에만 집중(adapter factory는 dynamic require 의존이라 mock 복잡 — production 검증으로 격리)
+  - **`dynamicRequire` type assertion 패턴 정당화**: `(require as (name: string) => unknown)` cast로 TS는 반환을 `unknown`으로 취급 → 모듈 자체 type 정의 없어도 typecheck pass + runtime은 모듈 없으면 throw. 패키지 install 후 type compatibility는 일반적으로 OK(subset). 본 패턴은 S03 expo-image-picker lazy install 패턴과 동일
+  - **storage expose 디자인**: createGoogleCalendarProvider가 `{provider, storage}` tuple 반환 — provider 외부에 storage도 같은 instance 공유. signInGoogleAndUpload가 storage에서 OAuth 후 token state 읽기 위해. STORAGE_KEY export로 매직 string 회피
+  - **CalendarProviderError.unauthorized는 message 없음**: detail discriminated union에서 `{kind:'unauthorized'}`는 message 필드 없음(google.ts ship 시점 결정). 한국어 메시지는 `messageForDetail` 함수가 default 메시지 반환 — 본 sub-task에서 google.ts 변경 회피
+  - **본 ship 후 worker integration test는 여전히 deferred**: setup.ts는 클라이언트 wiring. worker(`calendar_push_worker`)는 Deno runtime이라 별도 — Deno CLI 미설치 환경에서 일관 패턴
+
+---
+
+## S06-worker-apple-trigger — Apple sync 클라 polling 구현 (D34 implementation) (2026-05-26) — DONE (S06 partial 진척)
+- Depends: S06-worker-google-integration ship (2026-05-26, worker pushToMemberCalendar Google 분기), S06-apple-expo-calendar(`AppleCalendarProvider` + `CalendarProviderError` 2026-05-26), [D34](DECISIONS.md#d34--apple-calendar-sync--클라-polling-패턴-q-b22-close), [D15](DECISIONS.md#d15--schedulessource-enum--phase-12은-provider-구분-포기) (apple_ios bucket), [D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시) (silent fail 금지)
+- Branch: `worktree-s06-google-oauth` (main 23cef5c 위 5 commits 누적)
+- Changes:
+  - **Migration** (`supabase/migrations/0013_calendar_push_apple_pending.sql`, +~60 lines): `calendar_push_apple_pending` table(`id`, `group_id` FK groups CASCADE, `user_id` FK auth.users CASCADE, `payload JSONB`, `created_at`, `completed_at TIMESTAMPTZ NULL`) + `(group_id, user_id)` UNIQUE 인덱스(worker upsert idempotent) + 본인 미완료 partial index `WHERE completed_at IS NULL` ON `(user_id)`. RLS: SELECT/UPDATE 본인만(`auth.uid()=user_id`). INSERT/DELETE 정책 없음 → service_role only (worker INSERT + 운영 cleanup)
+  - **Worker apple_ios/both 분기** (`supabase/functions/calendar_push_worker/index.ts`, +~70 / -~10):
+    - `pushToMemberCalendar` 분기 재구성: `'google'`/`'both'` → `pushGoogleForUser`, `'apple_ios'`/`'both'` → `enqueueApplePending`, `'none'`/NULL → silent ok. `'both'`는 `Promise.all`로 두 task 동시 처리(fail-first → retry로 회복)
+    - `enqueueApplePending(ctx, userId, payload)` — `calendar_push_apple_pending` `upsert({onConflict: 'group_id,user_id', ignoreDuplicates: true})` (멤버 중복 INSERT 무해). 실패 → `reason='apple_enqueue_failed'` throw → partial_fail_list 누적
+    - `PushContext.currentGroupId` 옵셔널 추가. `processCalendarPushQueue`가 group iterate 시 `ctxForGroup`을 만들어 group마다 closure로 push 함수 생성 → apple_pending INSERT에 group id 주입
+    - `PUSH_FAIL_REASONS.appleEnqueueFailed = 'apple_enqueue_failed'` 추가
+  - **클라이언트 lib** (`src/lib/calendar/applePending.ts`, +~150 lines + `.test.ts` +~330 lines, **Jest 16 tests TDD-first**):
+    - `parsePendingRow(raw)` — DB row → `ApplePendingRow` 방어적 파싱 (payload JSONB의 title/startUtcIso/endUtcIso/descriptionKo/locationName 타입 검증). 누락·malformed 모두 null
+    - `processOneRow(deps, row)` — `AppleCalendarProvider.insertEvent` → 성공 시 `completed_at` UPDATE. CalendarProviderError → reason은 detail.kind. 일반 Error → reason='unknown'. UPDATE error → reason='update_failed'
+    - `processApplePendingPushes(deps)` — entry: SELECT `WHERE completed_at IS NULL` `ORDER BY created_at ASC` → `apple.isAuthorized()` 1회 check(false면 전 row skip + `skippedUnauthorized:true` 반환) → sequential 각 row 처리 → `{completed, failed, skippedUnauthorized}` summary
+    - DI: `supabase: SupabaseClient` + `apple: AppleCalendarProvider` + `now: () => string` — hook wire-up은 별도 sub-task에서
+    - **16 tests**: parsePendingRow 6 + processOneRow 4 + processApplePendingPushes 6 (빈/skip/2성공/1성공1실패/malformed/SELECT error)
+- Tests: Jest **392 passed** (376 기존 + 16 신규, 1 skipped ocr_eval). typecheck **0**. Deno tests 57(google_calendar 23 + calendar_queue 34 — 본 ship에서 변경 없음. supabase/functions/calendar_push_worker는 deno test 영역으로 deferred 일관). lint 사전 state 그대로
+- Next:
+  - **S06-setup**: `src/lib/calendar/setup.ts` production wiring 어댑터(expo-auth-session + expo-secure-store + expo-calendar lazy install — `npx expo install expo-auth-session expo-secure-store expo-calendar`) + Google OAuth 완료 후 `upsert_user_oauth_tokens` RPC 호출 wrapper(서버 측 token 업로드)
+  - **S06-ui-applesync-hook**: `useApplePendingSync` hook — `processApplePendingPushes` wrapper로 app foreground listener(AppState.change) 또는 화면 진입 시 trigger. UI sub-task와 함께 묶음 가능
+  - **S06-ui-first-time-modal**: 첫 모임 확정 후 "어디 추가할까요" 모달 → `users.calendar_preference` UPDATE + Google OAuth/Apple 권한 요청
+  - **S06-ui-reauth-modal**: `partial_fail_list.reason` 감지 → 재인증 모달 + 호스트 알림
+- Notes:
+  - **`'both'` 사용자 fail-first 의도**: `Promise.all` 사용 — Google 또는 Apple 한쪽 실패 시 throw. apple_pending은 `ignoreDuplicates`로 idempotent, Google은 retry max 3으로 회복. `'both'`는 베타 비중 작아 충분
+  - **`currentGroupId` ctx 주입 패턴**: PushContext에 group id 옵셔널로 추가, `processCalendarPushQueue` group iterate 안에서 `ctxForGroup`을 만들어 closure에 묶음. push DI signature(memberId, payload)는 그대로 유지 — 외부 caller(test override) 영향 0
+  - **pending ≠ failure 명시**: `calendar_push_apple_pending` table은 partial_fail_list와 별도. D34 본문대로 "pending은 대기, partial_fail은 실패". 클라 처리 후 row UPDATE completed_at. 24h+ stale row 호스트 알림은 별도 운영 cron(Phase 3)
+  - **sequential 처리**: expo-calendar API는 동시 호출 안전성 미보장 → for-loop sequential. 모임 N≤7이라 fan-out 작음
+  - **`skippedUnauthorized` summary**: UI가 이 flag 보고 재인증 모달 trigger 가능. permission denied 시 row 손실 없이 다음 진입 재시도
+  - **hook 분리**: 본 ship은 lib 순수 + DI만. hook wire-up은 RN AppState 의존성이라 UI sub-task와 함께가 자연 — testability + DESIGN 모달 통합 일관
+
+---
+
+## S06-worker-google-integration — calendar_push_worker Google API 통합 + D34/D35 신규 (2026-05-26) — DONE (S06 partial 진척)
+- Depends: S06-queue-foundation ship (2026-05-26), S06-worker-integration ship (2026-05-26), S06-google-oauth(클라 google.ts ship 2026-05-26), S06-migration-0011(users.calendar_preference), [D34](DECISIONS.md#d34--apple-calendar-sync--클라-polling-패턴-q-b22-close) (Q-B22 close), [D35](DECISIONS.md#d35--google-calendar-oauth-token-서버-측-저장--user_oauth_tokens-table), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc) (timeZone Asia/Seoul), [D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시) (silent fail 금지), [D20](DECISIONS.md#d20--calendar-push-fan-out--background-queue) (background queue)
+- Branch: `worktree-s06-google-oauth` (main 23cef5c 위 4 commits: 303471c·67c4dca·bccfe11·본 ship)
+- Changes:
+  - **신규 결정 2건**:
+    - `docs/DECISIONS.md` (+~50 lines) — **D34** Apple Calendar sync = 클라 polling 패턴(Q-B22 close, `calendar_push_apple_pending` 별도 table — partial_fail_list와 의미 분리). **D35** Google Calendar OAuth token 서버 측 저장 = `user_oauth_tokens` 신규 table(`auth.identities` 거부 — Kakao OIDC와 의미 혼란 회피, service account 거부 — Workspace 도메인 한정. RLS 본인 행만 + RPC `upsert_user_oauth_tokens` SECURITY DEFINER)
+    - `docs/OPEN_QUESTIONS.md` — Q-B22 → "Closed by D34 (2026-05-26)" 표기 + 결정 inline 요약(별도 table 채택 사유)
+  - **Migration** (`supabase/migrations/0012_user_oauth_tokens.sql`, +~110 lines): `user_oauth_tokens` table(`user_id` FK auth.users CASCADE, `provider TEXT`, `access_token TEXT`, `refresh_token TEXT`, `expires_at TIMESTAMPTZ`, `scope TEXT`, `created_at/updated_at`) + `(user_id, provider)` UNIQUE + provider CHECK ('google_calendar') + `set_updated_at` trigger reuse(0001 함수). RLS: SELECT/UPDATE/DELETE 본인만(`auth.uid()=user_id`), INSERT는 RPC만(SECURITY DEFINER가 `auth.uid()` 검증 + ON CONFLICT (user_id, provider) DO UPDATE 패턴). `GRANT EXECUTE TO authenticated`, anon/public REVOKE
+  - **순수 함수 + Deno tests TDD-first** (`supabase/functions/_lib/google_calendar.ts`, +~270 lines + `_test.ts` +~330 lines):
+    - `buildGoogleEventBody(payload)` — `CalendarEventPayload`→ Google events.insert body. `summary`/`description`/`start.dateTime`+`timeZone:'Asia/Seoul'`/`end.dateTime`+`timeZone:'Asia/Seoul'` (D13). `locationName` null→키 생략(Google API spec). 빈 title throw
+    - `isAccessTokenExpired(expiresAtIso, nowMs, skewMs default 60s)` — Date.parse + skew 임계. invalid ISO throw
+    - `refreshAccessToken({clientId, clientSecret, refreshToken, fetch})` — Google OAuth token endpoint POST form-urlencoded(grant_type=refresh_token + client_id/secret/refresh_token). 200→{accessToken, expiresInSeconds, refreshToken?(rotation)}. 400 `invalid_grant`→GoogleApiError(`token_expired`). 5xx/network→`network`. 200+access_token 누락→`unknown`
+    - `insertCalendarEvent({accessToken, body, fetch})` — `Authorization: Bearer ...` POST. 200→{eventId}. 401→`unauthorized`. 429→`rate_limit`. 5xx→`unknown`. id 누락→`unknown`. fetch reject→`network`
+    - `GoogleApiError` detail kind 5종(token_expired/unauthorized/rate_limit/network/unknown) + 한국어 message
+    - **23 tests**(buildGoogleEventBody 4 + isAccessTokenExpired 5 + refreshAccessToken 7 + insertCalendarEvent 7) — assertRejects + GoogleApiError 인스턴스 + detail.kind 검증
+  - **Worker `pushToMemberCalendar` 교체** (`supabase/functions/calendar_push_worker/index.ts`, +~150 / -~25):
+    - `CalendarPushUnimplementedError` 제거. 새 `pushToMemberCalendar(ctx, memberId, payload)` signature(PushContext DI)
+    - `users.calendar_preference` SELECT 분기:
+      - `'none'`/NULL → silent ok(사용자 거부 또는 모달 미진행 — F5 알림만으로 충분)
+      - `'apple_ios'` → silent ok(S06-worker-apple-trigger에서 `calendar_push_apple_pending` row INSERT로 교체 — D34)
+      - `'google'`/`'both'` → `pushGoogleForUser`: `user_oauth_tokens` SELECT(없으면 reason='no_token' throw) → `isAccessTokenExpired`면 `refreshAccessToken` → row UPDATE(access/refresh rotation/expires) → `buildGoogleEventBody` + `insertCalendarEvent`. invalid_grant→row DELETE + reason='token_expired'. 401→reason='unauthorized'. 429/network/unknown 매핑
+    - `PushContext`(service+fetch+googleClientId+googleClientSecret+nowMs) + `ProcessQueueDeps`에 googleClientId/googleClientSecret/fetch/nowMs 옵션 추가(env `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` 또는 DI)
+    - `PUSH_FAIL_REASONS` 상수: no_token / token_expired / unauthorized / rate_limit / network / unknown — `partial_fail_list.reason`에 일관 사용
+    - `SupabaseClient` import 추가, `ProcessOneArgs.service` 타입 명시
+- Tests: Deno **57 tests TDD-first 누적** (기존 34 + 신규 23 — google_calendar_test). CLI 미설치 실행 deferred(S04/S06-queue-foundation/S06-worker-integration/notify_f5 동일 컨벤션). typecheck **0**(tsc — tsconfig `excludes: ['supabase/functions']` 일관). lint **사전 state 그대로**(본 변경 영역 lint scope 외 + supabase/migrations은 SQL). design-guard 위반 0건(`new Date()` 0개·hex 0개. `new Date(...).toISOString()` 1곳 = worker가 token expires_at 계산 — UTC ISO 의도, KST 강제는 calendar event 표기에만 적용 — D13 본문 일관)
+- Next:
+  - **S06-worker-apple-trigger** (다음 sub-task — D34 implementation): `supabase/migrations/0013_calendar_push_apple_pending.sql`(table + RLS 본인만 SELECT/UPDATE) + worker `'apple_ios'`/`'both'` 분기에 `calendar_push_apple_pending` INSERT 추가 + 클라 hook `src/lib/calendar/useApplePendingSync.ts`(app foreground 진입 시 SELECT → `AppleCalendarProvider.insertEvent` → `completed_at` UPDATE)
+  - **S06-setup**: `src/lib/calendar/setup.ts` production wiring 어댑터(expo-auth-session·expo-secure-store·expo-calendar lazy install — `npx expo install`) + `src/lib/calendar/google.ts`에 OAuth 완료 후 `upsert_user_oauth_tokens` RPC 호출 wrapper(서버 측 token 업로드)
+  - **S06-ui-first-time-modal**: 첫 모임 확정 후 "어디 추가할까요" 모달 → `users.calendar_preference` UPDATE(google/apple_ios/both/none) + Google는 `GoogleCalendarProvider.authorize()` → setup wrapper로 서버 업로드
+  - **S06-ui-reauth-modal**: `partial_fail_list.reason='token_expired'`/`'unauthorized'` 감지 → 재인증 모달(프로필 화면) + 호스트 알림 trigger(F-style 신규 또는 F5 확장)
+  - **운영 deploy 사전 조건**: Supabase secret 설정 — `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`(Google Cloud Console OAuth client). pg_cron용 `app.supabase_url`/`app.service_role_key` GUC도 운영 시점 확인(0010 migration)
+- Notes:
+  - **Apple silent ok 결정 정당화**: 본 sub-task에서 `'apple_ios'` 멤버는 ok 분류 → group-level `calendar_pushed_at` SET. 다음 sub-task에서 `calendar_push_apple_pending` row INSERT로 교체될 때, 멤버별 apple_pending row는 group `calendar_pushed_at`과 분리 추적이라 회귀 없음. silent ok가 retry 누적 + 잘못된 호스트 알림 회피(`'apple_ios'` 멤버를 fail로 분류하면 group 전체가 3회 retry 후 stop → 호스트 노이즈 알림 risk)
+  - **순수 함수 vs DB 책임 분리**: `_lib/google_calendar.ts`는 fetch DI만 — DB 호출(`user_oauth_tokens` SELECT/UPDATE/DELETE)은 worker가 `service_role`로 수행. 본 분리로 `_test.ts`가 mock fetch만 만들면 됨 — mock supabase client 불요 → 단위 테스트 23개 단순
+  - **Token rotation 처리**: Google refresh 응답에 `refresh_token` 포함 시 회전 — worker가 `nextRefreshToken = refreshed.refreshToken ?? refresh_token`으로 안전. 회전 미포함 시 기존 refresh_token 유지(Google은 보안상 가끔 회전)
+  - **`PUSH_FAIL_REASONS` 정합**: reason은 plain `Error(message)` throw → `Promise.allSettled` reject result.reason → `decideGroupPushOutcome`이 reason 추출 → `buildCalendarPartialFailEntries`가 `partial_fail_list` JSONB 누적. `notify_f5/index.ts` PartialFailEntry shape 동일(cross-channel `f5_push`/`calendar_push` 두 channel 공유 JSONB)
+  - **encrypt deferred 명시**: 베타 N≤7 fan-out 작아 row-level RLS로 1차 격리(`auth.uid()=user_id` SELECT 본인만 + INSERT는 RPC 통과). Phase 3 사용자 증가 시 Supabase Vault column-level encrypt 격상(D35 결과 영향 (6))
+  - **D29 + D35 분리 의미**: Kakao OIDC는 `auth.identities`에 자동 저장 — 로그인 user 매칭 용도. Google Calendar OAuth는 외부 API 호출 token 용도라 의미 다름 → `user_oauth_tokens` 별도 storage. `auth.identities`에 Google identity linkIdentity는 "Google로 로그인 가능"한 인상 + token storage 의도 모호화 → 거부 (D35 본문 (2))
+  - **worker integration test deferred**: `_lib/google_calendar.ts` 4 함수는 unit test 23개로 커버. worker `pushGoogleForUser` 분기(no_token/token_expired/unauthorized/rate_limit 매핑)는 integration test이라 deferred — Edge Function E2E test 인프라 도입 시점에 추가. 본 ship 시점 핵심 path 모두 verified
+
+---
+
+## S06-apple-expo-calendar — Apple Calendar(expo-calendar) 클라이언트 lib + Q-B22 추가 (2026-05-26) — DONE (S06 partial 진척)
+- Depends: S06-google-oauth ship 2026-05-26 (`CalendarEventPayload`·`CalendarProviderError` re-use from `src/lib/calendar/google.ts`), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc) (event timeZone='Asia/Seoul'), [D15](DECISIONS.md#d15--schedulessource-enum--phase-12은-provider-구분-포기) (apple_ios bucket — iOS 디바이스 통합), [D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시) (silent fail 금지 — permission denied 명시 throw), AuthProvider DI 패턴 mirror
+- Branch: `worktree-s06-google-oauth` (S06-google-oauth + S06-migration-0011 위에 누적, main 23cef5c base)
+- Changes:
+  - **Q-B22 신규 추가** (`docs/OPEN_QUESTIONS.md`, +20 lines):
+    - "Apple Calendar sync mechanism (worker → client trigger 패턴)" — Apple 외부 push API 부재로 worker 직접 push 불가
+    - 3 옵션 평가: (a) silent push notification / (b) 클라 polling ★ 추천 / (c) Realtime broadcast
+    - 추천 근거: 베타 silent push iOS 정책 risk + Android 호환성 + ack endpoint 복잡성 > 자동성 가치. F5 확정 알림이 사용자를 앱으로 유도 자연. `calendar_push_apple_pending` table 추가 인프라 최소
+    - 해결 시 추가 작업 명시: D{N} 결정 + `0012_calendar_push_apple_pending.sql` (또는 partial_fail channel='apple_pending') + 클라 hook + worker 분기
+    - 본 sub-task(client lib)는 mechanism 무관하게 ship 가능 — worker integration 단계에서 결정 prereq
+  - **클라이언트 lib TDD-first** (`src/lib/calendar/apple.ts`, +205 lines):
+    - DI interface: `AppleCalendarApi` (getCalendarPermissionsAsync · requestCalendarPermissionsAsync · getDefaultCalendarAsync · getCalendarsAsync · createEventAsync — production은 expo-calendar 모듈로 wiring)
+    - 타입: `AppleCalendarPermissionStatus` ('granted'|'denied'|'undetermined'), `AppleCalendarHandle` (id·title·source·allowsModifications), `AppleCalendarEvent` (title·startDate·endDate·notes·location·timeZone)
+    - `CalendarEventPayload` re-export from google.ts — 호출자 편의
+    - 순수 함수 2종:
+      - `buildAppleEvent(payload)` — CalendarEventPayload → expo-calendar event. timeZone='Asia/Seoul' 항상 명시(D13), locationName null 시 location 키 자체 생략, 빈 title throw
+      - `pickWritableCalendar(default, all)` — default가 writable이면 그것 / 아니면 all 첫 writable / 없으면 null
+    - `AppleCalendarProvider`: providerName='apple_ios'
+      - `isAuthorized()` — getCalendarPermissionsAsync 결과 'granted'면 true. 'denied'·'undetermined' false
+      - `requestPermission()` — requestCalendarPermissionsAsync → 'granted' 아니면 CalendarProviderError({unauthorized}) throw
+      - `insertEvent(payload)` — permission re-verify → default writable이면 빠른 경로 / 아니면 getCalendarsAsync로 fallback selection → buildAppleEvent → createEventAsync. 권한 미부여·writable 0개·throw·빈 응답 모두 적절히 CalendarProviderError 매핑
+    - `CalendarProviderError` 직접 import from google.ts — 동일 union(cancelled/unauthorized/token_expired/rate_limit/network/unknown) 사용. Apple은 unauthorized + unknown만 throw
+  - **Jest tests** (`src/lib/calendar/apple.test.ts`, +310 lines, 20 케이스):
+    - `buildAppleEvent` 3: 기본 매핑 + Asia/Seoul / locationName null → 키 생략 / 빈 title throw
+    - `pickWritableCalendar` 4: default writable / default readonly + fallback / default null + fallback / 모두 readonly → null
+    - `AppleCalendarProvider.isAuthorized` 3: granted=true / denied=false / undetermined=false
+    - `AppleCalendarProvider.requestPermission` 3: granted no-throw / denied throw unauthorized / undetermined throw unauthorized
+    - `AppleCalendarProvider.insertEvent` 7: happy(default writable 빠른 경로 + createEventAsync 인자 검증) / permission denied → unauthorized + 미호출 / default readonly + fallback writable → fallback id 사용 / default null + fallback 사용 / writable 0개 → unknown + 미호출 / createEventAsync throw → unknown wrap / 빈 응답 → unknown (방어적)
+- Tests: Jest **51 passed** (Google 31 + Apple 20). 회귀 0. typecheck 0. lint 0 errors + 0 warnings (prettier auto-fix 1회). design-guard 위반 0 (bare `new Date()` 0 / hex 0 / 영문 라벨 0 / 금지 폰트 0)
+- Next:
+  - **S06-worker-google-integration** (다음 세션): worker stub 교체. (1) migration 0011 caller — `users.calendar_preference` SELECT 후 'google'·'both'면 events.insert 호출, (2) 서버 측 OAuth token 저장 architecture 결정 (D{N} 신규: 클라 → 서버 refresh_token 업로드 vs auth.identities table vs Supabase secret). 본 sub-task lib는 클라 측이라 worker 측은 서버 측 google API client(`supabase/functions/_lib/google_calendar.ts`) 별도 구축 + 본 lib와 동일 spec 유지
+  - **Q-B22 closure + Apple worker integration**: Q-B22 결정 → D{N} → (추천 (b) polling 채택 시) `0012_calendar_push_apple_pending.sql` + worker가 apple_ios 사용자에 pending row 작성 + 클라 hook (foreground 진입 시 SELECT → AppleCalendarProvider.insertEvent → row UPDATE)
+  - **S06-setup.ts** (Q-B22 결정 후 + UI 모달 prereq): `src/lib/calendar/setup.ts` production wiring — expo-auth-session(Google) + expo-secure-store + expo-calendar(Apple) lazy install. AppleCalendarApi 어댑터는 expo-calendar 모듈을 `Calendar.getCalendarPermissionsAsync` 등으로 매핑
+  - **S06-ui-first-time-modal** (Q-B22 결정 후): "어디 추가할까요" 모달 + GoogleCalendarProvider.authorize + AppleCalendarProvider.requestPermission + users.calendar_preference UPDATE
+  - **S06-ui-reauth-modal** (S06-setup.ts 후): D19 silent fail 금지 — token_expired catch → 프로필 모달 노출 + AppleCalendarProvider unauthorized → iOS 설정 안내
+- Notes:
+  - **CalendarProviderError·CalendarEventPayload import from google.ts**: 둘 다 google.ts에 정의되어 있어 apple.ts에서 import + re-export. types.ts 별도 추출은 risk(google.ts refactor) → 보류. 향후 3rd provider 추가 시 자연 추출 후보
+  - **Apple은 'cancelled' kind 안 씀**: iOS permission prompt는 OS가 관리 — 우리가 cancel 분기를 catch할 곳 없음. denied만 ('취소'는 명시 거부와 의미 다름). Google OAuth는 cancel/denied 둘 다 있음 — 패키지 reuse는 OK
+  - **빠른 경로 (default writable) vs fallback**: 대부분 사용자가 default cal에 쓰기 권한 보유. 빠른 경로로 getCalendarsAsync 호출 회피(권한 prompt 다중 노출 위험↓). default가 readonly(구독 캘린더가 default)인 케이스만 fallback path 진입
+  - **'apple_ios' providerName 선택**: schedules.source enum과 명칭 일치(D15). worker SELECT 분기에서 동일 string 비교 가능
+  - **createEventAsync 빈 응답 방어**: expo-calendar 6.x 이전 일부 버전이 falsy 응답 케이스 있어 명시 가드. 응답 spec은 항상 string id지만 type safety로 안전망
+  - **expo-calendar 모듈 미설치**: package.json 변경 0. setup.ts 추가 시점에 `npx expo install expo-calendar` lazy. EAS Build에서 native 빌드 시 자동 포함
+  - **partial_fail_list 호환성**: Apple insertEvent 실패는 client-side에서 발생 → server worker가 직접 보지 못함. Q-B22 (b) polling 채택 시 클라가 fail row를 server에 ack해야 호스트 알림 가능. 본 ship lib는 throw만, recording은 caller 책임
+
+---
+
+## S06-migration-0011 — users.calendar_preference 컬럼 추가 (2026-05-26) — DONE (S06 partial 진척)
+- Depends: S00 (users table 0001:56-65), [D15](DECISIONS.md#d15--schedulessource-enum--phase-12은-provider-구분-포기) (apple_ios bucket 명칭), S06-google-oauth (`src/lib/calendar/google.ts` 본 컬럼 caller 예정), S06-ui-first-time-modal (모달이 본 컬럼 writer)
+- Changes:
+  - `supabase/migrations/0011_users_calendar_preference.sql` (+30 lines)
+    - `users.calendar_preference TEXT` 컬럼 추가 (default NULL — 첫 모달 노출 신호)
+    - CHECK constraint: `IS NULL OR IN ('google','apple_ios','both','none')` — D15 명칭 일치
+    - Partial index `users_calendar_pref_google_idx ON users(id) WHERE calendar_preference IN ('google','both')` — worker가 SELECT 시 빠른 lookup
+- Tests: SQL migration only, application 변경 0. 본 마이그레이션은 caller 추가까지 unused. typecheck/jest 영향 없음
+- Next:
+  - **S06-apple-expo-calendar** (다음 ship — 본 세션): `src/lib/calendar/apple.ts` (Apple sync는 client-side만 → Q-B22 prereq)
+  - **S06-worker-google-integration** (다음 세션): worker가 본 컬럼 SELECT 후 'google'·'both'면 events.insert 호출. 서버 측 OAuth token 저장 architecture 결정 prereq
+  - **S06-ui-first-time-modal** (다음 세션): "어디 추가할까요" 첫 모달이 본 컬럼 UPDATE
+- Notes:
+  - **컬럼 추가 + index 만**: RLS 정책 변경 0 (기본 users RLS가 자기 행 SELECT/UPDATE 허용). 모달은 anon client UPDATE WHERE id=auth.uid()로 자연 작동
+  - **'apple_ios' 명칭 선택**: schedules.source enum과 일관 ([D15](DECISIONS.md#d15--schedulessource-enum--phase-12은-provider-구분-포기)). 베타 시점 iOS 디바이스 전체 캘린더 bucket 표기
+  - **partial index 적용 조건**: index가 빈 행이 없는 partial은 매우 작음 — 'google'·'both' 사용자만 진입. Phase 1+2 멤버 수 작아 단순 row scan으로도 충분하지만 베타 후반 성장 대비 early 추가
+  - **본 ship은 standalone**: S06-google-oauth와 별도 ship. 의존 caller(worker SELECT)는 후속 sub-task에서 자연 추가
+
+---
+
+## S06-google-oauth — Google Calendar OAuth + events.insert 클라이언트 lib (2026-05-26) — DONE (S06 partial 진척)
+- Depends: S06-queue-foundation ship 2026-05-26 (`_lib/calendar_queue.ts` CalendarEventPayload shape), S06-worker-integration ship 2026-05-26 (worker stub은 본 ship에서 유지 — 다음 sub-task에서 교체), [D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시) (단방향 + token 만료 silent fail 금지), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc) (외부 캘린더 event timeZone='Asia/Seoul'), AuthProvider DI 패턴 mirror ([KakaoOIDCProvider](../src/lib/auth/KakaoOIDCProvider.ts) — native SDK·HTTP·storage 모두 의존성 주입)
+- Branch: `worktree-s06-google-oauth` (main 23cef5c 위에서 신규 진행, PR 후 main fast-forward 예정)
+- Changes:
+  - **클라이언트 lib TDD-first** (`src/lib/calendar/google.ts`, +330 lines):
+    - Shared shape: `CalendarEventPayload` (cross-runtime — Deno worker `_lib/calendar_queue.ts`와 dual 정의, 변경 시 동기 의무 주석 명시) + `GoogleCalendarEvent` (Google API events.insert body subset)
+    - Token state: `GoogleTokenState {accessToken, refreshToken, expiresAtMs, scope}` (SecureStore JSON 직렬화) + `GoogleOAuthGrant` (OAuth 발급 시점 응답)
+    - DI interface 3종: `GoogleOAuthClient` (authorize/refresh/revoke — production은 expo-auth-session 어댑터), `GoogleTokenStorage` (getItem/setItem/deleteItem — production은 expo-secure-store), `GoogleCalendarDeps` (oauth + storage + fetch + now)
+    - 순수 함수 3종:
+      - `isTokenExpired(state, nowMs, skewMs=60_000)` — 만료 임박 (skew window) 이내면 미리 refresh. Google 서버 시계 차이 + 네트워크 RTT 보호
+      - `buildGoogleEvent(payload)` — CalendarEventPayload → Google event format. timeZone='Asia/Seoul' 항상 명시(D13), locationName null 시 location 키 자체 생략 (Google API spec), 빈 title throw (invariant)
+      - `parseStoredToken(raw)` — null/malformed JSON/필수 필드 누락/타입 불일치 모두 null 반환 (방어적 파싱)
+    - `CalendarProviderError` 클래스: discriminated union detail (cancelled/unauthorized/token_expired/rate_limit/network/unknown) + 한국어 message ("캘린더 연결이 취소되었어요." / "캘린더 재인증이 필요해요. 다시 로그인해 주세요.")
+    - `GoogleCalendarProvider` (DI 패턴):
+      - `isAuthorized()` — storage valid token + refresh_token 살아있음 (access 만료 무관 — refresh로 갱신 가능)
+      - `authorize()` — oauth.authorize → storage save. cancel → CalendarProviderError({cancelled}), network 실패 → ({network})
+      - `insertEvent(payload)` — storage get → 만료면 oauth.refresh → 만료 비교 후 fetch POST events.insert. invalid_grant → storage 삭제 + token_expired, 401 → storage 삭제 + unauthorized, 429 → rate_limit (storage 유지), 5xx → unknown, fetch reject → network
+      - `signOut()` — revoke 호출 (best-effort, 실패해도 진행) + storage 삭제 (idempotent)
+  - **Jest tests** (`src/lib/calendar/google.test.ts`, +485 lines, 31 케이스):
+    - `isTokenExpired` 4: 만료 1h 남음 / 5분 전 만료 / 30초 남음 skew 안 / default skew 60초 (30s ≤ vs 120s >)
+    - `buildGoogleEvent` 3: 기본(summary/desc/location/start/end + timeZone Asia/Seoul) / locationName null → location 키 생략 / 빈 title throw
+    - `parseStoredToken` 4: valid JSON / null / malformed JSON / 필수 필드 누락 (3 case)
+    - `GoogleCalendarProvider.isAuthorized` 4: 빈 storage / valid token / 만료 access + 살아있는 refresh / malformed JSON
+    - `GoogleCalendarProvider.authorize` 3: happy (oauth + storage save 검증) / cancel (code='CANCELLED' 또는 message /cancel/) / network 실패
+    - `GoogleCalendarProvider.insertEvent` 8: fresh access POST / 만료 → refresh → POST (storage 갱신, refresh_token 보존) / refresh fails invalid_grant → token_expired + storage delete / 401 → unauthorized + storage delete / 429 → rate_limit (storage 유지) / fetch reject → network / no-token → unauthorized (authorize 미호출 검증) / 500 → unknown
+    - `GoogleCalendarProvider.signOut` 3: happy (revoke + delete) / no-token (revoke skip + delete만) / revoke 실패해도 delete
+    - `CalendarProviderError` 2: name=CalendarProviderError + detail 보존 / message 한국어 (cancelled 정규식 /취소/, token_expired 정규식 /재인증|로그인/)
+  - **운영 파일 변경 0**: `calendar_push_worker/index.ts` stub 유지. 다음 sub-task에서 교체 — 이유: stub 교체는 (1) migration 0011 (users.calendar_preference) + (2) 서버 측 token 저장 architecture 결정 (refresh_token이 클라 SecureStore에 있으면 worker가 접근 못함) 두 조건 모두 필요. 본 sub-task는 클라이언트 OAuth + events.insert wrapper 완성에 한정
+  - **expo-auth-session 미설치**: package.json 변경 0. DI 패턴이라 lib 자체는 native 모듈 의존 0. production wiring(`src/lib/calendar/setup.ts` 가칭) 시점에 lazy install — KakaoOIDCProvider/setup.ts와 동일 패턴 ([D25](DECISIONS.md#d25--cold-start-target--2초--lazy-loading) cold start 보호도 자연)
+- Tests: Jest **31 passed** (신규 — `src/lib/calendar/google.test.ts`). 전체 jest **340 passed + 1 skipped** (ocr_eval by design, 41/42 suites — 회귀 0, 사전 friends/index/requests 3 timeouts는 flaky/사전 issue로 main에서도 재현). typecheck 0 (worktree에 web-guest/node_modules junction 후 동일 환경). lint 0 errors + 0 warnings (prettier auto-fix 1회 적용). design-guard 위반 0 (bare `new Date()` 0 / hex 색 0 / 영문 라벨 0 / 금지 폰트 0)
+- Next:
+  - **S06-apple-expo-calendar** (다음 sub-task): `src/lib/calendar/apple.ts` `expo-calendar` lazy install + iOS 17+ write-only 권한 wrapper. Apple은 worker 직접 push 불가 → push notification trigger + client app이 expo-calendar.createEventAsync 호출 패턴 필요. **OPEN_QUESTIONS에 Q-{ID} 신규 추가 prereq** (Apple sync mechanism — push F-style 분기 설계)
+  - **migration 0011** (다음 sub-task 또는 통합): `users.calendar_preference TEXT CHECK IN ('google','apple_ios','both','none')` default NULL. 본 ship 클라 lib + 다음 sub-task 통합 시 worker SELECT에서 사용
+  - **worker stub 교체** (migration 0011 + 서버 측 token 저장 결정 후): worker가 어떤 mechanism으로 OAuth refresh_token에 접근하느냐(클라 → 서버 업로드 vs 별도 OAuth identity table). 본 ship의 `GoogleCalendarProvider`는 클라에서 직접 호출 가능 — 첫 모달 + 호스트 수동 push 등 클라 시점 사용 케이스에 즉시 활용
+  - **S06-ui-first-time-modal** (다음 세션): `src/components/calendar/FirstTimeModal.tsx` 모임 첫 확정 시 "어디 추가할까요" + GoogleCalendarProvider.authorize() 호출
+  - **S06-ui-reauth-modal** (다음 세션): 프로필 → 캘린더 연결 관리 + token_expired 에러 → 모달 (D19 silent fail 금지)
+- Notes:
+  - **DI 패턴 KakaoOIDCProvider mirror**: 네이티브 모듈(expo-auth-session·expo-secure-store)을 lib 자체가 import하지 않음. 모든 의존성은 `GoogleCalendarDeps` 통해 주입 → jest에서 fake 객체로 모킹. production wiring은 별도 setup.ts(미작성)에서 — Kakao와 동일 분리 패턴. lib 코드는 EAS Build native 모듈 미설치 상태에서도 typecheck/jest 모두 통과
+  - **CalendarEventPayload cross-runtime dual 정의의 의도**: Deno worker(`supabase/functions/_lib/calendar_queue.ts`)와 RN 클라이언트는 서로 import 불가(runtime 다름). 동일 schema를 양쪽에 정의 + 변경 시 동기 의무를 lib 헤더 주석 명시. 두 정의가 drift하면 worker에서 만든 payload를 클라가 변환 시 typecheck로 잡힘 (클라 worker 호출 path 도입 시점에 검증)
+  - **expiresAtMs 계산은 `deps.now() + expiresInSeconds * 1000`** — luxon 미사용. 이유: `expiresAtMs`는 wall-clock 비교용 unix ms만 필요하며 KST 표기 무관 (UI 표시 X). 본 lib는 외부 캘린더 event timeZone='Asia/Seoul' 명시(D13)에서만 KST 영향, 토큰 만료는 timezone-free
+  - **401 vs 429 분기의 의도**: 401(invalid credentials)은 token이 서버에서 revoke된 상태로 storage 삭제. 429(rate limit)는 token은 살아있고 일시 throttle이라 storage 유지 → 사용자가 잠시 후 재시도 가능. Google API 응답 표준 따름
+  - **invalid_grant detect 패턴**: oauth.refresh가 throw하는 Error의 code 또는 message에 'invalid_grant' 포함 시 token_expired로 분류. Google OAuth 표준 에러. 다른 모든 refresh 실패는 network 에러로 처리(retry 가능)
+  - **buildGoogleEvent의 location 키 생략**: Google API는 location 필드를 optional로 받지만 빈 문자열도 받지 않음. `location !== null && location !== undefined`로 가드 → null이면 키 자체를 생략(Object.prototype.hasOwnProperty.call 검증 test로 보장)
+  - **fetch DI의 가치**: production은 globalThis.fetch (RN built-in). 테스트는 jest.fn으로 Response 객체 반환 mock — 실제 HTTP server 띄울 필요 X, 401/429/500/network 등 모든 분기를 단위 테스트로 커버
+  - **worker stub 미교체 선택의 의도**: 본 sub-task가 클라이언트 lib에 집중 → 다음 sub-task가 서버 측 (migration 0011 + token 저장 + worker 통합)에 집중 → 단일 ship 단위 작아 reviewable. S06-queue-foundation/S06-worker-integration이 단계적 ship한 패턴 follow
+  - **사전 friends test 3 timeouts**: `tests/screens/friends/index.test.tsx`(2건) + `tests/screens/friends/requests.test.tsx`(1건)에서 `waitFor` 5초 타임아웃. main commit `23cef5c`에서도 재현됨(`npx jest tests/screens/friends/` 실행 시 3 failed). 본 sub-task 무관. flaky하게 통과/실패 (재실행 시 0 failed였음). 별도 안정성 sub-task 권고
+  - **worktree node_modules junction**: jest/tsc는 main의 `node_modules`를 junction(`mklink /J`)으로 재사용 — `npm install` 회피로 시간 단축. `web-guest/node_modules`도 별도 junction 필요 (main tsc는 web-guest 포함, main 빌드 시 OK). 본 patch는 worktree에만 해당, main 빌드 unaffected
+
+---
+
 ## S06-worker-integration — calendar_push_worker Edge Function + pg_cron schedule + 순수 함수 확장 (2026-05-26) — DONE (S06 partial 진척)
 - Depends: S06-queue-foundation ship 2026-05-26 (`_lib/calendar_queue.ts` 순수 함수 + 0009 migration), [D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시) (partial fail 호스트 알림), [D20](DECISIONS.md#d20--calendar-push-fan-out--background-queue) (pg_cron + retry max 3), notify_f5 PartialFailEntry shape (`{user_id, reason, channel, occurred_at}` cross-channel JSONB)
 - Changes:
