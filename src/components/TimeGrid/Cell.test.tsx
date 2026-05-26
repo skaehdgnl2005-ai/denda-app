@@ -11,7 +11,7 @@ describe('Cell Component', () => {
     // Test for heat-0 / empty (which uses heat[0])
     const { getByTestId, rerender } = render(
       <Cell state="empty" count={0} isHeader={false} testID="grid-cell" />,
-      { wrapper }
+      { wrapper },
     );
     let cell = getByTestId('grid-cell');
     // For empty/heat-0 in light mode, background should be tokens.light.heat[0]
@@ -20,7 +20,7 @@ describe('Cell Component', () => {
         expect.objectContaining({
           backgroundColor: tokens.light.heat[0],
         }),
-      ])
+      ]),
     );
 
     // Test for heat-1
@@ -31,7 +31,7 @@ describe('Cell Component', () => {
         expect.objectContaining({
           backgroundColor: tokens.light.heat[1],
         }),
-      ])
+      ]),
     );
 
     // Test for heat-2
@@ -42,7 +42,7 @@ describe('Cell Component', () => {
         expect.objectContaining({
           backgroundColor: tokens.light.heat[2],
         }),
-      ])
+      ]),
     );
 
     // Test for heat-3
@@ -53,7 +53,7 @@ describe('Cell Component', () => {
         expect.objectContaining({
           backgroundColor: tokens.light.heat[3],
         }),
-      ])
+      ]),
     );
 
     // Test for heat-4
@@ -64,14 +64,14 @@ describe('Cell Component', () => {
         expect.objectContaining({
           backgroundColor: tokens.light.heat[4],
         }),
-      ])
+      ]),
     );
   });
 
   test('renders self selected state correctly with brand colors and icons', () => {
     const { getByTestId, getByText } = render(
       <Cell state="self" count={3} isHeader={false} testID="grid-cell" />,
-      { wrapper }
+      { wrapper },
     );
     const cell = getByTestId('grid-cell');
 
@@ -83,7 +83,7 @@ describe('Cell Component', () => {
           borderColor: tokens.light.brand[500],
           borderWidth: 2,
         }),
-      ])
+      ]),
     );
 
     // Check count text
@@ -95,14 +95,14 @@ describe('Cell Component', () => {
         expect.objectContaining({
           fontVariant: ['tabular-nums'],
         }),
-      ])
+      ]),
     );
   });
 
   test('defines minimum hitSlop for 44pt touch target when cell is 8pt visual height', () => {
     const { getByTestId } = render(
       <Cell state="empty" count={0} isHeader={false} testID="grid-cell" />,
-      { wrapper }
+      { wrapper },
     );
     const cell = getByTestId('grid-cell');
     // hitSlop should expand top/bottom by at least 18pt to reach 44pt from 8pt height
@@ -117,7 +117,7 @@ describe('Cell Component', () => {
   test('renders header cell properly', () => {
     const { getByText } = render(
       <Cell state="empty" count={0} isHeader={true} label="Header text" />,
-      { wrapper }
+      { wrapper },
     );
     expect(getByText('Header text')).toBeTruthy();
   });

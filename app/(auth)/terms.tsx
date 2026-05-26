@@ -106,11 +106,7 @@ export default function TermsScreen() {
             <Body variant="bold" color={colors.text.primary}>
               모두 동의하기
             </Body>
-            <Caption
-              variant="default"
-              color={colors.text.tertiary}
-              style={{ marginTop: 2 }}
-            >
+            <Caption variant="default" color={colors.text.tertiary} style={{ marginTop: 2 }}>
               필수와 선택 항목을 한 번에 체크해요.
             </Caption>
           </View>
@@ -224,9 +220,7 @@ function CheckCircle({ checked, small = false }: { checked: boolean; small?: boo
         justifyContent: 'center',
       }}
     >
-      {checked ? (
-        <Icon name="확정" color={colors.text['on-brand']} size={small ? 14 : 16} />
-      ) : null}
+      {checked ? <Icon name="확정" color={colors.text['on-brand']} size={small ? 14 : 16} /> : null}
     </View>
   );
 }

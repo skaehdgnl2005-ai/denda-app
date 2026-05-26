@@ -8,11 +8,11 @@
 
 ## 진행 현황 요약
 
-- **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** (queue-foundation + worker-integration + google-oauth + migration-0011 + apple-expo-calendar + worker-google-integration + worker-apple-trigger + setup + applesync-hook + ui-first-time-modal + ui-reauth-modal + applesync-wireup) DONE 2026-05-26 + **S14-e2e-residual** + **S14-cross-day-sweep** sub-task (DONE 2026-05-26) + **Q-B22** + **D34** + **D35** 신규
-- **DONE**: 7 (S00, S01, S03, S04, S06, S07, S14) + S05 acceptance 7/7 (S05e 운영 task)
+- **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** + **S14 sub-task 다수** + **fail-cleanup** (2026-05-26 — 14개 fail/skip/deferred 일괄 처리, S11 정식 DONE 검증) + **Q-B22** + **D34** + **D35** 신규
+- **DONE**: 9 (S00, S01, S03, S04, S06, S07, S11, S14) + S05 acceptance 7/7 (S05e 운영 task)
 - **IN_PROGRESS**: 1 (S05 — S05e 60fps 부하 실기기 잔여)
-- **TODO**: 8
-- **BLOCKED**: 1 (S10 — D1 지도 부분 답변 대기)
+- **TODO**: 6 (S08, S12, S13, S15-deeplink, S15-mapmode, S17)
+- **BLOCKED**: 1 (S10 — D1 지도 부분 답변 대기), 1 (S16 — D1 답변 대기)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
 
@@ -278,16 +278,16 @@
 
 ### S11 — 다크모드 토큰 셋업 + 디자인 시스템
 
-- **Status**: TODO | **Owner**: Mobile + Design | **Sprint**: 1 | **Lane**: D
+- **Status**: DONE (2026-05-26, fail-cleanup turn에서 정식 마킹) | **Owner**: Mobile + Design | **Sprint**: 1 | **Lane**: D
 - **Depends**: DESIGN.md, D6 (시스템 자동, 독립 디자인)
 - **Acceptance**:
-  - `src/design/tokens.ts` (라이트/다크 두 세트, DESIGN §13 스켈레톤)
-  - `src/design/theme.ts` (Context Provider, `useColorScheme` 통합)
-  - `src/design/typography.tsx` (Title/Body/Caption 변형)
-  - Pretendard Variable 셀프호스팅 (`expo-font` + WOFF2 — D7)
-  - Lucide 아이콘 설치 + 작명 매핑 (DESIGN §9.1)
-  - 시스템 자동 ON만 — 수동 토글 X (D6)
-  - **다크 디테일 검증 deferred (D2)**: 토큰 정의만, 마커·차트 검증은 Phase 3
+  - ✅ `src/design/tokens.ts` (라이트/다크 두 세트, DESIGN §13)
+  - ✅ `src/design/theme.ts` (Context Provider, `useColorScheme` 통합)
+  - ✅ `src/design/typography.tsx` (Title/Body/Caption 변형 + Pretendard Variable + tabular-nums)
+  - ✅ Pretendard Variable 셀프호스팅 (`assets/fonts/PretendardVariable.woff2` — D7)
+  - ✅ Lucide 아이콘 설치 (`lucide-react-native` ^1.16.0)
+  - ✅ 시스템 자동 ON만 — 수동 토글 X (D6)
+  - ⏸️ **다크 디테일 검증 deferred (D2)**: 토큰 정의만, 마커·차트 검증은 Phase 3
 - **Files**: `src/design/tokens.ts`, `src/design/theme.ts`, `src/design/typography.tsx`, `assets/fonts/PretendardVariable.woff2`
 
 ### S12 — Push Notification F1-F3

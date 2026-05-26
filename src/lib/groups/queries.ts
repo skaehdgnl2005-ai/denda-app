@@ -9,6 +9,8 @@
 
 import { supabase } from '@/lib/supabase/client';
 
+import type { VoteSlot } from '@/lib/votes/voteSet';
+
 export interface GroupForConfirm {
   id: string;
   hostId: string;
@@ -76,4 +78,19 @@ export async function fetchGroupForConfirm(groupId: string): Promise<GroupForCon
     confirmedEndAt: row.confirmed_end_at,
     confirmedPlaceId: row.confirmed_place_id,
   };
+}
+
+// Fail #12: 화면 진입 시 본인 기존 vote seed — 빈 selection으로 시작하면 사용자가 매번 재선택 부담.
+// RLS는 votes_select_self (본인 row만) — query는 자연 안전.
+export async function fetchUserVotes(groupId: string, userId: string): Promise<VoteSlot[]> {
+  const { data, error } = await supabase
+    .from('votes')
+    .select('day, start_minute')
+    .eq('group_id', groupId)
+    .eq('user_id', userId);
+  if (error) {
+    throw new Error('기존 투표를 불러오지 못했어요.');
+  }
+  const rows = (data ?? []) as { day: string; start_minute: number }[];
+  return rows.map((r) => ({ day: r.day, start_minute: r.start_minute }));
 }

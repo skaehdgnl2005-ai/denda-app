@@ -25,8 +25,8 @@
 **총 17 태스크 (S00 ~ S16) + S17 QA**
 
 ```
-DONE 정식:  ███████▒▒▒▒▒▒▒▒▒▒▒▒▒  7 / 17 (41.2%) — S00, S01, S03, S04, S06, S07, S14 (S05도 사실상 7/7, S05e 운영)
-Active:    █████████▒▒▒▒▒▒▒▒▒▒▒  8 / 17 (47%) — + S05 acceptance 7/7 (S05e 운영), S11 partial, S13 partial
+DONE 정식:  █████████▒▒▒▒▒▒▒▒▒▒▒  9 / 17 (52.9%) — S00, S01, S03, S04, S06, S07, S11, S14 (S05도 사실상 7/7, S05e 운영)
+Active:    ██████████▒▒▒▒▒▒▒▒▒▒  10 / 17 (58.8%) — + S05 acceptance 7/7 (S05e 운영), S13 partial
 ```
 
 | Lane | TODO | IN_PROGRESS (partial) | DONE | BLOCKED |
@@ -34,7 +34,7 @@ Active:    █████████▒▒▒▒▒▒▒▒▒▒▒  8 / 17 
 | **A (Foundation·Auth·Time grid·OCR)** | 0 | 1 (S05 acceptance 7/7 — S05e 60fps 실기기 잔여) | 5 (S00, S01, S03, S04, S07) | 0 |
 | **B (Map·Click-through·지도-일정)** | 2 (S08, S15-mapmode) | 0 | 0 | 1 (S10) |
 | **C (Web guest)** | 1 (S15 deeplink) | 0 | 1 (S14) | 0 |
-| **D (Cross-cutting)** | 2 (S12, S17) | 2 (S11 tokens / S13 eas.json) | 1 (S06) | 1 (S16) |
+| **D (Cross-cutting)** | 2 (S12, S17) | 1 (S13 eas.json) | 2 (S06, S11) | 1 (S16) |
 
 세부: [TASK_BACKLOG.md](TASK_BACKLOG.md)
 
@@ -136,5 +136,5 @@ Active:    █████████▒▒▒▒▒▒▒▒▒▒▒  8 / 17 
 ## 📅 마지막 업데이트
 
 - **날짜**: 2026-05-26
-- **업데이트한 사람**: **S06 정식 DONE** — applesync-wireup ship으로 마무리. `src/lib/calendar/CalendarSyncRoot.tsx` 신규 — DI 친화 컴포넌트(userId·supabase·fetchPreference·createAppleProvider·appState·now 주입), preference 'apple_ios'/'both'면 apple provider 생성 → useApplePendingSync({enabled: true}) + AppState change 즉시 trigger. 외 preference나 expo-* 미설치 시 silent 비활성. nowKst().toUTC().toISO() (D13 준수). Jest 9 tests TDD-first. `src/lib/calendar/setup.ts` 확장 — createAppStateAdapter(react-native AppState dynamicRequire wrap). `app/_layout.tsx` wire-up — `<CalendarSyncRootConnected />` SafeAreaProvider 내부 mount. **S06 sub-task 12/12 모두 완료** — Acceptance 6/6 충족. EAS Build 운영 prereq(Google OAuth dev key + expo packages install + expo-auth-session production wiring + app.json scheme)는 별도 트랙
-- **다음 update**: S12 push F1-F3 또는 S11 다크 토큰 또는 main 머지 (사용자 결정)
+- **업데이트한 사람**: **fail-cleanup turn — 14개 fail/skip/deferred 일괄 처리 + S11 정식 DONE**. Phase A 순차: (1) lint 12 errors→0 + warnings 8412→0, (2) expo-image-picker install + typecheck fix, (3) Deno CLI 2.8.0 install + 143 Edge tests 실행 → group_confirm test bug 1개 발견·fix, (4) votes unique index 0014 + api.ts 23505 graceful, (5) reset_my_stalled_calendar_retries RPC 0015 + ReauthModal wire-up, (6) fetchUserVotes + S05-screen-confirm seed (queries 4 신규 tests), (7) expo-auth-session + expo-calendar install (setup.ts wiring은 Google OAuth dev key prereq라 EAS Build 트랙 deferred 명시). **S11 정식 DONE 검증** — tokens/theme/typography/Pretendard WOFF2/Lucide 모두 ready, 다크 디테일은 D2 deferred 유지. 최종 Jest 446 + 1 skip, Deno 143 + 0 fail, typecheck 0, lint 0
+- **다음 update**: Phase B — S12 push F1-F3 (+ Fail #8 호스트 알림 통합) 또는 S15 자체 deferred deep link (D28) 또는 EAS Build 트랙 (setup.ts production wiring + Google OAuth)

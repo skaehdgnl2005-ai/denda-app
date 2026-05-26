@@ -22,10 +22,7 @@ import { nowKst } from '@/lib/time/kst';
 
 import { type AppleCalendarProvider } from './apple';
 import { type CalendarPreference } from './preference';
-import {
-  type AppStateAdapter,
-  useApplePendingSync,
-} from './useApplePendingSync';
+import { type AppStateAdapter, useApplePendingSync } from './useApplePendingSync';
 
 // hook에 enabled=false 일 때도 형식상 필요한 stub. 실제 호출되지 않음.
 const STUB_APPLE: AppleCalendarProvider = {
@@ -63,6 +60,8 @@ export const CalendarSyncRoot: React.FC<CalendarSyncRootProps> = ({
 
   useEffect(() => {
     if (!userId) {
+      // 로그아웃 시 provider reset — userId prop 변화 응답
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAppleProvider(null);
       return;
     }

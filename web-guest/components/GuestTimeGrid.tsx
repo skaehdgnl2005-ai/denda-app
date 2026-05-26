@@ -25,8 +25,8 @@ interface GuestTimeGridProps {
 }
 
 const START_MINUTE = 540; // 09:00
-const END_MINUTE = 1440;  // 24:00
-const SLOT_SIZE = 15;     // 15 minutes
+const END_MINUTE = 1440; // 24:00
+const SLOT_SIZE = 15; // 15 minutes
 const TOTAL_SLOTS = (END_MINUTE - START_MINUTE) / SLOT_SIZE; // 60 slots
 
 export default function GuestTimeGrid({
@@ -191,11 +191,7 @@ export default function GuestTimeGrid({
 
   // 사각형 sweep — RN `applySweepToRecord` 정합. baseline + 시작 cell 기준 사각형 영역의
   // 모든 cell을 mark 값으로 덮어쓴다. dates index = col, start_minute = row.
-  const applyRectangleSweep = (
-    endDay: string,
-    endMinute: number,
-    mode: 'select' | 'deselect',
-  ) => {
+  const applyRectangleSweep = (endDay: string, endMinute: number, mode: 'select' | 'deselect') => {
     const start = sweepStartRef.current;
     if (!start) return;
 
@@ -369,9 +365,7 @@ export default function GuestTimeGrid({
                     onMouseDown={() => handleMouseDown(day, minute)}
                     onMouseEnter={() => handleMouseEnterCell(day, minute)}
                     className={`h-[7px] w-full border border-transparent transition-all rounded-xs cursor-pointer ${
-                      isSelected
-                        ? 'bg-brand-50 border-2 border-brand-500'
-                        : getHeatClass(count)
+                      isSelected ? 'bg-brand-50 border-2 border-brand-500' : getHeatClass(count)
                     }`}
                     style={{
                       touchAction: 'none',

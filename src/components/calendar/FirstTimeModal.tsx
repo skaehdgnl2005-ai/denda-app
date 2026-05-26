@@ -209,10 +209,7 @@ export const FirstTimeModal: React.FC<FirstTimeModalProps> = ({
                   },
                 ]}
               >
-                <Body
-                  variant="bold"
-                  color={isSelected ? colors.text.brand : colors.text.primary}
-                >
+                <Body variant="bold" color={isSelected ? colors.text.brand : colors.text.primary}>
                   {opt.label}
                 </Body>
                 <Caption color={colors.text.tertiary} style={{ marginTop: space[1] }}>

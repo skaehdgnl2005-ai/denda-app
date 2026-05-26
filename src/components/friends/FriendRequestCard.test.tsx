@@ -25,11 +25,8 @@ describe('FriendRequestCard Component', () => {
 
   test('renders incoming request with nickname and relative time label', () => {
     const { getByText, queryByTestId } = render(
-      <FriendRequestCard
-        request={mockIncomingRequest}
-        type="incoming"
-      />,
-      { wrapper }
+      <FriendRequestCard request={mockIncomingRequest} type="incoming" />,
+      { wrapper },
     );
 
     expect(getByText('수신테스트')).toBeTruthy();
@@ -42,11 +39,8 @@ describe('FriendRequestCard Component', () => {
 
   test('renders outgoing request with nickname and 응답 대기 status', () => {
     const { getByText, queryByTestId } = render(
-      <FriendRequestCard
-        request={mockOutgoingRequest}
-        type="outgoing"
-      />,
-      { wrapper }
+      <FriendRequestCard request={mockOutgoingRequest} type="outgoing" />,
+      { wrapper },
     );
 
     expect(getByText('발신테스트')).toBeTruthy();
@@ -67,7 +61,7 @@ describe('FriendRequestCard Component', () => {
         onAccept={handleAccept}
         onReject={handleReject}
       />,
-      { wrapper }
+      { wrapper },
     );
 
     fireEvent.press(getByTestId('accept-button'));
@@ -81,12 +75,8 @@ describe('FriendRequestCard Component', () => {
     const handleCancel = jest.fn();
 
     const { getByTestId } = render(
-      <FriendRequestCard
-        request={mockOutgoingRequest}
-        type="outgoing"
-        onCancel={handleCancel}
-      />,
-      { wrapper }
+      <FriendRequestCard request={mockOutgoingRequest} type="outgoing" onCancel={handleCancel} />,
+      { wrapper },
     );
 
     fireEvent.press(getByTestId('cancel-button'));

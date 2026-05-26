@@ -33,7 +33,9 @@ describe('FriendsRequestsScreen Screen', () => {
   });
 
   test('switches tab to outgoing requests and displays them', async () => {
-    const { getByText, getByTestId, getAllByTestId } = render(<FriendsRequestsScreen />, { wrapper });
+    const { getByText, getByTestId, getAllByTestId } = render(<FriendsRequestsScreen />, {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(getByText('박민수')).toBeTruthy();
@@ -92,7 +94,9 @@ describe('FriendsRequestsScreen Screen', () => {
     const cancelSpy = jest.spyOn(friendsApi, 'cancelRequest');
     const alertSpy = jest.spyOn(Alert, 'alert');
 
-    const { getByText, getByTestId, getAllByTestId } = render(<FriendsRequestsScreen />, { wrapper });
+    const { getByText, getByTestId, getAllByTestId } = render(<FriendsRequestsScreen />, {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(getByText('박민수')).toBeTruthy();

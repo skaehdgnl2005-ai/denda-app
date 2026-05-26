@@ -37,6 +37,8 @@ export const MiniTimeGrid: React.FC<MiniTimeGridProps> = ({
 
   useEffect(() => {
     if (!animated) {
+      // animated false 토글 시 sweep state를 cols로 reset — prop 변화 응답
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSweep(cols);
       return;
     }

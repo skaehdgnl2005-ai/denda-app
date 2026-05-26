@@ -42,10 +42,7 @@ export interface VoteDiff {
   removed: VoteSlot[];
 }
 
-export function diffVoteSets(
-  prev: ReadonlySet<VoteKey>,
-  next: ReadonlySet<VoteKey>,
-): VoteDiff {
+export function diffVoteSets(prev: ReadonlySet<VoteKey>, next: ReadonlySet<VoteKey>): VoteDiff {
   const added: VoteSlot[] = [];
   const removed: VoteSlot[] = [];
 

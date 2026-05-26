@@ -106,10 +106,7 @@ describe('isGoogleReauthNeeded', () => {
   });
 
   test('users row 자체가 null → false (방어적)', async () => {
-    const supabase = buildSupabaseMock(
-      { data: null, error: null },
-      { data: null, error: null },
-    );
+    const supabase = buildSupabaseMock({ data: null, error: null }, { data: null, error: null });
     expect(await isGoogleReauthNeeded(supabase as never, USER_ID)).toBe(false);
   });
 });

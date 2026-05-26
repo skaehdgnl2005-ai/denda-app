@@ -42,6 +42,8 @@ export default function FriendsIndexScreen() {
   }, []);
 
   useEffect(() => {
+    // 데이터 fetch trigger — fetchFriends 내부 setLoading/setRefreshing 호출은 의도
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchFriends();
   }, [fetchFriends]);
 

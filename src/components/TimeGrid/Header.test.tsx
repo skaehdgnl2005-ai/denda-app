@@ -7,20 +7,14 @@ describe('Header Component', () => {
   const wrapper = ThemeProvider;
 
   test('renders day header correctly', () => {
-    const { getByText } = render(
-      <Header type="day" label="월" />,
-      { wrapper }
-    );
+    const { getByText } = render(<Header type="day" label="월" />, { wrapper });
     const dayText = getByText('월');
     expect(dayText).toBeTruthy();
     expect(dayText.props.allowFontScaling).toBe(false);
   });
 
   test('renders time header with tabular-nums and no font scaling', () => {
-    const { getByText } = render(
-      <Header type="time" label="09:00" />,
-      { wrapper }
-    );
+    const { getByText } = render(<Header type="time" label="09:00" />, { wrapper });
     const timeText = getByText('09:00');
     expect(timeText).toBeTruthy();
     expect(timeText.props.allowFontScaling).toBe(false);
@@ -29,7 +23,7 @@ describe('Header Component', () => {
         expect.objectContaining({
           fontVariant: ['tabular-nums'],
         }),
-      ])
+      ]),
     );
   });
 });

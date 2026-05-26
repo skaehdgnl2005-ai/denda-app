@@ -1,12 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import {
-  FlatList,
-  Pressable,
-  StyleSheet,
-  View,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
+import { FlatList, Pressable, StyleSheet, View, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/design/theme';
@@ -44,6 +37,8 @@ export default function FriendsRequestsScreen() {
   }, [activeTab]);
 
   useEffect(() => {
+    // 데이터 fetch trigger — fetchRequests 내부 setLoading 호출은 의도
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchRequests();
   }, [fetchRequests]);
 
@@ -95,11 +90,7 @@ export default function FriendsRequestsScreen() {
       >
         <Icon name="추가" color={colors.brand[500]} size={32} />
       </View>
-      <Title
-        level="h3"
-        color={colors.text.primary}
-        style={{ marginBottom: space[2] }}
-      >
+      <Title level="h3" color={colors.text.primary} style={{ marginBottom: space[2] }}>
         {activeTab === 'incoming' ? '받은 요청이 없어요' : '보낸 요청이 없어요'}
       </Title>
       <Body

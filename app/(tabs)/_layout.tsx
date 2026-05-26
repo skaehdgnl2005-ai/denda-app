@@ -9,9 +9,11 @@ import { Icon, type IconName } from '@/components/Icon';
 import { useTheme } from '@/design/theme';
 
 function renderTabIcon(name: IconName) {
-  return (props: { focused: boolean; color: ColorValue; size: number }) => (
+  const TabIcon = (props: { focused: boolean; color: ColorValue; size: number }) => (
     <Icon name={name} color={String(props.color)} size={22} />
   );
+  TabIcon.displayName = `TabIcon(${name})`;
+  return TabIcon;
 }
 
 export default function TabsLayout() {

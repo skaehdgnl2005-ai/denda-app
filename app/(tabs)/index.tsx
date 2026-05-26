@@ -140,11 +140,7 @@ export default function HomeScreen() {
             justifyContent: 'space-between',
           }}
         >
-          <Title
-            level="h3"
-            color={colors.text.primary}
-            style={{ letterSpacing: -0.4 }}
-          >
+          <Title level="h3" color={colors.text.primary} style={{ letterSpacing: -0.4 }}>
             다가오는 모임
           </Title>
           {/* 0 배지 hide — 카운트 > 0일 때만 (피드백 P1 12) */}
@@ -193,11 +189,7 @@ export default function HomeScreen() {
             >
               <Icon name="캘린더" color={colors.text.secondary} size={26} />
             </View>
-            <Body
-              variant="bold"
-              color={colors.text.primary}
-              style={{ marginBottom: space[1] }}
-            >
+            <Body variant="bold" color={colors.text.primary} style={{ marginBottom: space[1] }}>
               잡힌 모임이 아직 없어요
             </Body>
             <Caption
@@ -228,15 +220,7 @@ export default function HomeScreen() {
   );
 }
 
-function StatChip({
-  label,
-  value,
-  suffix,
-}: {
-  label: string;
-  value: string;
-  suffix: string;
-}) {
+function StatChip({ label, value, suffix }: { label: string; value: string; suffix: string }) {
   const { colors, space, radius } = useTheme();
   return (
     <View

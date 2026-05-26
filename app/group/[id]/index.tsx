@@ -33,7 +33,7 @@ import {
   signInGoogleAndUpload,
 } from '@/lib/calendar/setup';
 import { confirmGroup } from '@/lib/groups/confirm';
-import { fetchGroupForConfirm, type GroupForConfirm } from '@/lib/groups/queries';
+import { fetchGroupForConfirm, fetchUserVotes, type GroupForConfirm } from '@/lib/groups/queries';
 import { selectionToConfirmRange } from '@/lib/groups/selectionToConfirmRange';
 import { useHeatmapSubscription } from '@/lib/heatmap/useHeatmapSubscription';
 import type { GridLayout } from '@/lib/heatmap/coords';
@@ -90,12 +90,26 @@ export default function GroupConfirmScreen(): React.JSX.Element {
   // Previous committed vote slot set (JS mirror for diff)
   const prevVoteSetRef = useRef<Set<string>>(new Set());
 
+  // Fail #12: group + 본인 기존 vote를 한 effect에서 fetch.
+  // votes 실패는 silent (group 도착하면 빈 grid로 진입 가능). group 실패는 loadError.
+  // userId 변경 시 재fetch — group 단일 row라 비용 작음.
   useEffect(() => {
     if (!groupId) return;
     let cancelled = false;
-    fetchGroupForConfirm(groupId)
-      .then((g) => {
-        if (!cancelled) setGroup(g);
+    const votesPromise = userId
+      ? fetchUserVotes(groupId, userId).catch(() => [] as VoteSlot[])
+      : Promise.resolve([] as VoteSlot[]);
+    Promise.all([fetchGroupForConfirm(groupId), votesPromise])
+      .then(([g, slots]) => {
+        if (cancelled) return;
+        setGroup(g);
+        prevVoteSetRef.current = voteSetFromSlots(slots);
+        const next: Record<SlotKey, boolean> = {};
+        for (const slot of slots) {
+          const col = g.dates.indexOf(slot.day);
+          if (col >= 0) next[`${col}:${slot.start_minute}` as SlotKey] = true;
+        }
+        setSelectionRecord(next);
       })
       .catch((e: Error) => {
         if (!cancelled) setLoadError(e.message);
@@ -103,7 +117,7 @@ export default function GroupConfirmScreen(): React.JSX.Element {
     return (): void => {
       cancelled = true;
     };
-  }, [groupId]);
+  }, [groupId, userId]);
 
   const selfMarks = useMemo<Set<SlotKey>>(() => {
     const set = new Set<SlotKey>();

@@ -17,12 +17,8 @@ describe('FriendCard Component', () => {
     const handleMore = jest.fn();
 
     const { getByText } = render(
-      <FriendCard
-        friend={mockFriend}
-        onMakeGroup={handleMakeGroup}
-        onMore={handleMore}
-      />,
-      { wrapper }
+      <FriendCard friend={mockFriend} onMakeGroup={handleMakeGroup} onMore={handleMore} />,
+      { wrapper },
     );
 
     expect(getByText('테스트유저')).toBeTruthy();
@@ -34,12 +30,8 @@ describe('FriendCard Component', () => {
     const handleMore = jest.fn();
 
     const { getByTestId } = render(
-      <FriendCard
-        friend={mockFriend}
-        onMakeGroup={handleMakeGroup}
-        onMore={handleMore}
-      />,
-      { wrapper }
+      <FriendCard friend={mockFriend} onMakeGroup={handleMakeGroup} onMore={handleMore} />,
+      { wrapper },
     );
 
     const ctaButton = getByTestId('make-group-button');
@@ -54,12 +46,8 @@ describe('FriendCard Component', () => {
     const handleMore = jest.fn();
 
     const { getByTestId } = render(
-      <FriendCard
-        friend={mockFriend}
-        onMakeGroup={handleMakeGroup}
-        onMore={handleMore}
-      />,
-      { wrapper }
+      <FriendCard friend={mockFriend} onMakeGroup={handleMakeGroup} onMore={handleMore} />,
+      { wrapper },
     );
 
     const moreButton = getByTestId('more-button');

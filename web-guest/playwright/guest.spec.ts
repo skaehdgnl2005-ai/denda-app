@@ -40,9 +40,7 @@ test.describe('Web Guest Page E2E Flow — 닉네임 입력 → 그리드 셀 se
 
     // 6. mouseup으로 drag 종료 + 결과 알림 CTA visible
     await firstCell.dispatchEvent('mouseup');
-    await expect(
-      page.getByRole('button', { name: /결과 알림 받으려면/ }),
-    ).toBeVisible();
+    await expect(page.getByRole('button', { name: /결과 알림 받으려면/ })).toBeVisible();
 
     await context.close();
   });

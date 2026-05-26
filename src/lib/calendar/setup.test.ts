@@ -48,11 +48,13 @@ function makeSupabaseMock(opts: MockSupabaseOpts = {}) {
   }));
 
   const auth = {
-    getUser: jest.fn().mockResolvedValue(
-      opts.authUserId === null
-        ? { data: { user: null }, error: null }
-        : { data: { user: { id: opts.authUserId ?? 'user-self' } }, error: null },
-    ),
+    getUser: jest
+      .fn()
+      .mockResolvedValue(
+        opts.authUserId === null
+          ? { data: { user: null }, error: null }
+          : { data: { user: { id: opts.authUserId ?? 'user-self' } }, error: null },
+      ),
   };
 
   return {
@@ -173,9 +175,7 @@ function makeStorageMock(initial: string | null = null): GoogleTokenStorage & {
   };
 }
 
-function makeProviderMock(opts: {
-  authorizeImpl?: () => Promise<void>;
-}): GoogleCalendarProvider {
+function makeProviderMock(opts: { authorizeImpl?: () => Promise<void> }): GoogleCalendarProvider {
   return {
     providerName: 'google' as const,
     authorize: jest.fn().mockImplementation(opts.authorizeImpl ?? (() => Promise.resolve())),
@@ -212,8 +212,7 @@ describe('signInGoogleAndUpload', () => {
 
   it('authorize throw → upload 호출 안 됨', async () => {
     const provider = makeProviderMock({
-      authorizeImpl: () =>
-        Promise.reject(new CalendarProviderError({ kind: 'cancelled' })),
+      authorizeImpl: () => Promise.reject(new CalendarProviderError({ kind: 'cancelled' })),
     });
     const storage = makeStorageMock();
     const { client, rpcCalls } = makeSupabaseMock();

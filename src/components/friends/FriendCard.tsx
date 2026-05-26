@@ -15,11 +15,7 @@ export interface FriendCardProps {
   onMore: (friend: FriendUser) => void;
 }
 
-export const FriendCard: React.FC<FriendCardProps> = ({
-  friend,
-  onMakeGroup,
-  onMore,
-}) => {
+export const FriendCard: React.FC<FriendCardProps> = ({ friend, onMakeGroup, onMore }) => {
   const { colors, space, radius } = useTheme();
 
   const initial = friend.nickname ? friend.nickname.charAt(0) : '?';

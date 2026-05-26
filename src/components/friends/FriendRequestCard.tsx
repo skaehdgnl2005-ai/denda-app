@@ -94,10 +94,7 @@ export const FriendRequestCard: React.FC<FriendRequestCardProps> = ({
       <View style={styles.topRow}>
         {/* Avatar — 통일된 회색 (피드백 P0 4와 같은 원칙) */}
         <View
-          style={[
-            styles.avatar,
-            { backgroundColor: colors.surface[2], borderRadius: radius.full },
-          ]}
+          style={[styles.avatar, { backgroundColor: colors.surface[2], borderRadius: radius.full }]}
         >
           <Body variant="bold" color={colors.text.primary}>
             {initial}

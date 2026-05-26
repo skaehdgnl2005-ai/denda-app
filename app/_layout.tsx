@@ -11,10 +11,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { authStore, useAuth } from '@/lib/auth/setup';
 import { CalendarSyncRoot } from '@/lib/calendar/CalendarSyncRoot';
 import { fetchCalendarPreference } from '@/lib/calendar/preference';
-import {
-  createAppStateAdapter,
-  createAppleCalendarProvider,
-} from '@/lib/calendar/setup';
+import { createAppStateAdapter, createAppleCalendarProvider } from '@/lib/calendar/setup';
 import { supabase } from '@/lib/supabase/client';
 import { ThemeProvider } from '@/design/theme';
 

@@ -22,9 +22,11 @@ jest.mock('@/lib/auth/setup', () => ({
 }));
 
 const mockFetchGroup = jest.fn();
+const mockFetchUserVotes = jest.fn();
 const mockConfirmGroup = jest.fn();
 jest.mock('@/lib/groups/queries', () => ({
   fetchGroupForConfirm: (...args: unknown[]) => mockFetchGroup(...args),
+  fetchUserVotes: (...args: unknown[]) => mockFetchUserVotes(...args),
 }));
 jest.mock('@/lib/groups/confirm', () => ({
   confirmGroup: (...args: unknown[]) => mockConfirmGroup(...args),
@@ -71,6 +73,8 @@ describe('GroupConfirmScreen', () => {
     mockUserId = HOST_ID;
     mockFetchGroup.mockReset();
     mockConfirmGroup.mockReset();
+    mockFetchUserVotes.mockReset();
+    mockFetchUserVotes.mockResolvedValue([]);
   });
 
   test('초기 loading 메시지 → group fetch 후 이름 노출', async () => {

@@ -11,10 +11,7 @@ import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { authStore, useAuth } from '@/lib/auth/setup';
 import { isGoogleReauthNeeded } from '@/lib/calendar/reauth';
-import {
-  createGoogleCalendarProvider,
-  signInGoogleAndUpload,
-} from '@/lib/calendar/setup';
+import { createGoogleCalendarProvider, signInGoogleAndUpload } from '@/lib/calendar/setup';
 import { supabase } from '@/lib/supabase/client';
 
 export default function ProfileScreen() {
@@ -44,12 +41,17 @@ export default function ProfileScreen() {
     await signInGoogleAndUpload({ provider, storage, supabase });
   }, []);
 
-  const handleReauthSuccess = useCallback((): void => {
-    // 성공 후 다시 체크 — token row 존재 확인되면 모달 노출 종료
+  const handleReauthSuccess = useCallback(async (): Promise<void> => {
     if (!userId) return;
-    isGoogleReauthNeeded(supabase, userId).then((needs) => {
-      if (!needs) setShowReauth(false);
-    });
+    // Fail #9 wire-up: 영구 stall된 calendar_retry_count(>=3) row reset →
+    // worker 다음 tick(1분)에서 자동 재시도. 실패는 silent (재인증 자체는 성공).
+    try {
+      await supabase.rpc('reset_my_stalled_calendar_retries');
+    } catch {
+      // silent
+    }
+    const needs = await isGoogleReauthNeeded(supabase, userId);
+    if (!needs) setShowReauth(false);
   }, [userId]);
 
   const handleSignOut = async () => {

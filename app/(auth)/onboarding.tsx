@@ -84,12 +84,7 @@ export default function OnboardingScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface[0] }]}>
       {/* Top bar — 건너뛰기 */}
-      <View
-        style={[
-          styles.topBar,
-          { paddingHorizontal: space[4], paddingTop: space[3] },
-        ]}
-      >
+      <View style={[styles.topBar, { paddingHorizontal: space[4], paddingTop: space[3] }]}>
         <View style={{ flex: 1 }} />
         <Pressable
           onPress={complete}

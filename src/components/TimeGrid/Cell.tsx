@@ -13,23 +13,13 @@ export interface CellProps {
   testID?: string;
 }
 
-const CellComponent: React.FC<CellProps> = ({
-  state,
-  count,
-  isHeader,
-  label,
-  onPress,
-  testID,
-}) => {
-  const { colors, space, radius } = useTheme();
+const CellComponent: React.FC<CellProps> = ({ state, count, isHeader, label, onPress, testID }) => {
+  const { colors } = useTheme();
 
   // Header cells rendering logic
   if (isHeader) {
     return (
-      <View
-        style={[styles.headerCell, { borderColor: colors.border.subtle }]}
-        testID={testID}
-      >
+      <View style={[styles.headerCell, { borderColor: colors.border.subtle }]} testID={testID}>
         <Caption variant="default" color={colors.text.secondary}>
           {label || ''}
         </Caption>
@@ -87,12 +77,7 @@ const CellComponent: React.FC<CellProps> = ({
       {state === 'self' && (
         <View style={styles.selfContent}>
           <Icon name="확정" size={10} color={colors.brand[500]} />
-          <Caption
-            variant="micro"
-            tabularNums
-            color={colors.brand[500]}
-            style={styles.countText}
-          >
+          <Caption variant="micro" tabularNums color={colors.brand[500]} style={styles.countText}>
             {count.toString()}
           </Caption>
         </View>

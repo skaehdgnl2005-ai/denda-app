@@ -128,10 +128,7 @@ export default function FriendsSearchScreen() {
           ]}
           testID="send-request-button"
         >
-          <Body
-            variant="sm-bold"
-            color={isSent ? colors.text.disabled : colors.brand[500]}
-          >
+          <Body variant="sm-bold" color={isSent ? colors.text.disabled : colors.brand[500]}>
             {isSent ? '요청 보냄' : '친구 요청'}
           </Body>
         </Pressable>
@@ -170,7 +167,10 @@ export default function FriendsSearchScreen() {
 
   // 검색어 없을 때 — 친구 초대 entry point 제공 (피드백 P1 7)
   const renderInitialEmptyState = () => (
-    <View style={[styles.initialEmpty, { paddingHorizontal: space[4] }]} testID="search-initial-state">
+    <View
+      style={[styles.initialEmpty, { paddingHorizontal: space[4] }]}
+      testID="search-initial-state"
+    >
       <Caption
         variant="micro"
         color={colors.text.tertiary}
@@ -252,7 +252,9 @@ export default function FriendsSearchScreen() {
       </View>
 
       {/* Input Section */}
-      <View style={[styles.inputContainer, { paddingHorizontal: space[4], paddingBottom: space[3] }]}>
+      <View
+        style={[styles.inputContainer, { paddingHorizontal: space[4], paddingBottom: space[3] }]}
+      >
         <View
           style={[
             styles.inputWrapper,

@@ -26,9 +26,9 @@ describe('FriendsSearchScreen Screen', () => {
   });
 
   test('calls search API after 300ms debounce and displays results', async () => {
-    const searchSpy = jest.spyOn(friendsApi, 'search').mockResolvedValueOnce([
-      { id: 'user-10', nickname: '김하늘' },
-    ]);
+    const searchSpy = jest
+      .spyOn(friendsApi, 'search')
+      .mockResolvedValueOnce([{ id: 'user-10', nickname: '김하늘' }]);
 
     const { getByTestId, getByText } = render(<FriendsSearchScreen />, { wrapper });
 
@@ -49,9 +49,7 @@ describe('FriendsSearchScreen Screen', () => {
   });
 
   test('sends friend request on button press and updates button text to sent state', async () => {
-    jest.spyOn(friendsApi, 'search').mockResolvedValueOnce([
-      { id: 'user-10', nickname: '김하늘' },
-    ]);
+    jest.spyOn(friendsApi, 'search').mockResolvedValueOnce([{ id: 'user-10', nickname: '김하늘' }]);
     const sendRequestSpy = jest.spyOn(friendsApi, 'sendRequest');
     const alertSpy = jest.spyOn(Alert, 'alert');
 

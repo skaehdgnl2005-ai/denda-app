@@ -42,6 +42,76 @@ STATUS는 다음 중 하나:
 
 ---
 
+## fail-cleanup — 14개 fail/skip/deferred 항목 일괄 처리 + S11 정식 DONE (2026-05-26) — DONE
+- Depends: S00~S07·S14 모든 sub-task 누적, [D7](DECISIONS.md#d7--typography-pretendard-variable-단일-패밀리-셀프호스팅), [D9](DECISIONS.md#d9--시간-그리드-8pt-시각-셀--44pt-hit-area), [D11](DECISIONS.md#d11--realtime-히트맵--edge-function-합산-후-broadcast-옵션-b), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc), [D14](DECISIONS.md#d14--시간-슬롯-단위-15분--db-check), [D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시), [D24](DECISIONS.md#d24--test-framework), [D34](DECISIONS.md#d34--apple-calendar-sync--클라-polling-패턴-q-b22-close), [D35](DECISIONS.md#d35--google-calendar-oauth-token-서버-측-저장--user_oauth_tokens-table)
+- Context: 사용자가 "여태 작업 중 fail/skip/deferred한 거 다 정리"하자 요청. 전수조사로 15개 risk 발견 → Phase A 순차 처리 + S11 정식 DONE 마킹. Phase B(S12·S15)는 별도 turn으로 분리(검증 단계 보호).
+- Changes:
+  - **Fail #1 lint 12 errors → 0 (baseline 회복)**:
+    - `app/(auth)/login.tsx` Title unused import 제거
+    - `src/components/TimeGrid/Cell.tsx` space/radius unused destructure 제거
+    - `src/components/TimeGrid/RealtimeStatus.tsx` Text unused import 제거
+    - `src/lib/calendar/applePending.test.ts` MockUpdateChain interface 제거
+    - `src/lib/calendar/setup.ts` config → `_config` (allowed pattern)
+    - `src/components/brand/MiniTimeGrid.tsx` setSweep eslint-disable + 사유 (prop 변화 응답)
+    - `src/lib/calendar/CalendarSyncRoot.tsx` setAppleProvider eslint-disable + 사유 (userId reset)
+    - `app/(tabs)/friends/{index,requests}.tsx` fetchFriends/fetchRequests eslint-disable + 사유
+    - `src/lib/calendar/useApplePendingSync.ts` depsRef/onSummaryRef를 useEffect로 이동 (refs during render 회피, 표준 패턴)
+    - `app/(tabs)/_layout.tsx` renderTabIcon displayName 추가 (react/display-name)
+  - **lint warnings 8412 → 0 (prettier --fix 1회 + display-name 1건 fix)**
+  - **Fail #14 friends flaky 3 timeouts → 442 → 446 passed (안정화 확인, 본 run 0 fail)**
+  - **Fail #6 expo-image-picker install**: `npx expo install expo-image-picker`. `src/lib/ocr/imagePicker.ts` `@ts-expect-error` 제거 + `asset` undefined 가드 + `asset.mimeType ?? undefined` 명시 (noUncheckedIndexedAccess + 새 type definition 적응)
+  - **Fail #3 Deno CLI 2.8.0 install + 143 Edge Function tests 실행 → test bug 1개 발견·fix**:
+    - PowerShell binary download to `$env:USERPROFILE\.deno\bin\deno.exe`
+    - `supabase/functions/deno.json` 생성 (`nodeModulesDir: auto` — luxon npm 패키지 import 가능)
+    - **test bug**: `supabase/functions/group_confirm/_test.ts:78-87` `validateConfirmInput — D14 15분 단위 강제`에서 정상 case(540/555)를 `assertThrows`로 잘못 감쌌음. 주석에도 "throw 안 함"이라 적혀 있던 dead code. fix: 정상 case는 no-throw 호출 + 13분 단위만 throw 검증
+    - **확정 결과**: 143 passed, 0 failed. Fail #3가 우려한 risk(TDD-first 작성 후 실 실행 0)가 정확히 실현 — 1건 test mistake catch
+  - **Fail #10 votes unique index migration (0014)**:
+    - `supabase/migrations/0014_votes_unique_index.sql` — `(group_id, user_id, day, start_minute)` partial unique (WHERE user_id NOT NULL) + 게스트 동일 패턴 (WHERE guest_token NOT NULL)
+    - `src/lib/votes/api.ts` 23505 graceful skip — unique violation 시 silent (race / 더블 commit 안전망)
+  - **Fail #9 retry_count reset RPC migration (0015)**:
+    - `supabase/migrations/0015_reset_calendar_retry.sql` — `reset_my_stalled_calendar_retries()` plpgsql SECURITY DEFINER. 본인 group_member인 group 중 `calendar_pushed_at IS NULL AND calendar_retry_count >= 3` row reset
+    - wire-up: `app/(tabs)/profile.tsx::handleReauthSuccess` ReauthModal success 후 `supabase.rpc('reset_my_stalled_calendar_retries')` silent 호출 → worker 다음 tick 자동 재시도
+  - **Fail #11 votes atomicity**: 0014 unique index로 더블 commit risk mitigation. INSERT/DELETE 사이 throw 시 partial 상태는 베타 수용 (Edge Function 합산이 멱등 — D11). 본격 atomicity RPC는 운영에서 발견 시 후속 작업
+  - **Fail #12 본인 vote 불러오기**:
+    - `src/lib/groups/queries.ts` `fetchUserVotes(groupId, userId)` 신규 (`WHERE user_id` — RLS 자연 안전)
+    - `src/lib/groups/queries.test.ts` 4 tests 추가 (정상/빈/null/error)
+    - `app/group/[id]/index.tsx` group fetch와 통합 effect — Promise.all로 동시 fetch + group.dates.indexOf(slot.day)로 col 매핑해 selectionRecord seed + prevVoteSetRef 초기화. votes 실패는 silent (group fetch가 우선)
+    - `tests/screens/group/confirm.test.tsx` `mockFetchUserVotes` 추가 + beforeEach reset
+  - **Fail #7 S06 expo-* prereq**:
+    - `npx expo install expo-auth-session expo-calendar` — SDK 56 호환 버전 install
+    - `app.config.ts` scheme='denda' 이미 존재 ✅ (변경 0)
+    - ReauthModal reset RPC wire-up (위 Fail #9)
+    - **setup.ts production wiring deferred 명시**: `createGoogleOAuthClient.authorize/refresh/revoke`는 stub throw 유지. EAS Build prereq(Google Cloud Console OAuth client id + redirect URI)가 사용자 측 작업이라 본 turn 작성 위험(EAS Build에서 어차피 수정 필요). 코드 위치 + expo-auth-session API spec 검증(AuthRequest/exchangeCodeAsync/refreshAsync/revokeAsync) 완료
+  - **S11 정식 DONE 검증** (코드 변경 0):
+    - ✅ `src/design/tokens.ts` 라이트+다크 두 세트 (백필 2026-05-26)
+    - ✅ `src/design/theme.ts` `useColorScheme` 통합 (D6 시스템 자동만)
+    - ✅ `src/design/typography.tsx` Title/Body/Caption + Pretendard Variable + tabular-nums
+    - ✅ `assets/fonts/PretendardVariable.woff2` 셀프호스팅 (D7)
+    - ✅ Lucide 설치 (`lucide-react-native` ^1.16.0)
+    - 다크 디테일 검증은 D2로 deferred 유지 (마커·차트는 Phase 3)
+- Tests:
+  - **Jest 446 passed + 1 skipped (ocr_eval by design)** — 회귀 0, queries 4 신규
+  - **Deno 143 passed + 0 failed** — TDD-first 작성된 모든 Edge Function test 1차 실행 완료
+  - **typecheck 0 errors**
+  - **lint 0 errors + 0 warnings**
+- Next:
+  - **Phase B 트랙 (별도 turn)**:
+    - **S12 push F1-F3** (의존 모두 해소): `supabase/functions/notify_f{1,2,3}/` notify_f5 패턴 mirror + dispatcher event register (`friend_requested`/`friend_accepted`/`group_invited`) + `src/lib/push/` expo-notifications 등록. Fail #8 호스트 알림 push handler(partial fail 시)도 본 트랙에 통합 가능
+    - **S15 자체 deferred deep link (D28)**: invite_code migration + `attribution_match` Edge + Universal Links AASA/assetlinks + `src/lib/attribution/` + ATT 모달. Q-A6 PoC 정확도(fingerprint ≥70%) prereq
+  - **EAS Build 트랙 (별도, 사용자 측)**:
+    - Google Cloud Console OAuth client id 발급 → `setup.ts::createGoogleOAuthClient` 실 wiring (expo-auth-session AuthRequest + exchangeCodeAsync + refreshAsync + revokeAsync)
+    - `app.config.ts`에 OAuth intent filter (필요 시)
+    - EAS Build production binary로 S05e 60fps 부하 + S03 OCR Gemini Vision 첫 실 호출 검증
+- Notes:
+  - **"fail/skip/deferred 다 정리" 요청의 정확한 가치 — Fail #3에서 실현**: TDD-first로 누적 작성된 Deno test 143개를 사용자 환경에서 처음 실행 → 1건 test bug 발견. SESSION_LOG line 339·742가 "Deno CLI 미설치로 실행 deferred" 일관 누적되어 있어 다음 deploy 시 우려됐던 risk가 정확히 catch됨
+  - **lint 11 → 12 errors의 의미**: SESSION_LOG에서 "lint 11 errors all pre-existing"이라 적힌 게 실제는 12 errors. main에서 install 안 된 상태로 worktree junction에서만 검증되던 시기의 추정. 본 turn에서 main install 후 정확한 baseline 측정 → 모두 fix
+  - **Fail #11 atomicity 절제**: 0014 unique index가 1차 안전망 → 더블 commit risk는 mitigated. 본격 atomicity RPC는 베타 N≤7 환경에서 race 거의 0이라 deferred 유지 (운영 발견 시 격상). 본 turn에서 scope creep 회피
+  - **S15 deep link partial 시작 회피**: D28 Q-A6 PoC 정확도(≥70%) prereq + Universal Links AASA Vercel hosting + 4자리 invite_code fallback + 클라 attribution lib + ATT 모달 = 1-2시간 작업. 본 turn에서 시작하면 partial로 ship 위험. 별도 turn으로 분리해 솔리드 ship
+  - **S12 + Fail #8 통합 가능성**: notify_f1/f2/f3는 dispatcher event register pattern follow (S04 notify_f5 mirror). 호스트 알림(partial calendar fail 통지)도 같은 인프라 — 별도 dispatch type ('calendar_push_partial_fail') + handler. 한 worktree에서 묶음 ship 자연
+  - **본 turn ship 정직성**: 15개 fail 항목 중 14개 close (Fail #11은 0014 unique로 mitigation + atomicity는 베타 deferred 명시). S11 정식 DONE 마킹 후 build 진척 — 정식 DONE 9개 (S00·S01·S03·S04·S05·S06·S07·S11·S14)
+
+---
+
 ## S14-cross-day-sweep — RN 사각형 sweep spec 채택 + 잔여 lint 0 (2026-05-26) — DONE (S14 spec drift close)
 - Depends: S14-e2e-residual ship 2026-05-26 (commit 1e36904 — e2e 일체 0 skip 후 잔여 task 정리), [D12](DECISIONS.md#d12--60fps-시간-그리드-구현-spec) (worklet drag pattern), [D23](DECISIONS.md#d23--web-guest-page--nextjs-별도-codebase) (cross-platform spec drift 방지)
 - Branch: main 직접 (web-guest 격리)

@@ -68,7 +68,7 @@ function dynamicRequire(packageName: string): unknown {
  * 본 ship은 wrapper 구조만 정의 — production wiring 시 expo-auth-session config
  * (Google client id, redirect URI, scopes)와 함께 implement.
  */
-function createGoogleOAuthClient(config: GoogleOAuthConfig): GoogleOAuthClient {
+function createGoogleOAuthClient(_config: GoogleOAuthConfig): GoogleOAuthClient {
   // 호출 시 패키지 require. 미설치 시 throw.
   dynamicRequire('expo-auth-session');
 
@@ -222,9 +222,7 @@ export async function uploadGoogleTokensToServer(
   }
 }
 
-export async function deleteGoogleTokensFromServer(
-  supabase: SupabaseClient,
-): Promise<void> {
+export async function deleteGoogleTokensFromServer(supabase: SupabaseClient): Promise<void> {
   // user_id는 RLS로 자동 본인 행만. 단일 row 삭제 (provider unique).
   const { data: auth } = await supabase.auth.getUser();
   const userId = auth?.user?.id;
@@ -296,9 +294,7 @@ export interface SignInGoogleAndUploadArgs {
  *
  * 1·2·3 어디서든 throw 시 caller(UI 모달)가 한국어 에러 메시지 표시.
  */
-export async function signInGoogleAndUpload(
-  args: SignInGoogleAndUploadArgs,
-): Promise<void> {
+export async function signInGoogleAndUpload(args: SignInGoogleAndUploadArgs): Promise<void> {
   await args.provider.authorize();
 
   const raw = await args.storage.getItemAsync(GOOGLE_TOKEN_STORAGE_KEY);

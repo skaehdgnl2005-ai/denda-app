@@ -11,17 +11,13 @@ export interface MiniMapProps {
   testID?: string;
 }
 
-const MARKERS: Array<{ x: number; y: number; partner?: boolean }> = [
+const MARKERS: { x: number; y: number; partner?: boolean }[] = [
   { x: 0.22, y: 0.32, partner: true },
   { x: 0.52, y: 0.5 },
   { x: 0.78, y: 0.66, partner: true },
 ];
 
-export const MiniMap: React.FC<MiniMapProps> = ({
-  width = 200,
-  height = 140,
-  testID,
-}) => {
+export const MiniMap: React.FC<MiniMapProps> = ({ width = 200, height = 140, testID }) => {
   const { colors, radius } = useTheme();
 
   return (

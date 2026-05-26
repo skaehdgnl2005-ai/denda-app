@@ -37,11 +37,7 @@ export default function MapScreen() {
         >
           <Icon name="지도" color={colors.text.secondary} size={26} />
         </View>
-        <Body
-          variant="bold"
-          color={colors.text.primary}
-          style={{ marginBottom: space[1] }}
-        >
+        <Body variant="bold" color={colors.text.primary} style={{ marginBottom: space[1] }}>
           모임 장소를 지도로 봐요
         </Body>
         <Caption
@@ -49,8 +45,7 @@ export default function MapScreen() {
           color={colors.text.tertiary}
           style={{ textAlign: 'center', lineHeight: 18, paddingHorizontal: space[6] }}
         >
-          모임이 확정되면 위치가 표시되고,{'\n'}
-          내 동선도 함께 볼 수 있어요.
+          모임이 확정되면 위치가 표시되고,{'\n'}내 동선도 함께 볼 수 있어요.
         </Caption>
       </View>
     </SafeAreaView>
