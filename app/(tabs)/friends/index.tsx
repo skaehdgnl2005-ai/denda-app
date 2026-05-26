@@ -1,12 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import {
-  FlatList,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  View,
-  Alert,
-} from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/design/theme';
@@ -15,10 +8,14 @@ import { Icon } from '@/components/Icon';
 import { FriendCard } from '@/components/friends/FriendCard';
 import { ReportBlockSheet } from '@/components/friends/ReportBlockSheet';
 import { FriendUser, friendsApi } from '@/lib/friends/api';
+import { submitReport } from '@/lib/reports/api';
+import { type ReportReasonKey } from '@/lib/reports/reasons';
+import { useAuth } from '@/lib/auth/setup';
 
 export default function FriendsIndexScreen() {
   const { colors, space } = useTheme();
   const router = useRouter();
+  const reporterId = useAuth((s) => s.session?.user.id ?? null);
 
   const [friends, setFriends] = useState<FriendUser[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -73,14 +70,19 @@ export default function FriendsIndexScreen() {
     }
   };
 
-  const handleReport = async (userId: string, reason: string, description: string) => {
+  // S07-report: supabase reports INSERT (D32 베타 DB-only, 운영 통지는 deferred).
+  const handleReport = async (targetUserId: string, reason: ReportReasonKey, detail: string) => {
+    if (!reporterId) {
+      Alert.alert('알림', '로그인이 필요해요.');
+      return;
+    }
     try {
-      await friendsApi.reportUser(userId, reason, description);
-      Alert.alert('알림', '신고가 접수되었습니다.');
-      fetchFriends();
+      await submitReport({ reporterId, targetUserId, reason, detail });
+      Alert.alert('알림', '신고가 접수됐어요. 운영팀이 검토 후 조치할게요.');
+      setSheetVisible(false);
     } catch (e) {
-      console.error(e);
-      Alert.alert('오류', '신고에 실패했습니다.');
+      const message = e instanceof Error ? e.message : '신고에 실패했어요.';
+      Alert.alert('오류', message);
     }
   };
 
@@ -96,11 +98,7 @@ export default function FriendsIndexScreen() {
       <Title level="h3" color={colors.text.primary} style={styles.emptyTitle}>
         아직 친구가 없어요
       </Title>
-      <Body
-        variant="sm"
-        color={colors.text.tertiary}
-        style={styles.emptySubtitle}
-      >
+      <Body variant="sm" color={colors.text.tertiary} style={styles.emptySubtitle}>
         카톡 친구를 초대하면{'\n'}함께 시간을 맞춰볼 수 있어요.
       </Body>
       <Pressable
@@ -152,10 +150,7 @@ export default function FriendsIndexScreen() {
             onPress={() => router.push('/friends/requests')}
             accessibilityRole="button"
             accessibilityLabel="친구 요청함으로 이동"
-            style={({ pressed }) => [
-              styles.iconButton,
-              { opacity: pressed ? 0.6 : 1 },
-            ]}
+            style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.6 : 1 }]}
             testID="requests-nav-button"
           >
             <Icon name="추가" color={colors.text.primary} size={24} />
@@ -169,7 +164,12 @@ export default function FriendsIndexScreen() {
                 ]}
                 testID="requests-badge"
               >
-                <Body variant="sm-bold" color={colors.text.inverse} style={styles.badgeText} tabularNums>
+                <Body
+                  variant="sm-bold"
+                  color={colors.text.inverse}
+                  style={styles.badgeText}
+                  tabularNums
+                >
                   {requestCount}
                 </Body>
               </View>
@@ -190,16 +190,10 @@ export default function FriendsIndexScreen() {
             flexGrow: 1,
           },
         ]}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         renderItem={({ item }) => (
           <View style={{ marginBottom: space[3] }}>
-            <FriendCard
-              friend={item}
-              onMakeGroup={handleMakeGroup}
-              onMore={handleMore}
-            />
+            <FriendCard friend={item} onMakeGroup={handleMakeGroup} onMore={handleMore} />
           </View>
         )}
         ListEmptyComponent={!loading ? renderEmptyState : null}

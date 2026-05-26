@@ -129,7 +129,7 @@
   - ✅ 친구 탭 UI (S07-UI commit 8de33cb)
   - ✅ `is_blocked(viewer, target)` helper 적용한 SELECT (검색·추천·모임 멤버·초대) — S07-d16-audit migration 0007 (group_members + votes 보강, group_invitations은 0005)
   - ✅ 차단된 사용자가 만든 모임 초대 = hidden — group_invitations은 0005에서 처리. 모임 list는 [D31](DECISIONS.md#d31--차단-호스트-모임--부분-노출-groups-select-불변--클라이언트-호스트-mask) 부분 노출(`users SELECT` 자연 mask)
-  - ❌ 신고 UI + reports INSERT — 즉시 작업 가능 (S07-report sub-task로 신설 권고)
+  - ✅ 신고 UI + reports INSERT — S07-report 2026-05-26 (`src/lib/reports/` 3종 + ReportBlockSheet schema 정합 fix + friends/index handleReport supabase 통합)
   - ⏸️ 운영팀 카톡 채널 자동 통지 — [D32](DECISIONS.md#d32--베타-신고--reports-db-only-운영-통지-채널-deferred) deferred (Sprint 0 #11 prereq). 베타는 founder weekly manual review (Supabase dashboard SELECT reports)
 - **Files**: `src/screens/friends/`, `app/(tabs)/friends/`, `supabase/functions/_lib/blocking.ts`, `supabase/migrations/0005_group_invitations_blocking.sql`, `supabase/migrations/0007_d16_propagation_audit.sql`
 - **Worktree 분기**: 가능 (S07-backend는 worktree-agent-a39703870f6972b8c PR 대기, S07-d16-audit는 main 위 격리 진행 완료)

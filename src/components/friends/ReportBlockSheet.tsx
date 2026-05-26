@@ -13,23 +13,17 @@ import { useTheme } from '@/design/theme';
 import { Body, Title } from '@/design/typography';
 import { Icon } from '@/components/Icon';
 import { FriendUser } from '@/lib/friends/api';
+import { REPORT_REASONS, getReasonLabel, type ReportReasonKey } from '@/lib/reports/reasons';
 
 export interface ReportBlockSheetProps {
   visible: boolean;
   onClose: () => void;
   targetUser: FriendUser | null;
   onBlock: (userId: string) => void;
-  onReport: (userId: string, reason: string, description: string) => void;
+  onReport: (userId: string, reason: ReportReasonKey, detail: string) => void;
 }
 
 type SheetStep = 'menu' | 'report-reasons' | 'report-details';
-
-const REPORT_REASONS = [
-  { key: 'spam', label: '스팸 및 광고' },
-  { key: 'inappropriate', label: '부적절한 닉네임 또는 프로필' },
-  { key: 'fraud', label: '사기 또는 허위 사실' },
-  { key: 'other', label: '기타 사유' },
-];
 
 export const ReportBlockSheet: React.FC<ReportBlockSheetProps> = ({
   visible,
@@ -40,14 +34,14 @@ export const ReportBlockSheet: React.FC<ReportBlockSheetProps> = ({
 }) => {
   const { colors, space, radius } = useTheme();
   const [step, setStep] = useState<SheetStep>('menu');
-  const [selectedReason, setSelectedReason] = useState<string>('');
+  const [selectedReason, setSelectedReason] = useState<ReportReasonKey | null>(null);
   const [details, setDetails] = useState<string>('');
 
   if (!targetUser) return null;
 
   const handleClose = () => {
     setStep('menu');
-    setSelectedReason('');
+    setSelectedReason(null);
     setDetails('');
     onClose();
   };
@@ -57,23 +51,19 @@ export const ReportBlockSheet: React.FC<ReportBlockSheetProps> = ({
     handleClose();
   };
 
-  const handleReasonSelect = (reasonLabel: string) => {
-    setSelectedReason(reasonLabel);
+  const handleReasonSelect = (reasonKey: ReportReasonKey) => {
+    setSelectedReason(reasonKey);
     setStep('report-details');
   };
 
   const handleReportSubmit = () => {
+    if (!selectedReason) return;
     onReport(targetUser.id, selectedReason, details);
     handleClose();
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={handleClose}
-    >
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -118,7 +108,11 @@ export const ReportBlockSheet: React.FC<ReportBlockSheetProps> = ({
             {/* Step 1: Menu Options */}
             {step === 'menu' && (
               <View>
-                <Title level="h3" color={colors.text.primary} style={[styles.title, { marginBottom: space[4] }]}>
+                <Title
+                  level="h3"
+                  color={colors.text.primary}
+                  style={[styles.title, { marginBottom: space[4] }]}
+                >
                   {targetUser.nickname}님 설정
                 </Title>
 
@@ -159,7 +153,11 @@ export const ReportBlockSheet: React.FC<ReportBlockSheetProps> = ({
                   testID="block-option"
                 >
                   <Icon name="차단" color={colors.semantic.error.fg} size={20} />
-                  <Body variant="primary" color={colors.semantic.error.fg} style={styles.optionText}>
+                  <Body
+                    variant="primary"
+                    color={colors.semantic.error.fg}
+                    style={styles.optionText}
+                  >
                     차단하기
                   </Body>
                 </Pressable>
@@ -188,7 +186,7 @@ export const ReportBlockSheet: React.FC<ReportBlockSheetProps> = ({
                   {REPORT_REASONS.map((reason) => (
                     <Pressable
                       key={reason.key}
-                      onPress={() => handleReasonSelect(reason.label)}
+                      onPress={() => handleReasonSelect(reason.key)}
                       accessibilityRole="button"
                       accessibilityLabel={`${reason.label} 사유로 신고`}
                       style={({ pressed }) => [
@@ -229,8 +227,12 @@ export const ReportBlockSheet: React.FC<ReportBlockSheetProps> = ({
                   </Title>
                 </View>
 
-                <Body variant="sm-bold" color={colors.text.secondary} style={{ marginTop: space[4] }}>
-                  사유: {selectedReason}
+                <Body
+                  variant="sm-bold"
+                  color={colors.text.secondary}
+                  style={{ marginTop: space[4] }}
+                >
+                  사유: {selectedReason ? getReasonLabel(selectedReason) : ''}
                 </Body>
 
                 <TextInput

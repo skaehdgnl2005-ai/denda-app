@@ -42,6 +42,28 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S07-report — 신고 UI supabase reports INSERT 통합 (2026-05-26) — DONE (S07 acceptance 5번째 close)
+- Depends: S07-UI (commit 8de33cb, ReportBlockSheet + friends/index 컴포넌트 wiring 백필), [D32](DECISIONS.md#d32--베타-신고--reports-db-only-운영-통지-채널-deferred) (베타 DB-only, 운영 통지 deferred), S00 (reports table 0001:394 + RLS reports_insert_self 0002:373), S01 (auth.users JWT — reporter_id 출처)
+- Changes:
+  - **순수함수 TDD-first 3종**:
+    - `src/lib/reports/reasons.ts` (+22 lines) + `.test.ts` (6 케이스) — schema enum 5개(spam/harassment/inappropriate/fake_profile/other)와 정합. 한국어 label 매핑(스팸 및 광고/욕설 및 괴롭힘/부적절한 닉네임·프로필/사칭 및 가짜 프로필/기타). `isValidReasonKey` type guard
+    - `src/lib/reports/validation.ts` (+38 lines) + `.test.ts` (10 케이스) — reason ENUM 검증 + detail ≤500자(DB는 TEXT 무제한, UX-side cap) + targetUserId trim 검사. 한국어 에러 메시지
+    - `src/lib/reports/api.ts` (+48 lines) + `.test.ts` (7 케이스) — `submitReport` supabase reports INSERT wrapper. 자기 신고 사전 throw(0001:401 CHECK 이중 차단) + validation 사전 throw + supabase error 한국어 변환
+  - **ReportBlockSheet.tsx 수정** (~10 lines diff) — 내장 REPORT_REASONS 제거 → `@/lib/reports/reasons` import (schema 정합). `onReport` signature `(userId, reason: string, description)` → `(userId, reason: ReportReasonKey, detail)`. `selectedReason` state `string` → `ReportReasonKey | null`. label은 `getReasonLabel(key)` 변환. handleReasonSelect는 label이 아닌 **key** 전달(이전 fix 누락 = 핵심 버그였음)
+  - **ReportBlockSheet.test.tsx update** (~30 lines diff) — onReport assertion을 label('스팸 및 광고')에서 key('spam')로. 5개 reason 모두 화면 노출 + harassment/fake_profile 신규 정확 전달 신규 케이스 1개 추가
+  - **app/(tabs)/friends/index.tsx 통합** (~20 lines diff) — `useAuth` import로 reporter_id 추출. `handleReport`를 friendsApi.reportUser(console.log mock) → `submitReport` supabase 호출로 교체. 비로그인 시 안내 alert + 한국어 에러 메시지 + 성공 토스트 "신고가 접수됐어요. 운영팀이 검토 후 조치할게요."
+  - **tests/screens/friends/index.test.tsx mock 추가** (~10 lines) — friends index가 setup.ts → @react-native-kakao/user ESM transform 깨짐 → `@/lib/auth/setup` + `@/lib/supabase/client` mock 2개로 회피. 기존 7개 케이스 모두 그대로 통과
+- Tests: Jest **52 passed** (내 영역 9 suites: reports/reasons 6 + reports/validation 10 + reports/api 7 + ReportBlockSheet 5 + FriendCard 7 + FriendRequestCard ? + friends/index 7 + friends/requests ? + friends/search ?), typecheck 0, lint 0 (내 영역). 전체 Jest 163 passed + 1 skipped (ocr_eval by design)
+- Next: **S07 acceptance 5개 중 4개 ✅ + 1개 ⏸️ (운영 통지 D32 deferred)** → S07은 운영 카톡 채널 셋업 완료 시 D32 supersede + notify_admin Edge Function 추가로 최종 close. Sprint 3 잔여는 S08(Click-through, S10 BLOCKED dep). S07-block-supabase (blockUser supabase + friendships cascade)는 별도 sub-task로 남음
+- Notes:
+  - **핵심 버그 발견·수정**: S07-UI commit의 ReportBlockSheet가 reason key로 'fraud'를 사용했는데 schema enum에 없음(spam/harassment/inappropriate/fake_profile/other). 본 ship 전에 신고 INSERT가 항상 ENUM violation으로 실패했을 것. schema enum이 단일 진실 → 컴포넌트 5개로 확장(harassment/fake_profile 신규 노출) + 'fraud' 제거. D32 본문에 적은 4개 카테고리(스팸/욕설/사기/기타)도 schema와 불일치한 것 — schema 5개가 source of truth
+  - **D32 정확히 준수**: 클라이언트는 reports INSERT만, notify_admin Edge Function 호출 0건. 운영 통지 자동화는 운영 카톡 채널 셋업 완료 시 별도 task
+  - **handleBlock supabase 통합 의도적 deferred**: friendsApi.blockUser는 mock 그대로(친구 list cleanup만). 실 supabase 통합은 blocks INSERT + friendships/friend_requests cascade RPC가 큰 별도 작업 (S07-block-supabase). D32 scope 외
+  - **사전 존재 lint error**: app/(tabs)/friends/index.tsx의 `react-hooks/set-state-in-effect` 1건은 useEffect 내 fetchFriends가 setLoading/setRefreshing 호출하는 사전 패턴. 내 변경 영역 외부 — 별도 task로 fix 권고 (single useState로 reducer 패턴 또는 useReducer 권고)
+  - **다른 worktree 동시 진행**: S05c (vote debounce), S05d (Realtime disconnect hook)이 NOW.md에 활성. 내 영역(src/lib/reports/*, friends/*)과 file 충돌 0 — main 직접 작업으로 worktree 불요했음 (S05c·d는 src/lib/votes/* 별도 격리)
+
+---
+
 ## S03b — 에브리타임 OCR UI (학기 모달·미리보기·confirm·만료 필터) (2026-05-26) — DONE (S03 완성)
 - Depends: S03a (Edge Function `ocr_everytime` + 클라 wrapper, ship 2026-05-26 16559b9), S00 (`schedules` table + source enum), [D2](DECISIONS.md#d2--phase-12-scope-reduction-다크-디테일만-reduce) (OCR keep), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc), §17 (anti-AI-feel)
 - Changes:
