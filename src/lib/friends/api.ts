@@ -1,4 +1,5 @@
 import { DateTime } from 'luxon';
+import { blockUser as supabaseBlockUser } from '@/lib/blocks/api';
 
 export interface FriendUser {
   id: string;
@@ -126,21 +127,18 @@ export const friendsApi = {
     return Promise.resolve();
   },
 
-  // Block a user
+  // Block a user — S07-block-supabase 2026-05-26:
+  // supabase RPC `block_user`가 atomic transaction으로
+  //   blocks INSERT + friendships/friend_requests 양방향 cascade DELETE 처리 (D16).
+  // 성공 시에만 local mock list cleanup (demo continuity).
   blockUser: async (userId: string): Promise<void> => {
-    // Remove from friends list if they are friends
+    await supabaseBlockUser(userId);
     mockFriends = mockFriends.filter((f) => f.id !== userId);
-    // Remove requests
     mockIncomingRequests = mockIncomingRequests.filter((r) => r.sender_id !== userId);
     mockOutgoingRequests = mockOutgoingRequests.filter((r) => r.receiver_id !== userId);
-    return Promise.resolve();
   },
 
-  // Report a user
-  reportUser: async (userId: string, reason: string, description: string): Promise<void> => {
-    console.log(`Report submitted for user ${userId}. Reason: ${reason}, Description: ${description}`);
-    return Promise.resolve();
-  },
+  // reportUser는 S07-report (2026-05-26)에서 `src/lib/reports/api.ts::submitReport`로 교체됨 — 제거됨
 
   // Test helpers to reset mock states in tests
   __resetMocks: () => {

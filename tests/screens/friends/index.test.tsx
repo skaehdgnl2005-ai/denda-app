@@ -18,9 +18,9 @@ jest.mock('@/lib/auth/setup', () => ({
   useAuth: <T,>(selector: (s: { session: null }) => T) => selector({ session: null }),
 }));
 
-// supabase client mock — friends index가 submitReport import → @/lib/supabase/client → env 변수 throw 회피.
+// supabase client mock — friends index가 submitReport / blockUser import → @/lib/supabase/client → env 변수 throw 회피.
 jest.mock('@/lib/supabase/client', () => ({
-  supabase: { from: jest.fn() },
+  supabase: { from: jest.fn(), rpc: jest.fn() },
 }));
 
 describe('FriendsIndexScreen Screen', () => {

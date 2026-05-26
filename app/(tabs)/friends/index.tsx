@@ -62,11 +62,12 @@ export default function FriendsIndexScreen() {
   const handleBlock = async (userId: string) => {
     try {
       await friendsApi.blockUser(userId);
-      Alert.alert('알림', '사용자가 차단되었습니다.');
+      Alert.alert('알림', '차단했어요. 더 이상 표시되지 않아요.');
+      setSheetVisible(false);
       fetchFriends();
     } catch (e) {
-      console.error(e);
-      Alert.alert('오류', '차단에 실패했습니다.');
+      const message = e instanceof Error ? e.message : '차단하지 못했어요.';
+      Alert.alert('오류', message);
     }
   };
 
