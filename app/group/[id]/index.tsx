@@ -20,17 +20,25 @@ import { useSharedValue } from 'react-native-reanimated';
 import { Icon } from '@/components/Icon';
 import { Grid } from '@/components/TimeGrid/Grid';
 import { RealtimeStatus } from '@/components/TimeGrid/RealtimeStatus';
+import { FirstTimeModal } from '@/components/calendar/FirstTimeModal';
 import { ConfirmedTimeCard } from '@/components/group/ConfirmedTimeCard';
 import { HostConfirmButton } from '@/components/group/HostConfirmButton';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { useAuth } from '@/lib/auth/setup';
+import { fetchCalendarPreference } from '@/lib/calendar/preference';
+import {
+  createAppleCalendarProvider,
+  createGoogleCalendarProvider,
+  signInGoogleAndUpload,
+} from '@/lib/calendar/setup';
 import { confirmGroup } from '@/lib/groups/confirm';
 import { fetchGroupForConfirm, type GroupForConfirm } from '@/lib/groups/queries';
 import { selectionToConfirmRange } from '@/lib/groups/selectionToConfirmRange';
 import { useHeatmapSubscription } from '@/lib/heatmap/useHeatmapSubscription';
 import type { GridLayout } from '@/lib/heatmap/coords';
 import type { SlotKey } from '@/lib/heatmap/types';
+import { supabase } from '@/lib/supabase/client';
 import { commitVoteDiff } from '@/lib/votes/api';
 import { useSweepGesture } from '@/lib/votes/useSweepGesture';
 import { diffVoteSets, voteSetFromSlots, type VoteSlot } from '@/lib/votes/voteSet';
@@ -61,6 +69,23 @@ export default function GroupConfirmScreen(): React.JSX.Element {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectionRecord, setSelectionRecord] = useState<Record<SlotKey, boolean>>({});
   const [inflight, setInflight] = useState(false);
+  const [showFirstTimeModal, setShowFirstTimeModal] = useState(false);
+
+  // S06: 첫 Google/Apple sign-in callback — lazy 구성 (expo-* 패키지 미설치 환경에서 페이지
+  // 진입 시점 throw 방지). createGoogleCalendarProvider/createAppleCalendarProvider는 호출 시
+  // 점에 expo-auth-session/expo-secure-store/expo-calendar dynamicRequire — 사용자가 모달
+  // 옵션을 실제 선택해 확인 버튼 누를 때만 native 모듈 require.
+  const handleSignInGoogle = useCallback(async (): Promise<void> => {
+    const clientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? '';
+    const { provider, storage } = createGoogleCalendarProvider({
+      oauthConfig: { clientId, redirectUri: 'denda://oauth' },
+    });
+    await signInGoogleAndUpload({ provider, storage, supabase });
+  }, []);
+  const handleRequestApplePermission = useCallback(async (): Promise<void> => {
+    const appleProvider = createAppleCalendarProvider();
+    await appleProvider.requestPermission();
+  }, []);
 
   // Previous committed vote slot set (JS mirror for diff)
   const prevVoteSetRef = useRef<Set<string>>(new Set());
@@ -186,6 +211,18 @@ export default function GroupConfirmScreen(): React.JSX.Element {
       // Refresh group state to flip into read-only mode
       const updated = await fetchGroupForConfirm(groupId);
       setGroup(updated);
+
+      // S06: 새로 확정된 경우(이미 확정 X) + 캘린더 선택 미결정 시 모달 노출
+      if (!result.alreadyConfirmed && userId) {
+        try {
+          const pref = await fetchCalendarPreference(supabase, userId);
+          if (pref === null) {
+            setShowFirstTimeModal(true);
+          }
+        } catch {
+          // preference 조회 실패는 confirm 흐름을 막지 않음 (silent)
+        }
+      }
     } catch (e) {
       Alert.alert('확정 실패', (e as Error).message);
     } finally {
@@ -286,6 +323,17 @@ export default function GroupConfirmScreen(): React.JSX.Element {
             testID="host-confirm-button"
           />
         </View>
+      ) : null}
+
+      {userId ? (
+        <FirstTimeModal
+          visible={showFirstTimeModal}
+          onClose={() => setShowFirstTimeModal(false)}
+          userId={userId}
+          supabase={supabase}
+          signInGoogle={handleSignInGoogle}
+          requestApplePermission={handleRequestApplePermission}
+        />
       ) : null}
     </SafeAreaView>
   );

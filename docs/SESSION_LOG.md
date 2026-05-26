@@ -42,6 +42,40 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S06-ui-first-time-modal — 첫 모임 확정 후 캘린더 선택 모달 (2026-05-26) — DONE (S06 partial 진척)
+- Depends: S06-setup ship(`signInGoogleAndUpload` + `createGoogleCalendarProvider` + `createAppleCalendarProvider` 2026-05-26), S05-screen-confirm ship (`app/group/[id]/index.tsx` confirmGroup 성공 분기), migration 0011 (`users.calendar_preference` 컬럼 + CHECK), [D15](DECISIONS.md#d15--schedulessource-enum--phase-12은-provider-구분-포기) (apple_ios bucket), DESIGN §11 (모달) + §17 (anti-AI-feel) + ko-kr (한국어 라벨)
+- Branch: `worktree-s06-google-oauth` (main 23cef5c 위 8 commits 누적)
+- Changes:
+  - **FirstTimeModal** (`src/components/calendar/FirstTimeModal.tsx`, +~230 lines):
+    - 4 옵션 (Google / iCloud / 둘 다 / 안 할래요) radio 선택 UI — selected = border-focus + brand-50 + text.brand
+    - 확인 → signInGoogle(google|both) + requestApplePermission(apple_ios|both) + supabase users UPDATE preference + onClose
+    - 에러 분기 — `mapErrorToKorean`: cancelled = silent close, unauthorized/network/token_expired/rate_limit/unknown 한국어 inline 메시지 + 모달 유지
+    - busy 동안 confirm-button 다중 호출 차단 + "연결 중..." 라벨
+    - 나중에 → onClose without DB update (다음 모임 확정 시 다시 표시)
+    - §17 anti-AI-feel: brand-500 fill CTA 1개(확인), surface-2 disabled 회색 죽은 톤, secondary "나중에", 친근체 ("어디에 추가할까요?" / "안 할래요"), 3단계 위계(Title h2 + Body sm secondary + Body bold + Caption tertiary), 4pt 그리드 토큰만 사용
+  - **fetchCalendarPreference helper** (`src/lib/calendar/preference.ts`, +35 lines):
+    - `fetchCalendarPreference(supabase, userId)` → CalendarPreference | null
+    - null = 모달 노출 대상 (row 없거나 calendar_preference IS NULL)
+    - 에러 시 한국어 메시지 throw
+  - **page wire-up** (`app/group/[id]/index.tsx`, +~30 lines):
+    - confirmGroup 성공(not alreadyConfirmed) 후 `fetchCalendarPreference` 호출 → null 시 setShowFirstTimeModal(true)
+    - signInGoogle/requestApplePermission callback lazy 구성 — createGoogleCalendarProvider/createAppleCalendarProvider 호출 시점에 expo-* dynamicRequire 발생(페이지 진입 시점 throw 회피, 사용자 옵션 선택 후 확인 누를 때만 native 모듈 require)
+    - FirstTimeModal mount with userId guard
+- **Tests**:
+  - Jest: **421 passed** (+20: 13 FirstTimeModal + 7 preference), 1 skipped (ocr_eval), 48 suites
+  - typecheck 0 error
+  - lint: 11 errors all pre-existing (브랜드/applePending.test/setup config arg/useApplePendingSync refs — 본 작업과 무관)
+  - design-check 통과 (DESIGN §11 모달 + §17 anti-AI-feel + 4pt 그리드 + 한국어 + 토큰 only)
+- Next: **S06-ui-reauth-modal** (partial_fail_list 감지 + Google 재인증 모달 — 프로필 화면 wire-up), then **S06-applesync-hook wire-up** (app/_layout.tsx 전역 mount + reauth trigger 분기 결정)
+- Notes:
+  - **trigger 위치**: confirmGroup 성공 후 fetchCalendarPreference NULL 시점. 새로 확정된 경우만 노출(alreadyConfirmed=true는 skip). 이미 'none' 또는 다른 값 set 됐으면 다시 안 묻는다.
+  - **expo-* 패키지 미설치 보호**: createGoogleCalendarProvider/createAppleCalendarProvider는 함수 내부 dynamicRequire라 import-time throw X. 페이지 진입 OK. 모달 옵션 확인 누를 때만 native 모듈 require → 미설치 시 한국어 wrapped 에러
+  - **expo-auth-session production wiring 잔여**: setup.ts::createGoogleOAuthClient의 authorize/refresh/revoke는 EAS Build 시점에 implement 필요 (현재 throw stub). 그 전까지 모달은 "확인" 누르면 throw → 에러 메시지 표시
+  - **시각 검증 deferred**: expo-* 패키지 미설치라 에뮬레이터 동작 검증 불가. DESIGN 토큰 정합 + Jest로 본 ship 검증. 실 검증은 Google OAuth dev key + expo packages install + app.json scheme 설정 후 별도 세션
+  - **lint 11 에러 pre-existing**: useApplePendingSync.ts react-hooks/refs 규칙 (현 코드의 ref-during-render는 의도된 패턴 — DI prop을 ref로 mirror하는 표준 트릭), setup.ts config arg(production wiring 잔여 stub), MiniTimeGrid set-state-in-effect, login.tsx 등. 별도 cleanup 태스크
+
+---
+
 ## S06-applesync-hook — useApplePendingSync hook (AppState change + concurrent guard) (2026-05-26) — DONE (S06 partial 진척)
 - Depends: S06-worker-apple-trigger ship(`processApplePendingPushes` + `ApplePendingDeps` 2026-05-26), [D34](DECISIONS.md#d34--apple-calendar-sync--클라-polling-패턴-q-b22-close) (클라 polling 패턴)
 - Branch: `worktree-s06-google-oauth` (main 23cef5c 위 7 commits 누적)

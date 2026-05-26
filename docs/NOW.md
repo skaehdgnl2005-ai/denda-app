@@ -12,5 +12,10 @@
 
 ## 🟢 활성 작업
 
+### S06 Calendar Sync — UI 마무리 (reauth modal + applesync wire-up 잔여)
+- **상태**: S06-ui-first-time-modal ✅ ship됨. 다음 sub-task = S06-ui-reauth-modal
+- **다음 단계**: ReauthModal Jest 테스트 + 구현 (partial_fail_list 감지 + signInGoogleAndUpload 재호출) → 프로필 화면 wire-up → ship → useApplePendingSync app/_layout.tsx 전역 wire-up
+- **블로커**: 없음 (backend + lib + first-time-modal 모두 ship됨)
+- **마지막 update**: 2026-05-26 (KST) — S06-ui-first-time-modal ship 직후
 
 

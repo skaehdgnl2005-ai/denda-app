@@ -8,9 +8,9 @@
 
 ## 진행 현황 요약
 
-- **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** sub-task (DONE 2026-05-26) + **S06-queue-foundation** + **S06-worker-integration** + **S06-google-oauth** + **S06-migration-0011** + **S06-apple-expo-calendar** sub-task (DONE 2026-05-26) + **Q-B22** 신규
-- **DONE**: 5 (S00, S01, S03, S04, S07) + S05 acceptance 7/7 (S05e 운영 task)
-- **IN_PROGRESS**: 3 (S05 — S05e 60fps 부하 실기기 잔여, S14 skeleton+utils+test-augment+violations-fix+e2e-setup, S06 — backend 묶음(0009/0010 + worker + 순수 함수) + Google 클라이언트 lib 완료, Apple expo-calendar · migration 0011 · worker stub 교체 · UI 모달 잔여)
+- **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06-queue-foundation** + **S06-worker-integration** + **S06-google-oauth** + **S06-migration-0011** + **S06-apple-expo-calendar** + **S06-worker-google-integration** + **S06-worker-apple-trigger** + **S06-setup** + **S06-applesync-hook** + **S06-ui-first-time-modal** sub-task (DONE 2026-05-26) + **Q-B22** + **D34** + **D35** 신규
+- **DONE**: 6 (S00, S01, S03, S04, S07, S14) + S05 acceptance 7/7 (S05e 운영 task)
+- **IN_PROGRESS**: 2 (S05 — S05e 60fps 부하 실기기 잔여, S06 — backend + Google/Apple lib + setup wiring + applesync hook + first-time-modal 완료, reauth modal + applesync 전역 wire-up 잔여)
 - **TODO**: 8
 - **BLOCKED**: 1 (S10 — D1 지도 부분 답변 대기)
 
@@ -259,12 +259,12 @@
 
 ### S06 — Calendar Sync (Google + Apple)
 
-- **Status**: IN_PROGRESS (sub-task 9/N: S06-queue-foundation ✅ + S06-worker-integration ✅ + S06-google-oauth ✅ + S06-migration-0011 ✅ + S06-apple-expo-calendar ✅ + S06-worker-google-integration ✅ + S06-worker-apple-trigger ✅ + **S06-setup ✅ + S06-applesync-hook ✅** 2026-05-26 — backend + 양 provider lib + worker 통합 + apple_pending + setup wiring 어댑터 + useApplePendingSync hook 모두 완성. **UI 모달 2건만 잔여**: FirstTimeModal + ReauthModal, 에뮬레이터 시각 검증 + DESIGN 토큰 + Google OAuth dev key 필요) | **Owner**: Mobile + Backend | **Sprint**: 4 | **Lane**: D
+- **Status**: IN_PROGRESS (sub-task 10/N: S06-queue-foundation ✅ + S06-worker-integration ✅ + S06-google-oauth ✅ + S06-migration-0011 ✅ + S06-apple-expo-calendar ✅ + S06-worker-google-integration ✅ + S06-worker-apple-trigger ✅ + S06-setup ✅ + S06-applesync-hook ✅ + **S06-ui-first-time-modal ✅** 2026-05-26 — backend + 양 provider lib + worker 통합 + apple_pending + setup wiring + useApplePendingSync hook + 첫 캘린더 선택 모달 완성. **S06-ui-reauth-modal + S06-applesync-hook 전역 wire-up 잔여**, 에뮬레이터 시각 검증 + Google OAuth dev key 사용자 prereq 미정) | **Owner**: Mobile + Backend | **Sprint**: 4 | **Lane**: D
 - **Depends**: S04 ✅ DONE (모임 확정 trigger + dispatcher real impl + `group_confirmed` event), [D15](DECISIONS.md#d15--schedulessource-enum--phase-12은-provider-구분-포기) (apple_ios 통합 bucket), [D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시) (단방향 + 부분실패 명시), [D20](DECISIONS.md#d20--calendar-push-fan-out--background-queue) (background queue), [D34](DECISIONS.md#d34--apple-calendar-sync--클라-polling-패턴-q-b22-close) (Apple sync = 클라 polling), [D35](DECISIONS.md#d35--google-calendar-oauth-token-서버-측-저장--user_oauth_tokens-table) (Google token 서버 측 저장)
 - **Acceptance**:
   - ✅ Google Calendar OAuth + `events.insert` (single event push) — 클라이언트 lib `src/lib/calendar/google.ts` (S06-google-oauth 2026-05-26, GoogleCalendarProvider + Jest 31 tests) + **서버 측 worker 실 구현 `supabase/functions/_lib/google_calendar.ts` + worker pushGoogleForUser (S06-worker-google-integration 2026-05-26, Deno 23 tests TDD-first)**. token storage = `user_oauth_tokens` table(D35)
   - ✅ `expo-calendar` wrapper (iOS 17+ write-only 권한) — 클라이언트 lib `src/lib/calendar/apple.ts` (S06-apple-expo-calendar 2026-05-26, AppleCalendarProvider + Jest 20 tests) + **worker → client trigger 통합(S06-worker-apple-trigger 2026-05-26)** — migration 0013 `calendar_push_apple_pending` + worker apple_ios/both 분기 INSERT + 클라 `src/lib/calendar/applePending.ts`(processApplePendingPushes + Jest 16 tests). hook AppState wire-up은 UI sub-task와 묶음
-  - ⏳ "어디 추가할까요" 첫 모달 (Google·Apple·둘 다) — **S06-ui-first-time-modal** (GoogleCalendarProvider.authorize + AppleCalendarProvider.requestPermission + users.calendar_preference UPDATE + Google는 setup.ts wrapper로 `upsert_user_oauth_tokens` RPC 호출)
+  - ✅ "어디 추가할까요" 첫 모달 (Google·Apple·둘 다) — **S06-ui-first-time-modal 2026-05-26** (`src/components/calendar/FirstTimeModal.tsx` + `src/lib/calendar/preference.ts` + `app/group/[id]/index.tsx` confirmGroup 성공 분기 wire-up + Jest 20 tests). 4 옵션(Google/iCloud/둘다/안 할래요) + signInGoogle·requestApplePermission DI + users.calendar_preference UPDATE + 한국어 에러 분기 + §17 anti-AI-feel 정합. callback lazy 구성으로 expo-* 패키지 미설치 환경 페이지 진입 안전
   - ⏳ Token 만료 → 프로필 "재인증 필요" + 다음 진입 모달 — **S06-ui-reauth-modal** (D19 silent fail 금지, `partial_fail_list.reason='token_expired'`/`'unauthorized'` 감지)
   - 🟡 Partial push fail 시 호스트에게 멤버 list 알림 — ✅ partial_fail_list 누적 backend 완료(S06-worker-integration + S06-worker-google-integration의 PUSH_FAIL_REASONS 6종). 호스트 알림 trigger는 **S06-ui-reauth-modal**과 묶음 또는 별도 push handler에서
   - ✅ Background queue (pg_cron + retry max 3) — **DONE** (S06-queue-foundation + S06-worker-integration)
