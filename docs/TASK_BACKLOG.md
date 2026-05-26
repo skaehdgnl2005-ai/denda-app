@@ -9,9 +9,9 @@
 ## 진행 현황 요약
 
 - **총 17 태스크** (S00 ~ S16)
-- **DONE**: 3 (S00, S01, S03)
-- **IN_PROGRESS**: 0
-- **TODO**: 13
+- **DONE**: 4 (S00, S01, S03, S07)
+- **IN_PROGRESS**: 1 (S05 sub-task 4/5)
+- **TODO**: 11
 - **BLOCKED**: 1 (S10 — D1 지도 부분 답변 대기)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
@@ -102,27 +102,27 @@
 
 ### S05 — 시간 그리드 + 투표 + Realtime 히트맵
 
-- **Status**: TODO | **Owner**: Mobile + Backend | **Sprint**: 3 | **Lane**: A
+- **Status**: IN_PROGRESS (sub-task 4/5: S05-UI ✅ + S05a ✅ + S05c ✅ + S05d ✅. S05b worklet drag + S05e 부하테스트 남음) | **Owner**: Mobile + Backend | **Sprint**: 3 | **Lane**: A
 - **Depends**: S00 (votes, time_slots, Realtime enabled), D9 (8pt/44pt), D10 (heat ramp), D11 (Edge aggregation), D12 (60fps spec)
 - **Acceptance**:
-  - Reanimated worklet drag (UI thread)
-  - FlashList 또는 React.memo 셀 가상화 (60slot × 7day = 420 cells)
-  - `useSharedValue` 셀 상태 (JS state X)
-  - Drag sweep 멀티셀렉트 (single tap = 1슬롯 toggle)
-  - 09:00·24:00 경계 처리
-  - 다일 (multi-day) span 처리
-  - Vote commit 1회 + 100ms debounce
-  - Edge Function `on_votes_change`: votes 합산 → `broadcast` channel
-  - Client receive → `useSharedValue` 업데이트 → 셀 색 transition (heat-0~4)
-  - Realtime disconnect UI (Q-B6 → DESIGN §11.4 info-bg 칩)
-  - 60fps 부하 테스트: 7명 모임 동시 투표 (저사양: iPhone SE 2, Galaxy A14)
-- **Files**: `src/screens/group/[id]/grid.tsx`, `src/components/TimeGrid/`, `supabase/functions/votes_aggregate/`
+  - ⏳ Reanimated worklet drag (UI thread) — S05b
+  - ✅ FlashList 또는 React.memo 셀 가상화 (60slot × 7day = 420 cells) — S05-UI commit f715fcb
+  - ⏳ `useSharedValue` 셀 상태 (JS state X) — S05b
+  - ⏳ Drag sweep 멀티셀렉트 (single tap = 1슬롯 toggle) — S05b
+  - ✅ 09:00·24:00 경계 처리 — S05-UI
+  - ⏳ 다일 (multi-day) span 처리 — S05b
+  - ✅ Vote commit 1회 + 100ms debounce — S05c (`src/lib/votes/` debouncer + diff INSERT/DELETE)
+  - ✅ Edge Function `on_votes_change`: votes 합산 → `broadcast` channel — S05a (PR 대기, worktree)
+  - ⏳ Client receive → `useSharedValue` 업데이트 → 셀 색 transition (heat-0~4) — S05b
+  - ✅ Realtime disconnect UI (Q-B6 → DESIGN §11.4 info-bg 칩) — S05d (`useRealtimeStatus` hook) + S05-UI chip
+  - ⏳ 60fps 부하 테스트: 7명 모임 동시 투표 (저사양: iPhone SE 2, Galaxy A14) — S05e
+- **Files**: `src/screens/group/[id]/grid.tsx`, `src/components/TimeGrid/`, `src/lib/votes/`, `src/lib/realtime/`, `supabase/functions/votes_aggregate/`
 - **Worktree 분기**: 가능 (S03 OCR, S07 친구와 worktree 병행)
-- **Notes**: 7.3 ASCII flow 참조. **회사 운명이 60fps에 걸린 부분 (ENG_REVIEW §1.4)**
+- **Notes**: 7.3 ASCII flow 참조. **회사 운명이 60fps에 걸린 부분 (ENG_REVIEW §1.4)**. S05b가 critical path — debouncer(S05c) + Realtime hook(S05d) + Edge Function(S05a)을 worklet drag로 wire-up
 
 ### S07 — 친구 시스템 + 신고/차단
 
-- **Status**: IN_PROGRESS (partial) | **Owner**: Mobile + Backend | **Sprint**: 3 | **Lane**: A
+- **Status**: DONE (2026-05-26, sub-task 7개로 분할 완성. 운영 통지는 D32로 별도 task) | **Owner**: Mobile + Backend | **Sprint**: 3 | **Lane**: A
 - **Depends**: S00 (friendships, blocks, reports), D16 (helper function)
 - **Acceptance**:
   - ✅ 친구 요청·수락·해제 + RLS (S07-UI commit 8de33cb + S00 0001/0002 + S07-backend 0005)
@@ -130,9 +130,10 @@
   - ✅ `is_blocked(viewer, target)` helper 적용한 SELECT (검색·추천·모임 멤버·초대) — S07-d16-audit migration 0007 (group_members + votes 보강, group_invitations은 0005)
   - ✅ 차단된 사용자가 만든 모임 초대 = hidden — group_invitations은 0005에서 처리. 모임 list는 [D31](DECISIONS.md#d31--차단-호스트-모임--부분-노출-groups-select-불변--클라이언트-호스트-mask) 부분 노출(`users SELECT` 자연 mask)
   - ✅ 신고 UI + reports INSERT — S07-report 2026-05-26 (`src/lib/reports/` 3종 + ReportBlockSheet schema 정합 fix + friends/index handleReport supabase 통합)
+  - ✅ 차단 cascade — S07-block-supabase 2026-05-26 (`src/lib/blocks/api.ts` + `0008_block_user_rpc.sql` atomic blocks INSERT + friendships/friend_requests 양방향 cascade)
   - ⏸️ 운영팀 카톡 채널 자동 통지 — [D32](DECISIONS.md#d32--베타-신고--reports-db-only-운영-통지-채널-deferred) deferred (Sprint 0 #11 prereq). 베타는 founder weekly manual review (Supabase dashboard SELECT reports)
-- **Files**: `src/screens/friends/`, `app/(tabs)/friends/`, `supabase/functions/_lib/blocking.ts`, `supabase/migrations/0005_group_invitations_blocking.sql`, `supabase/migrations/0007_d16_propagation_audit.sql`
-- **Worktree 분기**: 가능 (S07-backend는 worktree-agent-a39703870f6972b8c PR 대기, S07-d16-audit는 main 위 격리 진행 완료)
+- **Files**: `src/screens/friends/`, `app/(tabs)/friends/`, `src/lib/reports/`, `src/lib/blocks/`, `supabase/functions/_lib/blocking.ts`, `supabase/migrations/0005_group_invitations_blocking.sql`, `supabase/migrations/0007_d16_propagation_audit.sql`, `supabase/migrations/0008_block_user_rpc.sql`
+- **Worktree 분기**: 가능 (S07-backend는 worktree-agent-a39703870f6972b8c PR 대기, S07-d16-audit/S07-report/S07-block-supabase는 main 위 격리 진행 완료)
 
 ---
 

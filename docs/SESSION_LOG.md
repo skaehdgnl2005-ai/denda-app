@@ -42,6 +42,68 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S07-block-supabase — friendsApi.blockUser supabase RPC + cascade (2026-05-26) — DONE (S07 close)
+- Depends: S07-d16-audit (2026-05-26 ship, group_members/votes RLS 보강), [D16](DECISIONS.md#d16--차단신고-일관성-helper-function--rls), S00 (blocks/friendships/friend_requests 0001 schema + is_blocked helper 0001:94 SECURITY DEFINER 패턴 mirror)
+- Changes:
+  - **순수 wrapper TDD-first**:
+    - `src/lib/blocks/api.ts` (+24 lines) + `.test.ts` (5 케이스) — `blockUser(targetUserId)` supabase.rpc('block_user', {p_target_id}). 빈/whitespace 사전 throw + RPC error → "차단하지 못했어요" + "Cannot block self" 한국어 변환
+  - **Migration**:
+    - `supabase/migrations/0008_block_user_rpc.sql` (+47 lines) — `block_user(p_target_id UUID) RETURNS VOID` plpgsql SECURITY DEFINER. (1) blocks INSERT ON CONFLICT DO NOTHING (idempotent) (2) friendships 양방향 DELETE (대칭 두 row, 0001:106 주석) (3) friend_requests 양방향 DELETE. auth.uid() 미인증/self-block 사전 RAISE. `REVOKE FROM PUBLIC` + `GRANT EXECUTE TO authenticated`로 anon 차단
+  - **friendsApi.blockUser 실 구현 교체** (+7/-5 lines) — `supabaseBlockUser(userId)` 호출 (rpc throw 시 propagate) → 성공 시에만 local mock list cleanup (demo continuity). 0008이 atomic으로 처리 + RLS 우회 단일 책임
+  - **friendsApi.reportUser dead code 제거** (-7 lines) — S07-report에서 `src/lib/reports/api.ts::submitReport`로 교체됐고 caller 0, console.log lint warning 해소
+  - **app/(tabs)/friends/index.tsx handleBlock §17.6 polish** (+2/-2 lines) — error message를 `e.message` propagate(한국어), 성공 메시지 친근체 "차단했어요. 더 이상 표시되지 않아요." + `setSheetVisible(false)` 추가 (S07-report handleReport와 패턴 일치)
+  - **tests/screens/friends/index.test.tsx supabase mock 확장** (+1/-1 lines) — `{from: jest.fn(), rpc: jest.fn()}` (blockUser supabase rpc 호출 path 회피)
+- Tests: Jest **57 passed** (내 영역 10 suites: blocks/api 5 신규 + 기존 reports 23 + ReportBlockSheet 5 + FriendCard 7 + FriendRequestCard ? + friends/index 7 + friends/requests ? + friends/search ?). 전체 Jest 217 passed + 1 skipped (다른 세션 S05c·d 신규 49 포함). typecheck 0. lint 0 (내 영역, friends/index 사전 `set-state-in-effect` 1건 별도)
+- Next: **S07 acceptance 100% close** (운영 통지 D32 정식 deferred 제외). S07 정식 DONE 마킹 가능 — TASK_BACKLOG Status: DONE으로 update 권고. Sprint 3 잔여는 S05b worklet drag (회사 운명 60fps critical path) + S08 (Click-through, S10 BLOCKED dep)
+- Notes:
+  - **SECURITY DEFINER 정당화**: friendships/friend_requests RLS DELETE는 본인 row만 허용. 양방향 정리는 상대방 row도 삭제해야 함 → SECURITY DEFINER + `auth.uid()`로 호출자(blocker) 강제 추출. `p_target_id`는 인자 → 위변조 불가능
+  - **atomic plpgsql function**: plpgsql function body는 single transaction → blocks INSERT 후 cascade DELETE 중 throw 시 INSERT도 rollback. partial state 없음
+  - **idempotent INSERT**: PK (blocker_id, blocked_id) ON CONFLICT DO NOTHING → 사용자가 같은 사람 두 번 차단 호출해도 안전. UI에서 중복 제출 방어 불요
+  - **mock list cleanup 유지**: friendsApi.blockUser는 supabase rpc 성공 후 mockFriends/mockIncomingRequests/mockOutgoingRequests filter 진행. development demo에서 mock data 사용자 차단 시 RPC가 FK violation throw → cleanup 안 됨 → 한국어 alert. 실 supabase user(UUID) 환경에서는 정상 + cleanup은 mockFriends 미영향(빈 array가 아닌 한 안전)
+  - **0008 prefix 정합성**: 0005(S07-backend worktree) + 0006(S05a worktree) 미머지 reserved + 0007(S07-d16-audit main) 머지됨 → 0008이 main 위 next. S05c/d는 migration 0건이라 0008 충돌 0
+  - **dead reportUser 제거 동시 진행**: S07-report ship 시점에 friendsApi.reportUser는 friends/index 호출처에서 sub. 다만 friendsApi 정의에 stub 남아 있어 no-console warning + S07-report Notes의 "별도 cleanup" 항목 즉시 해소
+  - **사전 존재 lint error 1건**: app/(tabs)/friends/index.tsx:45 `react-hooks/set-state-in-effect` — 본 ship 영역 외부. useReducer/useMemo channel 패턴 권고 (S05d에서 `useMemo` 패턴으로 회피한 선례 있음, SESSION_LOG S05d Notes 참조)
+
+---
+
+## S05c — Vote commit debouncer + diff INSERT/DELETE (2026-05-26) — DONE (S05 partial 진척)
+- Depends: S00 (votes table + RLS 0001:284, 0002), S05a (votes_aggregate Edge Function ship 2026-05-26, broadcast 합산 결과를 받는 쪽이 client), [D11](DECISIONS.md#d11--realtime-히트맵--edge-function-합산-후-broadcast-옵션-b) (100ms debounce 명시), [D12](DECISIONS.md#d12--60fps-시간-그리드-구현-spec) (drag 종료 시 1회 commit), [D14](DECISIONS.md#d14--시간-슬롯-단위-15분--db-check) (SLOT_DURATION_MINUTES=15)
+- Changes:
+  - **순수함수 TDD-first**:
+    - `src/lib/votes/voteSet.ts` (+61 lines) + `.test.ts` (10 케이스) — `VoteSlot {day, start_minute}` ↔ `VoteKey "day:minute"` 직렬화, `voteSetFromSlots` 중복 제거, `diffVoteSets(prev, next)` → `{added, removed}` (day asc → start_minute asc 정렬, 안정성)
+    - `src/lib/votes/debouncer.ts` (+57 lines) + `.test.ts` (7 케이스, jest fake-timers) — `createCommitDebouncer({delayMs, onCommit})` → `{schedule, flush, cancel}`. trailing-edge 동작, 마지막 payload만 commit, flush 즉시 발화, cancel 후 timer 무시, onCommit throw 후 다음 cycle 정상
+  - **Supabase wrapper**:
+    - `src/lib/votes/api.ts` (+65 lines) + `.test.ts` (7 케이스, supabase mock) — `commitVoteDiff({groupId, userId, added, removed})`. INSERT는 다중 row 1회(`end_minute = start_minute + 15`). DELETE는 day별 group 후 `.eq('group_id').eq('user_id').eq('day').in('start_minute', [...])` (최대 7 round-trip). 빈 diff = no-op. error 한국어 "투표를 저장하지 못했어요. 잠시 후 다시 시도해주세요."
+- Tests: Jest **24 passed** (voteSet 10 + debouncer 7 + api 7), typecheck 0, lint 0
+- Next: S05b (TimeGrid worklet drag + useSharedValue + Realtime subscribe + heat-0~4 클라이언트 분류) — drag onEnd에서 `debouncer.schedule(currentSlots)` → `onCommit=({added, removed}) => commitVoteDiff(...)` wire-up
+- Notes:
+  - **best-effort atomicity 수용**: INSERT/DELETE 사이에 throw 발생 시 partial 상태 가능. 베타 수용 — Edge Function 합산은 멱등(D11), 다음 drag commit이 self-heal. 정식 atomicity는 Phase 3 RPC로 격상 후보
+  - **`.in('start_minute', ...)` 7-day cap**: 시간 그리드 7일 × 1 DELETE = 최대 7 round-trip. drag 한 번에 보통 1-2일 → 실제로는 1-2 RT. 베타 부하 수용
+  - **votes 스키마 unique 부재**: (group_id, user_id, day, start_minute) unique index 없음 → 더블 commit 시 중복 row 가능. 클라 보수 책임(prev-set 추적). 운영 발견 시 migration 0008+에서 partial unique add 후보
+  - **D14 SLOT_DURATION_MINUTES=15 상수**: api.ts 내 local 상수. 추후 `src/lib/votes/constants.ts`로 추출 시 S05b의 그리드 cell 계산과 단일 source 통합 권고
+  - **S05b drag wire-up 패턴 (참고)**: gesture.onEnd worklet → `runOnJS(debouncer.schedule)(latestSlots)`. onCommit 콜백은 closure로 `commitVoteDiff({groupId, userId, ...diffVoteSets(serverSet, latestSet)})`
+
+---
+
+## S05d — Realtime disconnect 상태 hook (Q-B6 close) (2026-05-26) — DONE (S05 partial 진척)
+- Depends: S00 (Realtime enabled), S05a (broadcast channel `group:${groupId}` ship 2026-05-26), [Q-B6](OPEN_QUESTIONS.md#q-b6--realtime-disconnect-ui) (디자인 spec DESIGN §11.4 info-bg chip 이미 명시), S05-UI (`RealtimeStatus` chip 컴포넌트 commit f715fcb)
+- Changes:
+  - **순수 상태 머신 TDD-first**:
+    - `src/lib/realtime/connectionStateMachine.ts` (+39 lines) + `.test.ts` (17 케이스) — `ConnectionState = connecting | connected | disconnected | polling`. `ConnectionEvent = subscribed | error | timeout | closed | disconnect_timeout`. 전이표 명시 — `subscribed`는 모든 상태에서 recovery, `disconnect_timeout`은 `disconnected`에서만 polling 진입(stale timer 안전), `error|timeout|closed`는 polling 유지(downgrade 안 함)
+  - **RN hook**:
+    - `src/lib/realtime/useRealtimeStatus.ts` (+119 lines) + `.test.ts` (8 케이스, renderHook + fake-timers) — `useRealtimeStatus({client, channelName, disconnectTimeoutMs=30000})` → `{status, isConnected, channel}`. `client.channel(name)`은 `useMemo`로 render-time 생성(eslint `set-state-in-effect` 회피), `channel.subscribe(statusCb)`는 effect, `mapStatusToEvent`로 `SUBSCRIBED|CHANNEL_ERROR|TIMED_OUT|CLOSED` → event 매핑. `disconnected` 진입 시 30s setTimeout → `disconnect_timeout` dispatch, 다른 상태로 전이 시 timer clear, unmount cleanup으로 `channel.unsubscribe()` + timer clear + `mountedRef`로 stale setState 차단
+- Tests: Jest **25 passed** (connectionStateMachine 17 + useRealtimeStatus 8), typecheck 0, lint 0
+- Next: S05b (TimeGrid 화면)이 `useRealtimeStatus`로 `isConnected` 산출 + 기존 `<RealtimeStatus isConnected={...}>` chip prop wire-up. 폴링 fallback의 실제 fetch는 consumer가 `status === 'polling'` 감지 후 별도 useEffect로 votes_aggregate 직접 GET(미구현, S05b owner)
+- Notes:
+  - **Q-B6 close**: 디자인 spec(DESIGN §11.4)은 이미 있음 + chip 컴포넌트(S05-UI)도 있음 → 상태 source가 미싱이었음. 본 hook이 source 제공으로 chip의 `isConnected` prop이 실 데이터로 구동 가능
+  - **`useMemo` channel 생성 정당화**: `setState in effect` 안티패턴 회피. `client.channel(name)`은 React 18+ Strict Mode에서 useMemo 재실행 시에도 effect cleanup이 unsubscribe 처리 → 누수 없음. supabase-js의 `channel(name)` idempotent 가정 (같은 name 호출은 같은 instance 반환하지 않을 수 있으나, cleanup이 안전 처리)
+  - **`.on()` chain 노출**: hook이 channel 객체 반환 → consumer가 `useEffect(() => { channel.on('broadcast', {event: 'heatmap_update'}, handler); }, [channel])`로 broadcast 핸들러 attach. supabase-js의 `.on()`은 subscribe 이후 호출해도 안전(binding registry만 추가)
+  - **type-level supabase 의존 회피**: `SupabaseLike` / `RealtimeChannelLike` interface로 hook을 generic 유지 → 테스트에서 supabase 전체 mock 불요. 실 사용은 `useRealtimeStatus({ client: supabase, channelName: ...})`로 정상 작동
+  - **30s 시점은 DESIGN §11.4 spec**: "30s 후 폴링". `disconnectTimeoutMs` prop으로 testable + 향후 다른 화면에서 다른 값 사용 가능
+  - **mountedRef stale setState 차단**: jest unmount + advanceTimers 30s 시나리오로 검증됨 — 어떤 warning도 안 남음
+
+---
+
 ## S07-report — 신고 UI supabase reports INSERT 통합 (2026-05-26) — DONE (S07 acceptance 5번째 close)
 - Depends: S07-UI (commit 8de33cb, ReportBlockSheet + friends/index 컴포넌트 wiring 백필), [D32](DECISIONS.md#d32--베타-신고--reports-db-only-운영-통지-채널-deferred) (베타 DB-only, 운영 통지 deferred), S00 (reports table 0001:394 + RLS reports_insert_self 0002:373), S01 (auth.users JWT — reporter_id 출처)
 - Changes:
