@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { classifyHeat, type HeatLevel } from '../lib/heatmap';
+import { dayOfWeekKst, formatHeaderDate } from '../lib/time';
 
 interface Vote {
   day: string;
@@ -43,8 +45,12 @@ export default function GuestTimeGrid({
   const gridRef = useRef<HTMLDivElement>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Parse initial votes to populate guest's selection state
+  // Parse initial votes to populate guest's selection state.
+  // S14-violations-fix: `setVotes(initialVotes)`은 prop→state sync로 set-state-in-effect 회피가
+  // 어려운 경우. selectedSlots reset과 함께 한 effect에서 처리. broadcast refresh는 별도
+  // refreshVotes에서 동일 state 갱신. 별도 state-refactor 도입 시 props 직접 사용으로 격상 후보.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setVotes(initialVotes);
     const initialSelection: { [key: string]: boolean } = {};
     initialVotes.forEach((vote) => {
@@ -66,6 +72,18 @@ export default function GuestTimeGrid({
     return counts;
   }, [votes]);
 
+  // S14-violations-fix: const declaration hoisting 불가 → useCallback로 먼저 선언 +
+  // useEffect deps에 포함 (refreshVotes accessed before declared error 해소).
+  const refreshVotes = useCallback(async () => {
+    const { data } = await supabase
+      .from('votes')
+      .select('day, start_minute, end_minute, guest_token, user_id')
+      .eq('group_id', groupId);
+    if (data) {
+      setVotes(data);
+    }
+  }, [groupId]);
+
   // Subscribe to real-time updates for heatmap updates
   useEffect(() => {
     const channel = supabase
@@ -79,17 +97,7 @@ export default function GuestTimeGrid({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [groupId]);
-
-  const refreshVotes = async () => {
-    const { data } = await supabase
-      .from('votes')
-      .select('day, start_minute, end_minute, guest_token, user_id')
-      .eq('group_id', groupId);
-    if (data) {
-      setVotes(data);
-    }
-  };
+  }, [groupId, refreshVotes]);
 
   // Safe DB commit using RPC save_guest_votes
   const commitVotes = async (newSelection: { [key: string]: boolean }) => {
@@ -118,13 +126,7 @@ export default function GuestTimeGrid({
 
       if (error) throw error;
 
-      // Broadcast changes to other channel listeners
-      await supabase.channel(`group:${groupId}`).send({
-        type: 'broadcast',
-        event: 'heatmap_update',
-        payload: {},
-      });
-
+      // D11: votes_aggregate Edge Function이 broadcast publisher. 클라 self-send 금지.
       if (onVotesUpdated) onVotesUpdated();
       refreshVotes();
     } catch (err) {
@@ -242,29 +244,23 @@ export default function GuestTimeGrid({
     return `${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`;
   };
 
-  // Map vote counts to 5-stop ramp colors
-  const getHeatClass = (count: number) => {
-    if (!count || count === 0) return 'bg-surface-3 dark:bg-surface-3'; // heat-0
-    if (memberCount <= 1) return 'bg-brand-500 dark:bg-brand-500';      // 100%
-    const ratio = count / memberCount;
-    if (ratio >= 0.99) return 'bg-brand-500 dark:bg-brand-500';         // heat-4
-    if (ratio >= 0.75) return 'bg-brand-400 dark:bg-brand-400';         // heat-3
-    if (ratio >= 0.50) return 'bg-brand-200 dark:bg-brand-300';         // heat-2
-    return 'bg-brand-100 dark:bg-brand-100';                            // heat-1
+  // D10 5-stop ramp — lib/heatmap.classifyHeat (RN src/lib/heatmap/classify.ts와 동일 quartile spec)
+  const heatLevelToClass = (level: HeatLevel): string => {
+    switch (level) {
+      case 'heat-0':
+        return 'bg-surface-3 dark:bg-surface-3';
+      case 'heat-1':
+        return 'bg-brand-100 dark:bg-brand-100';
+      case 'heat-2':
+        return 'bg-brand-200 dark:bg-brand-300';
+      case 'heat-3':
+        return 'bg-brand-400 dark:bg-brand-400';
+      case 'heat-4':
+        return 'bg-brand-500 dark:bg-brand-500';
+    }
   };
 
-  const dayOfWeek = (dateStr: string) => {
-    const days = ['일', '월', '화', '수', '목', '금', '토'];
-    const date = new Date(dateStr);
-    return days[date.getDay()];
-  };
-
-  const formatHeaderDate = (dateStr: string) => {
-    const parts = dateStr.split('-');
-    const month = parts[1] || '0';
-    const day = parts[2] || '0';
-    return `${parseInt(month, 10)}/${parseInt(day, 10)}`;
-  };
+  const getHeatClass = (count: number) => heatLevelToClass(classifyHeat(count, memberCount));
 
   return (
     <div className="flex flex-col select-none w-full">
@@ -274,7 +270,7 @@ export default function GuestTimeGrid({
         <div className="flex flex-1 justify-between">
           {dates.map((date) => (
             <div key={date} className="flex-1 text-center">
-              <div className="text-xs text-text-tertiary">{dayOfWeek(date)}</div>
+              <div className="text-xs text-text-tertiary">{dayOfWeekKst(date)}</div>
               <div className="text-sm font-semibold text-text-primary">
                 {formatHeaderDate(date)}
               </div>

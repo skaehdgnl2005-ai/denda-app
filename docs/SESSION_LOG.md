@@ -74,6 +74,39 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S14-violations-fix — GuestTimeGrid/NicknameForm D13·D11·D10·dep loop fix (2026-05-26) — DONE (S14 partial 진척, S14 acceptance 시간 그리드 spec 정합 close)
+- Depends: S14-utils (lib heatmap/time/voteKey ship 2026-05-26), S14-test-augment (drift skip 안전망 ship 2026-05-26), [D10](DECISIONS.md#d10--히트맵-5단계-색-램프-heat-0--중립-그레이), [D11](DECISIONS.md#d11--realtime-히트맵--edge-function-합산-후-broadcast-옵션-b), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc), [D23](DECISIONS.md#d23--web-guest-page--nextjs-별도-codebase)
+- Changes:
+  - **test 파일 — drift skip 2 그룹 unskip + 실제 assertion**:
+    - `web-guest/tests/GuestTimeGrid.test.tsx` (+98 / -28) — Heatmap 색 그룹 7 케이스 unskip (count=0/max/q1/q2/q3/q3+/self override quartile spec 검증), KST 요일 그룹 3 케이스 unskip (월/화/일 한국어 요일). Realtime broadcast 그룹은 listen path만 placeholder 유지 (self-broadcast 제거는 코드만)
+  - **GuestTimeGrid.tsx refactor** (+18 / -22):
+    - `import { classifyHeat, type HeatLevel } from '../lib/heatmap'` + `import { dayOfWeekKst, formatHeaderDate } from '../lib/time'` (S14-utils caller 0 해소)
+    - inline `getHeatClass` ratio (0.99/0.75/0.50) → `heatLevelToClass(classifyHeat(count, memberCount))` quartile. D10 정합. RN classify.ts와 동일 spec
+    - inline `dayOfWeek(new Date(dateStr)).getDay()` → `dayOfWeekKst(date)` (D13 KST 강제, luxon Asia/Seoul)
+    - inline `formatHeaderDate(parts split)` → lib/time `formatHeaderDate` (동일 동작, 단일 source)
+    - `commitVotes` 안 `supabase.channel(...).send({event: 'heatmap_update'})` self-broadcast 제거 (D11 — Edge Function `votes_aggregate` 책임)
+    - **사전 lint errors 함께 fix**: `refreshVotes` const → `useCallback`으로 hoisting (line 77 `accessed before declared` error 해소) + useEffect deps에 추가 (line 84 missing dep warning 해소)
+  - **NicknameForm.tsx fix** (+10 / -4):
+    - `useEffect deps`에서 `onComplete` 제거 + `onCompleteRef = useRef(onComplete)` 패턴 (parent 매 render마다 새 reference 무한 루프 risk fix)
+    - 사전 `catch (err: any)` → `catch (err)` (typescript-eslint `no-explicit-any` error 해소)
+- Tests: web-guest jest **82 total (79 passed + 3 skipped 의도 = Cross-day sweep 2 + Realtime listen 1)**. typecheck 0, lint 0
+- Next:
+  - **Playwright E2E 셋업**: `web-guest/playwright/guest_flow.spec.ts` — TEST_PLAN.md §3.5 base spec (S14 acceptance "투표 완료 → CTA" user flow)
+  - **잔여 drift skip 2 그룹**:
+    - Cross-day sweep — RN 사각형(`applySweepToRecord`) vs 경로(`handleMouseEnterCell`) spec 결정 후 unskip
+    - Realtime broadcast listen — S05a Edge Function payload spec(D11 day_index 확정) 후 unskip + mock channel.on 콜백 trigger 통합
+  - **S14 본체 acceptance** 시간 그리드 항목 ⏳ → ✅ (RN spec 정합 본 ship으로 완료)
+- Notes:
+  - **사전 lint errors 노출 의미** — S14-test-augment ship에서는 test 파일만 eslint 돌렸기에 GuestTimeGrid.tsx의 사전 errors(set-state-in-effect / refreshVotes hoisting / missing dep) 미감지. 본 ship에서 컴포넌트 처음 eslint → 3종 노출 → 함께 fix (refactor scope creep 약간). `set-state-in-effect` 1건은 prop→state sync 패턴이라 `eslint-disable-next-line` + 명시 주석으로 임시 처리, 별도 state-refactor sub-task 후보 (props 직접 사용으로 격상)
+  - **`useCallback(refreshVotes)` 채택** — broadcast effect deps에 함수 포함하면 매 deps 변경마다 effect 재실행. useCallback로 memoize → groupId 변경 시만 재구독. D11 broadcast subscription은 group 단위라 정합
+  - **NicknameForm 무한 루프 risk 실현 가능성** — parent ClientPage의 `handleNicknameComplete`은 useCallback 미사용. parent re-render(fetchData가 setVotes/setParticipants/setLoading) 시 새 reference. useEffect deps에 onComplete 있으면 매번 재실행 → localStorage 재check + supabase select 반복. useRef 패턴으로 callback latest 유지 + deps 안정성
+  - **테스트 헤더 KST 요일 검증 한계** — jsdom 기본 TZ가 UTC라 `new Date(dateStr).getDay()`도 운 좋게 동일 결과 (월/화/일). 컴퓨터 TZ가 PST면 drift 발생 가능. 본 ship 후 컴포넌트가 luxon `Asia/Seoul` 명시이므로 TZ 무관 일관. test는 회귀 방지 안전망(KST 한국어 요일 정확 표시)
+  - **`'border-brand-500'` 본인 override test** — 다른 게스트 7명 + 본인 1 vote → heatmap count=8, max=8 = heat-4. 그러나 본인 selectedSlots에 들어가서 `bg-brand-50 + border-brand-500` 우선. heat ramp 클래스 (`bg-brand-500`/`bg-surface-3`) 미적용 검증 → D10 본인 슬롯 별도 시각 spec(SESSION_LOG S05b Notes 동일 패턴) 정합
+  - **D11 broadcast 수신 path는 그대로 유지** — `supabase.channel(...).on('broadcast', {event: 'heatmap_update'}, refreshVotes)` listen만. send만 제거. listener test는 별도 sub-task로 미룸 (S05a Edge Function payload 형식 확정 후)
+  - **lib utils caller 0 해소** — `lib/heatmap.classifyHeat`, `lib/time.dayOfWeekKst`, `lib/time.formatHeaderDate` 모두 GuestTimeGrid 채택. `lib/voteKey`는 본 ship에서 미채택(컴포넌트 selectedSlots Record format이 RN `${day}:${minute}` 직렬화와 다른 `${day}_${minute}` 사용 — schema 정합성 위해 추후 voteKey 채택 시 컴포넌트 직렬화도 통일 필요)
+
+---
+
 ## S14-test-augment — GuestTimeGrid.test 보강 (S14-violations-fix 안전망) (2026-05-26) — DONE (S14 partial 진척)
 - Depends: S14-utils (lib heatmap/time/voteKey ship 2026-05-26), S14 skeleton (`web-guest/components/GuestTimeGrid.tsx`), [D10](DECISIONS.md#d10--히트맵-5단계-색-램프-heat-0--중립-그레이) (5-stop spec), [D11](DECISIONS.md#d11--realtime-히트맵--edge-function-합산-후-broadcast-옵션-b) (broadcast 책임 분리), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc) (KST 강제), [D23](DECISIONS.md#d23--web-guest-page--nextjs-별도-codebase) (RN과 spec share)
 - Changes:

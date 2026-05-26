@@ -213,23 +213,26 @@
 
 ### S14 — Web Guest Page (Next.js)
 
-- **Status**: IN_PROGRESS (sub-task: skeleton ✅ 백필 + S14-utils ✅ 2026-05-26 + S14-test-augment ✅ 2026-05-26 — lib heatmap/time/voteKey TDD + GuestTimeGrid.test 4 그룹 안전망 + 4 그룹 drift skip. 잔여: S14-violations-fix · Playwright E2E 셋업) | **Owner**: Web | **Sprint**: 2-3 | **Lane**: C
+- **Status**: IN_PROGRESS (sub-task: skeleton ✅ + S14-utils ✅ + S14-test-augment ✅ + S14-violations-fix ✅ 2026-05-26 — RN spec 정합 + D13/D10/D11/dep loop fix + drift skip 2 그룹 unskip. 잔여: Playwright E2E 셋업 · drift skip 2 그룹(Cross-day sweep spec 결정 · Realtime listen S05a payload 확정)) | **Owner**: Web | **Sprint**: 2-3 | **Lane**: C
 - **Depends**: S00 (group_guests, votes — migration 0004 ✅), D23 (Next.js 별도 codebase), S05 (시간 그리드 spec 공유)
 - **Acceptance**:
   - ✅ Vercel project 셋업 (Next.js 16.2.6 + React 19.2.4 + Tailwind v4 + Pretendard 셀프호스팅)
   - ✅ 게스트 토큰 생성 — `localStorage` key `denda_guest_token_${groupId}` 모임별 별도 (Q-B7 자연 해소)
   - ✅ 닉네임 입력 → group_guests INSERT (`components/NicknameForm.tsx` + 0004 RLS anonymous insert)
-  - ⏳ 시간 그리드 (RN과 별도 구현, 같은 동작 spec) — Conflict flag: D23 spec drift 주의. **S14-utils로 lib heatmap/time/voteKey 추출 ✅ (RN classify/voteSet과 정확히 동일)**. GuestTimeGrid 컴포넌트는 본 utils 미사용 → S14-violations-fix 잔여
+  - ✅ 시간 그리드 (RN과 별도 구현, 같은 동작 spec) — S14-violations-fix 2026-05-26로 close. GuestTimeGrid가 `lib/heatmap.classifyHeat` quartile + `lib/time.dayOfWeekKst` luxon Asia/Seoul 채택. self-broadcast 제거(D11). Conflict flag(D23 spec drift) mitigated
   - ⏸️ Branch.io 단축 URL 생성 — S15(D28 자체 deferred deep link)로 분리
   - ✅ 카톡 OG 메타 (`og:title`, `og:description`, `og:image`, `og:url`, `og:site_name`) — `app/g/[token]/page.tsx::generateMetadata`
   - ✅ 모바일·태블릿 only (DESIGN §12.7) — `md:hidden` Tailwind responsive guard + 데스크톱 안내 화면
   - ✅ 투표 완료 → "결과 알림 받으려면 → 카톡 공유" CTA + clipboard share
 - **잔여 sub-task**:
-  - **S14-violations-fix**: 4 그룹 drift skip을 unskip 사이클로 정통 red→green 진행 — (1) `dayOfWeek(new Date(dateStr))` → `dayOfWeekKst` (KST 요일 skip unskip), (2) `getHeatClass` inline ratio → `classifyHeat` quartile (Heatmap 색 skip unskip), (3) 클라 self-broadcast `heatmap_update` 제거 — S05a Edge Function 책임 (Realtime broadcast skip unskip), (4) NicknameForm useEffect `onComplete` deps → useRef 무한 루프 risk fix, (5) Cross-day sweep spec 확정 (RN `applySweepToRecord` 사각형 영역 정합)
-  - **Playwright E2E 셋업**: `web-guest/playwright/guest_flow.spec.ts` — TEST_PLAN.md §3.5 base spec
+  - **Playwright E2E 셋업**: `web-guest/playwright/guest_flow.spec.ts` — TEST_PLAN.md §3.5 base spec (게스트 토큰 생성 → 시간 그리드 투표 → CTA user flow 회귀 안전망)
+  - **drift skip 2 그룹 unskip 잔여**:
+    - **Cross-day sweep** — RN `applySweepToRecord` 사각형 vs 현재 `handleMouseEnterCell` 경로 spec 결정 후 unskip
+    - **Realtime broadcast listen path** — S05a Edge Function payload spec(D11 day_index 포함) 확정 후 unskip + mock channel.on 콜백 trigger 통합 test
+  - **`lib/voteKey` 채택 잔여 (optional)**: GuestTimeGrid의 selectedSlots Record key가 `${day}_${minute}` 사용 → RN `${day}:${minute}` 직렬화와 다름. schema 정합 위해 컴포넌트 직렬화 통일 후보
 - **Files**: `web-guest/` (monorepo subdir, 별도 npm project + jest + tsconfig + tailwind v4)
 - **Worktree 분기**: 완전 독립 (별도 codebase)
-- **Notes**: S14-utils + S14-test-augment ship 2026-05-26 — lib 영역 RN cross-platform spec 정합 확보 + GuestTimeGrid.test 안전망 확보 (Jest 83 = 69 passed + 14 skipped 의도). 컴포넌트 미사용 (caller 0)이므로 production page 동작 영향 0. S14-violations-fix가 caller 0 해소 + drift skip 4 그룹 unskip 사이클
+- **Notes**: S14-violations-fix ship 2026-05-26 — RN spec 정합 + 4 violations close + lib utils caller 0 해소. Jest 82 (79 passed + 3 skipped 의도 = Cross-day 2 + Realtime listen 1). 사전 lint errors(set-state-in-effect / refreshVotes hoisting / `any`) 함께 fix
 
 ### S15 — 자체 deferred deep link (게스트→회원 전환) — D28
 

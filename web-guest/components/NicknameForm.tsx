@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 
 interface NicknameFormProps {
@@ -14,6 +14,14 @@ export default function NicknameForm({ groupId, onComplete }: NicknameFormProps)
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // S14-violations-fix: onComplete은 parent 매 render마다 새 reference (useCallback 미사용).
+  // useEffect deps에 두면 parent re-render마다 effect 재실행 → 불필요한 supabase select 반복.
+  // ref로 항상 최신 callback에 접근하면서 deps에서 제외.
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  });
+
   useEffect(() => {
     const checkExistingGuest = async () => {
       const storedToken = localStorage.getItem(`denda_guest_token_${groupId}`);
@@ -26,7 +34,7 @@ export default function NicknameForm({ groupId, onComplete }: NicknameFormProps)
             .single();
 
           if (data && !error) {
-            onComplete(storedToken, data.nickname);
+            onCompleteRef.current(storedToken, data.nickname);
             return;
           }
         } catch (e) {
@@ -39,7 +47,7 @@ export default function NicknameForm({ groupId, onComplete }: NicknameFormProps)
     };
 
     checkExistingGuest();
-  }, [groupId, onComplete]);
+  }, [groupId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,7 +78,7 @@ export default function NicknameForm({ groupId, onComplete }: NicknameFormProps)
         setIsOpen(false);
         onComplete(token, nickname.trim());
       }
-    } catch (err: any) {
+    } catch (err) {
       setError('등록하지 못했어요. 다시 시도해 주세요.');
       console.error(err);
     } finally {

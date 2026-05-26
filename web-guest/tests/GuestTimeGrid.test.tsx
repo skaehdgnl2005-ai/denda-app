@@ -237,42 +237,135 @@ describe('GuestTimeGrid', () => {
   // spec drift 영역 — S14-violations-fix 후 unskip + lib utils 채택 spec으로 갱신
   // ---------------------------------------------------------------------------
 
-  describe.skip('Heatmap 색 (D10 5-stop) — S14-violations-fix 후 unskip', () => {
-    // 현재 컴포넌트 `getHeatClass`: ratio 기준 (>=0.99/0.75/0.50/else heat-1).
-    // 목표 spec: RN `src/lib/heatmap/classify.ts::classifyHeat` quartile (q1/q2/q3).
-    // 예: 7명 모임 count=2 → 현재 ratio=0.286 = heat-1, quartile q1=1.75 = heat-2 (drift).
-    // unskip 시점에 lib/heatmap.classifyHeat을 컴포넌트가 채택했는지 검증 + 임계값 케이스 추가.
-    test('count=0 → heat-0 (bg-surface-3)', () => { /* placeholder */ });
-    test('count=maxCount → heat-4 (bg-brand-500)', () => { /* placeholder */ });
-    test('quartile q1 경계 (count≤max/4) → heat-1', () => { /* placeholder */ });
-    test('quartile q2 경계 (max/4 < count ≤ max/2) → heat-2', () => { /* placeholder */ });
-    test('quartile q3 경계 (max/2 < count ≤ 3·max/4) → heat-3', () => { /* placeholder */ });
-    test('count > 3·max/4 → heat-4', () => { /* placeholder */ });
-    test('본인 슬롯은 heat ramp가 아닌 border-brand-500 override', () => { /* placeholder */ });
+  // ---------------------------------------------------------------------------
+  // S14-violations-fix unskipped — lib utils 채택 + KST/D10 정합 검증
+  // ---------------------------------------------------------------------------
+
+  describe('Heatmap 색 (D10 5-stop quartile, lib/heatmap.classifyHeat)', () => {
+    // lib/heatmap.classifyHeat과 동일 quartile spec (q1=max/4, q2=max/2, q3=3·max/4).
+    // 같은 (day, minute)에 다른 게스트 N명 vote → heatmapData count=N. memberCount=max.
+    // 본인 토큰 vote가 아니므로 selectedSlots 미포함 → heat ramp 적용.
+    function makeOtherVotes(day: string, minute: number, n: number) {
+      return Array.from({ length: n }, (_, i) => ({
+        day,
+        start_minute: minute,
+        end_minute: minute + 15,
+        guest_token: `other-${i}`,
+        user_id: null,
+      }));
+    }
+
+    test('count=0 → heat-0 (bg-surface-3)', () => {
+      const { container } = render(<GuestTimeGrid {...baseProps} memberCount={8} votes={[]} />);
+      const cell = container.querySelector(
+        '[data-day="2026-05-24"][data-minute="540"]',
+      ) as HTMLElement;
+      expect(cell).toHaveClass('bg-surface-3');
+    });
+
+    test('count=maxCount → heat-4 (bg-brand-500)', () => {
+      const votes = makeOtherVotes('2026-05-24', 540, 8);
+      const { container } = render(<GuestTimeGrid {...baseProps} memberCount={8} votes={votes} />);
+      const cell = container.querySelector(
+        '[data-day="2026-05-24"][data-minute="540"]',
+      ) as HTMLElement;
+      expect(cell).toHaveClass('bg-brand-500');
+    });
+
+    test('quartile q1 경계 (max=8, count=2 ≤ q1=2) → heat-1 (bg-brand-100)', () => {
+      const votes = makeOtherVotes('2026-05-24', 540, 2);
+      const { container } = render(<GuestTimeGrid {...baseProps} memberCount={8} votes={votes} />);
+      const cell = container.querySelector(
+        '[data-day="2026-05-24"][data-minute="540"]',
+      ) as HTMLElement;
+      expect(cell).toHaveClass('bg-brand-100');
+    });
+
+    test('quartile q2 경계 (max=8, count=4 ≤ q2=4) → heat-2 (bg-brand-200)', () => {
+      const votes = makeOtherVotes('2026-05-24', 540, 4);
+      const { container } = render(<GuestTimeGrid {...baseProps} memberCount={8} votes={votes} />);
+      const cell = container.querySelector(
+        '[data-day="2026-05-24"][data-minute="540"]',
+      ) as HTMLElement;
+      expect(cell).toHaveClass('bg-brand-200');
+    });
+
+    test('quartile q3 경계 (max=8, count=6 ≤ q3=6) → heat-3 (bg-brand-400)', () => {
+      const votes = makeOtherVotes('2026-05-24', 540, 6);
+      const { container } = render(<GuestTimeGrid {...baseProps} memberCount={8} votes={votes} />);
+      const cell = container.querySelector(
+        '[data-day="2026-05-24"][data-minute="540"]',
+      ) as HTMLElement;
+      expect(cell).toHaveClass('bg-brand-400');
+    });
+
+    test('count > 3·max/4 (max=8, count=7) → heat-4 (bg-brand-500)', () => {
+      const votes = makeOtherVotes('2026-05-24', 540, 7);
+      const { container } = render(<GuestTimeGrid {...baseProps} memberCount={8} votes={votes} />);
+      const cell = container.querySelector(
+        '[data-day="2026-05-24"][data-minute="540"]',
+      ) as HTMLElement;
+      expect(cell).toHaveClass('bg-brand-500');
+    });
+
+    test('본인 슬롯은 heat ramp override — border-brand-500 + bg-brand-50', () => {
+      // 다른 게스트 7명 + 본인 1 vote on 같은 cell. 본인은 selectedSlots에 들어가서 override.
+      const votes = [
+        ...makeOtherVotes('2026-05-24', 540, 7),
+        {
+          day: '2026-05-24',
+          start_minute: 540,
+          end_minute: 555,
+          guest_token: 'guest-token-123',
+          user_id: null,
+        },
+      ];
+      const { container } = render(<GuestTimeGrid {...baseProps} memberCount={8} votes={votes} />);
+      const cell = container.querySelector(
+        '[data-day="2026-05-24"][data-minute="540"]',
+      ) as HTMLElement;
+      expect(cell).toHaveClass('border-brand-500');
+      expect(cell).toHaveClass('bg-brand-50');
+      // heat ramp 클래스 X
+      expect(cell).not.toHaveClass('bg-brand-500');
+      expect(cell).not.toHaveClass('bg-surface-3');
+    });
   });
 
-  describe.skip('KST 요일 (D13) — S14-violations-fix 후 unskip', () => {
-    // 현재 컴포넌트: `new Date(dateStr).getDay()` — local timezone 의존 (jsdom 기본 UTC).
-    // 목표 spec: `lib/time.dayOfWeekKst` (luxon Asia/Seoul). 컴퓨터 timezone 무관 일관.
-    // unskip 시점에 컴포넌트가 dayOfWeekKst 채택 후 한국어 요일 검증.
-    test('2026-05-25 (KST 월요일) → "월"', () => { /* placeholder */ });
-    test('2026-05-26 (KST 화요일) → "화"', () => { /* placeholder */ });
-    test('2026-05-31 (KST 일요일) → "일"', () => { /* placeholder */ });
+  describe('KST 요일 (D13, lib/time.dayOfWeekKst)', () => {
+    // luxon Asia/Seoul 기준 한국어 요일. 컴퓨터 timezone에 무관하게 일관된 결과.
+    test('2026-05-25 (KST 월요일) → "월"', () => {
+      render(<GuestTimeGrid {...baseProps} dates={['2026-05-25']} />);
+      expect(screen.getByText('월')).toBeInTheDocument();
+    });
+
+    test('2026-05-26 (KST 화요일) → "화"', () => {
+      render(<GuestTimeGrid {...baseProps} dates={['2026-05-26']} />);
+      expect(screen.getByText('화')).toBeInTheDocument();
+    });
+
+    test('2026-05-31 (KST 일요일) → "일"', () => {
+      render(<GuestTimeGrid {...baseProps} dates={['2026-05-31']} />);
+      expect(screen.getByText('일')).toBeInTheDocument();
+    });
   });
 
-  describe.skip('Cross-day sweep — S14-violations-fix 후 spec 확정 + unskip', () => {
-    // 현재 `handleMouseEnterCell`은 day를 받아 (day, minute) 키 생성 → 다일 cross 자동 작동.
-    // 다만 UX 의도(같은 시간대 cross-day vs row span vs 사각형 영역)가 모호.
-    // unskip 시점에 RN sweep `applySweepToRecord`의 사각형 영역 spec과 정합 검증.
-    test('mousedown D1 540 → mouseEnter D2 540 → 두 셀 모두 select', () => { /* placeholder */ });
-    test('mousedown D1 540 → mouseEnter D2 555 → 사각형 4셀 모두 select (RN sweep과 정합)', () => { /* placeholder */ });
+  // ---------------------------------------------------------------------------
+  // 잔여 spec drift skip — 본 ship 외 범위. 별도 sub-task 필요.
+  // ---------------------------------------------------------------------------
+
+  describe.skip('Cross-day sweep — RN 사각형 spec 채택 결정 필요 (별도 sub-task)', () => {
+    // 현재 `handleMouseEnterCell`은 mouse가 지난 경로 cell만 toggle (사각형 영역 미구현).
+    // RN `applySweepToRecord`는 사각형 영역 (rowMin~rowMax, colMin~colMax).
+    // UX 의도(경로 vs 사각형) 결정이 별도 — 결정 후 unskip + spec 정합.
+    test('mousedown D1 540 → mouseEnter D2 540 → 두 셀 모두 select (경로)', () => { /* placeholder */ });
+    test('mousedown D1 540 → mouseEnter D2 555 → 사각형 4셀 (RN spec)', () => { /* placeholder */ });
   });
 
-  describe.skip('Realtime broadcast (D11) — S14-violations-fix 후 unskip', () => {
-    // 현재 컴포넌트: commitVotes 마지막에 `supabase.channel(...).send({event: 'heatmap_update'})` self-broadcast.
-    // D11 위반 — Edge Function `votes_aggregate` (S05a)가 broadcast publisher. 클라는 listen만.
-    // unskip 시점에 self-broadcast 제거 검증 + Edge Function broadcast 수신 시 cell 업데이트 검증.
-    test('client는 broadcast send 호출 안 함 (D11 책임 위반 회피)', () => { /* placeholder */ });
+  describe.skip('Realtime broadcast listen (D11 수신 path) — S05a payload 확정 후 unskip', () => {
+    // self-broadcast send 코드는 S14-violations-fix(2026-05-26)에서 제거 완료 (D11 책임 분리).
+    // broadcast `heatmap_update` 수신 시 votes 상태 refresh 검증은 S05a Edge Function payload spec
+    // (D11 day_index 포함) 확정 후 별도 sub-task (mock channel.on 콜백 trigger + fetch chain mock).
     test('broadcast `heatmap_update` 수신 시 votes 상태 refresh', () => { /* placeholder */ });
   });
 });
