@@ -42,6 +42,26 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S15-deeplink-schema — 자체 deferred deep link DB schema 확장 (2026-05-26) — DONE
+- Depends: S01 ✅, S14 ✅, [D28](DECISIONS.md#d28--자체-deferred-deep-link-구축-attribution-saas-회피-도메인-구매-회피) (자체 구축 deep link). S15-mapmode는 S10 BLOCKED로 시작 불가 → S15-deeplink 분기 진입
+- Context: S15 전체(deeplink + mapmode)는 두 분기로 분리되어 있고, mapmode는 S10(지도) BLOCKED로 시작 불가. deeplink는 S01·S14 DONE + D28 결정 완료로 진입 가능. Scope이 매우 크므로 sub-task로 분해 — 본 turn = DB schema 확장 + TS invite_code helper만. Edge Function `attribution_match` + web-guest INSERT + RN fallback 모달 + iOS Universal Links/Android App Links는 별도 sub-task로 분리.
+- Changes:
+  - `src/lib/branch/inviteCode.ts` (+33 lines) — `formatInviteCode` (0-padding 4자리, numeric 검증), `parseInviteCode` (사용자 입력 trim + 4자리 numeric 통과), `isValidInviteCode` (정확한 4자리 numeric "0000"~"9999")
+  - `src/lib/branch/inviteCode.test.ts` (+108 lines, 21 tests) — formatInviteCode 11 + parseInviteCode 7 + isValidInviteCode 3
+  - `supabase/migrations/0016_deeplink_schema.sql` (+106 lines):
+    - `groups.invite_code CHAR(4)` 컬럼 추가 (UNIQUE constraint + format CHECK `^[0-9]{4}$` + 기존 row backfill 후 NOT NULL 강제)
+    - `generate_invite_code()` SQL function (4자리 numeric random + UNIQUE 충돌 회피 max 50회 retry, pool 고갈 시 RAISE)
+    - `set_group_invite_code()` BEFORE INSERT trigger function + `groups_set_invite_code` trigger (NEW.invite_code NULL일 때만 자동 채움 — 호출자 명시 시 유지)
+    - `branch_attributions`에 `ip_hash TEXT`·`ua_hash TEXT`·`clicked_at TIMESTAMPTZ` 컬럼 추가 (모두 nullable — 기존 row 호환)
+    - `branch_attributions(group_id, clicked_at DESC)` partial index (clicked_at NOT NULL) — 매칭 쿼리 최적화
+    - `branch_attributions(ip_hash, ua_hash, clicked_at DESC)` partial index — fingerprint 매칭 쿼리 핫패스
+  - `docs/NOW.md` — 사용자가 진행 중 비웠고 본 turn 시점 활성 항목 없음
+- Tests: 467 passed (신규 inviteCode 21 포함) + 1 skipped (기존), typecheck 0, lint 0
+- Next: S15-deeplink-edge (Edge Function `attribution_match` + ip_hash/ua_hash helper — fingerprint 매칭 알고리즘) → S15-deeplink-web (web-guest `/g/[token]` route에서 branch_attributions INSERT) → S15-deeplink-rn-fallback (RN 4자리 invite_code 입력 모달) → S15-deeplink-rn-conversion (앱 첫 실행 시 attribution_match 호출 + group_guests 마이그레이션) → S15-deeplink-deeplink (app.json associatedDomains + intentFilters + AASA + assetlinks.json)
+- Notes: RLS는 변경 없음. `branch_attributions`는 0002에서 RLS ENABLE + 정책 없음 = service_role only — `attribution_match` Edge Function이 service_role로 처리 예정. `groups`는 0002·0004 기존 정책 그대로 (invite_code는 컬럼 추가만). Q-A6 PoC 미수행 → 4자리 코드 fallback 의무 활성 가정으로 진행 (D28 risk #1 수용). invite_code pool 10000개 — 베타 안암 invite-only 가정 시 모임 100개~500개에서도 충돌률 5% 이하, retry 50회면 충분
+
+---
+
 ## fail-cleanup — 14개 fail/skip/deferred 항목 일괄 처리 + S11 정식 DONE (2026-05-26) — DONE
 - Depends: S00~S07·S14 모든 sub-task 누적, [D7](DECISIONS.md#d7--typography-pretendard-variable-단일-패밀리-셀프호스팅), [D9](DECISIONS.md#d9--시간-그리드-8pt-시각-셀--44pt-hit-area), [D11](DECISIONS.md#d11--realtime-히트맵--edge-function-합산-후-broadcast-옵션-b), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc), [D14](DECISIONS.md#d14--시간-슬롯-단위-15분--db-check), [D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시), [D24](DECISIONS.md#d24--test-framework), [D34](DECISIONS.md#d34--apple-calendar-sync--클라-polling-패턴-q-b22-close), [D35](DECISIONS.md#d35--google-calendar-oauth-token-서버-측-저장--user_oauth_tokens-table)
 - Context: 사용자가 "여태 작업 중 fail/skip/deferred한 거 다 정리"하자 요청. 전수조사로 15개 risk 발견 → Phase A 순차 처리 + S11 정식 DONE 마킹. Phase B(S12·S15)는 별도 turn으로 분리(검증 단계 보호).

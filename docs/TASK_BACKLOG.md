@@ -8,10 +8,10 @@
 
 ## 진행 현황 요약
 
-- **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** + **S14 sub-task 다수** + **fail-cleanup** (2026-05-26 — 14개 fail/skip/deferred 일괄 처리, S11 정식 DONE 검증) + **Q-B22** + **D34** + **D35** 신규
+- **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** + **S14 sub-task 다수** + **fail-cleanup** (2026-05-26) + **S15-deeplink-schema** (2026-05-26 — migration 0016 + inviteCode helper) + **Q-B22** + **D34** + **D35** 신규
 - **DONE**: 9 (S00, S01, S03, S04, S06, S07, S11, S14) + S05 acceptance 7/7 (S05e 운영 task)
-- **IN_PROGRESS**: 1 (S05 — S05e 60fps 부하 실기기 잔여)
-- **TODO**: 6 (S08, S12, S13, S15-deeplink, S15-mapmode, S17)
+- **IN_PROGRESS**: 2 (S05 — S05e 60fps 부하 실기기 잔여; S15-deeplink — 1/6 sub-task 완료)
+- **TODO**: 5 (S08, S12, S13, S15-mapmode, S17)
 - **BLOCKED**: 1 (S10 — D1 지도 부분 답변 대기), 1 (S16 — D1 답변 대기)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
@@ -236,20 +236,28 @@
 
 ### S15 — 자체 deferred deep link (게스트→회원 전환) — D28
 
-- **Status**: TODO | **Owner**: Backend + Mobile + Web | **Sprint**: 4 | **Lane**: C → A 합류
-- **Depends**: S01 (auth complete), S14 (guest page complete + Vercel hosting), Q-A6 (자체 구축 정확도 PoC), [D28](DECISIONS.md#d28--자체-deferred-deep-link-구축-attribution-saas-회피-도메인-구매-회피)
+- **Status**: IN_PROGRESS (1/6 sub-task: S15-deeplink-schema ✅ 2026-05-26. 잔여 5: edge function + web INSERT + RN fallback 모달 + RN conversion + Universal Links/App Links) | **Owner**: Backend + Mobile + Web | **Sprint**: 4 | **Lane**: C → A 합류
+- **Depends**: S01 (auth complete) ✅, S14 (guest page complete + Vercel hosting) ✅, Q-A6 (자체 구축 정확도 PoC — fallback 의무 활성 가정으로 진행), [D28](DECISIONS.md#d28--자체-deferred-deep-link-구축-attribution-saas-회피-도메인-구매-회피)
 - **Acceptance**:
-  - 단축 URL host = `denda.vercel.app/g/<short_token>` (Vercel default subdomain)
-  - **iOS Universal Links**: app.json `associatedDomains: ["applinks:denda.vercel.app"]` + AASA 파일 Vercel hosting (`public/.well-known/apple-app-site-association`)
-  - **Android App Links**: app.json intent filters (scheme=https, host=denda.vercel.app, pathPattern=/g/.*) + assetlinks.json Vercel hosting (`public/.well-known/assetlinks.json`)
-  - **Fingerprint 매칭 Edge Function**: 단축 URL 클릭 시 ip_hash + ua_hash + clicked_at 기록 → 앱 첫 실행 시 매칭 query
-  - **4자리 invite_code fallback**: groups에 invite_code (CHAR(4) numeric) 추가. 모든 게스트 카톡 메시지에 표시. 앱 첫 화면 "초대받은 모임 코드 입력" 모달 강제 (Universal Link + fingerprint 둘 다 miss 시)
-  - **ATT 모달** (iOS 14+) + 한국 PIPA 처리방침 명시
-  - **`branch_attributions` 확장**: ip_hash, ua_hash, clicked_at 컬럼 추가 (table 이름 유지 — schema 변경 cost ↓)
-  - `group_guests.converted_user_id` 설정 (또는 group_members 마이그레이션)
-  - 모임 자동 합류 + 모임 list에 표시
-  - Q-A6 PoC 결과 정확도 측정 — <70% 시 fallback 의무 활성 default ON
-- **Files**: `src/lib/attribution/`, `supabase/functions/attribution_match/`, `web-guest/pages/g/[token].tsx`, `web-guest/public/.well-known/apple-app-site-association`, `web-guest/public/.well-known/assetlinks.json`
+  - 단축 URL host = `denda.vercel.app/g/<short_token>` (Vercel default subdomain) — ⏳ S15-deeplink-web
+  - **iOS Universal Links**: app.json `associatedDomains: ["applinks:denda.vercel.app"]` + AASA 파일 Vercel hosting (`public/.well-known/apple-app-site-association`) — ⏳ S15-deeplink-deeplink
+  - **Android App Links**: app.json intent filters (scheme=https, host=denda.vercel.app, pathPattern=/g/.*) + assetlinks.json Vercel hosting (`public/.well-known/assetlinks.json`) — ⏳ S15-deeplink-deeplink
+  - **Fingerprint 매칭 Edge Function**: 단축 URL 클릭 시 ip_hash + ua_hash + clicked_at 기록 → 앱 첫 실행 시 매칭 query — ⏳ S15-deeplink-edge (Edge Function) + S15-deeplink-web (INSERT 통합)
+  - **4자리 invite_code fallback**: ✅ schema 완료(0016 — groups.invite_code CHAR(4) UNIQUE + generate_invite_code SQL function + BEFORE INSERT trigger). 게스트 카톡 메시지 표시 + 앱 첫 화면 "초대받은 모임 코드 입력" 모달은 ⏳ S15-deeplink-rn-fallback
+  - **ATT 모달** (iOS 14+) + 한국 PIPA 처리방침 명시 — ⏳ S15-deeplink-rn-fallback
+  - **`branch_attributions` 확장**: ✅ ip_hash, ua_hash, clicked_at 컬럼 추가 + 2 partial indexes 완료 (0016. table 이름 유지)
+  - `group_guests.converted_user_id` 설정 (또는 group_members 마이그레이션) — ⏳ S15-deeplink-rn-conversion
+  - 모임 자동 합류 + 모임 list에 표시 — ⏳ S15-deeplink-rn-conversion
+  - Q-A6 PoC 결과 정확도 측정 — <70% 시 fallback 의무 활성 default ON. 본 schema는 fallback 의무 활성 가정으로 진행 (D28 risk #1 수용)
+- **TS helper (ship됨)**: `src/lib/branch/inviteCode.ts` (formatInviteCode + parseInviteCode + isValidInviteCode 4자리 numeric) + Jest 21 tests
+- **Files**: `src/lib/branch/inviteCode.ts(.test).ts`, `supabase/migrations/0016_deeplink_schema.sql` (ship됨); `src/lib/attribution/`, `supabase/functions/attribution_match/`, `web-guest/app/g/[token]/`, `web-guest/public/.well-known/apple-app-site-association`, `web-guest/public/.well-known/assetlinks.json` (잔여)
+- **Sub-task 분해**:
+  - ✅ S15-deeplink-schema (2026-05-26): migration 0016 + inviteCode TS helper
+  - ⏳ S15-deeplink-edge: `attribution_match` Edge Function + ip_hash/ua_hash hash helper (Deno test TDD)
+  - ⏳ S15-deeplink-web: web-guest `/g/[token]` route에서 branch_attributions INSERT (ip+ua hash + clicked_at)
+  - ⏳ S15-deeplink-rn-fallback: RN 4자리 invite_code 입력 모달 (앱 첫 화면 — 비로그인 OR 멤버 아닌 경우) + ATT 모달
+  - ⏳ S15-deeplink-rn-conversion: 앱 첫 실행 시 attribution_match 호출 + group_guests → group_members 마이그레이션
+  - ⏳ S15-deeplink-deeplink: app.json associatedDomains + intentFilters + AASA + assetlinks.json (TestFlight 검증)
 - **Notes**: ARCHITECTURE.md §3.5 자체 구축 spec 참조. Sprint 4 일정 1-2주 추가 가능성 — S05 (회사 운명 60fps) critical path 보호 priority. table·column "branch_" prefix는 의미적으로 generic. Phase 3 광고 launch 시 SKAdNetwork 미지원으로 SaaS 추가 도입 필요 (D28 명시 risk)
 
 ---
@@ -290,20 +298,28 @@
   - ⏸️ **다크 디테일 검증 deferred (D2)**: 토큰 정의만, 마커·차트 검증은 Phase 3
 - **Files**: `src/design/tokens.ts`, `src/design/theme.ts`, `src/design/typography.tsx`, `assets/fonts/PretendardVariable.woff2`
 
-### S12 — Push Notification F1-F3
+### S12 — Push Notification F1-F4
 
-- **Status**: TODO | **Owner**: Backend + Mobile | **Sprint**: 4 | **Lane**: D
-- **Depends**: S00 (push_tokens), S07 (friends)
+- **Status**: IN_PROGRESS (backend 4종 ✅ S12-backend-f1-f4 2026-05-26, publishers + RN client 잔여) | **Owner**: Backend + Mobile | **Sprint**: 4 | **Lane**: D
+- **Depends**: S00 (push_tokens), S07 (friends) ✅, [D17](DECISIONS.md#d17--push-f4-idempotency-groupsf4_sent_at-column), [D33](DECISIONS.md#d33--모임-확정-fan-out--단일-dispatcher-q-b5-close)
 - **Acceptance**:
-  - Expo push token 등록 (`expo-notifications`)
-  - `supabase/functions/notify_f1` (친구 요청)
-  - `supabase/functions/notify_f2` (친구 수락)
-  - `supabase/functions/notify_f3` (모임 초대)
-  - 마이크로카피 (Q-B12 closure 후)
-  - F4 idempotency (D17 `f4_sent_at`)
-  - F5는 S04에서 (모임 확정 trigger)
-  - 단일 dispatcher (Q-B5 결정 후)
-- **Files**: `src/lib/push/`, `supabase/functions/notify_*`
+  - ⏸️ Expo push token 등록 (`expo-notifications`) — S12-client sub-task
+  - ✅ `supabase/functions/notify_f1` (친구 요청) — S12-backend-f1-f4 2026-05-26
+  - ✅ `supabase/functions/notify_f2` (친구 수락) — S12-backend-f1-f4 2026-05-26
+  - ✅ `supabase/functions/notify_f3` (모임 초대) — S12-backend-f1-f4 2026-05-26
+  - ✅ `supabase/functions/notify_f4` (전원 투표 완료, D17 idempotent) — S12-backend-f1-f4 2026-05-26
+  - ⚠️ 마이크로카피 (Q-B12 미작성 — 본 turn auto mode 자체 결정, founder review 대기. formatF*Title/Body 함수 시그너처 유지로 교체 안전)
+  - ✅ F4 idempotency (D17 `f4_sent_at`) — notify_f4
+  - ✅ F5는 S04에서 (모임 확정 trigger) ✅ DONE
+  - ✅ 단일 dispatcher (D33 close)
+  - ⏸️ Publishers — dispatcher.register + dispatch 호출:
+    1. `src/lib/friends/api.ts` 친구 요청/수락 → dispatch({type:'friend_requested'|'friend_accepted'})
+    2. `src/lib/groups/invitations.ts` 모임 초대 → dispatch({type:'group_invited'})
+    3. `votes_aggregate` 전원 vote 완료 detect → dispatch({type:'votes_all_in'})
+    4. 각 notify_f* handler를 dispatcher.register (notify_f5 group_confirm/index.ts registerF5Handler mirror)
+- **Files**:
+  - 완성: `supabase/functions/_lib/expo_push.ts(_test.ts)`, `supabase/functions/notify_f{1,2,3,4}/index.ts(_test.ts)`, `supabase/functions/notify_f5/index.ts` (refactor)
+  - 잔여: `src/lib/push/`, `src/lib/friends/` + `src/lib/groups/invitations.ts` + `supabase/functions/votes_aggregate/` (publishers)
 
 ### S13 — EAS Build + 인증서 + TestFlight
 
