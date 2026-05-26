@@ -214,17 +214,13 @@
 - **마감**: W-2 (Sprint 0 전)
 - **상태**: 미시작
 
-### Q-B21 — D11 heatmap broadcast payload에 day 차원 누락
+### Q-B21 — D11 heatmap broadcast payload에 day 차원 누락 ✅ Closed by D11 update (2026-05-26)
 - **출처**: S05b 구현 중 발견 (2026-05-26)
-- **질문**: D11 본문 spec은 `{slots: [{start_minute, count}], updated_at}`만 명시. 그러나 `votes` 테이블에 `day DATE NOT NULL` 컬럼이 있고 시간 그리드는 60slot × 7day = 420 cells이 필수 (S05 acceptance). 현재 S05a Edge Function(`agent-ae72b67b533ba1d2d` PR 대기)도 `start_minute`만 select·group by → day별 합산 불가. S05b 클라이언트 헬퍼는 `{slots: [{day_index, start_minute, count}], updated_at}` 확장을 가정해 구현.
-- **소유자**: Backend (S05a 작성자)
-- **마감**: S05b PR 머지 전 또는 S05a PR 머지 전 (둘 중 빠른 쪽). 머지 순서에 따라 patch PR 필요할 수 있음
-- **선택지**:
-  - (a) `day_index` 추가 (0~6 offset, group 시작일 기준) — 본 S05b 클라이언트 헬퍼와 가장 align
-  - (b) `day_iso` 추가 (YYYY-MM-DD) — DB raw value 그대로 broadcast, 클라이언트가 group 시작일과 비교해 offset 계산
-  - (c) `start_minute`을 week-minute 인코딩(day*1440+min)으로 재정의 — single int, 클라이언트 디코딩
-- **권고**: (a) `day_index` — 클라이언트·서버 모두 인덱스 산술 간결, payload 크기 영향 미미
-- **상태**: 미결정 (S05b는 (a) 가정으로 임시 구현; D11 본문 update + S05a Edge Function patch 필요)
+- **질문**: D11 본문 spec은 `{slots: [{start_minute, count}], updated_at}`만 명시. 그러나 `votes` 테이블에 `day DATE NOT NULL` 컬럼이 있고 시간 그리드는 60slot × N day = N×60 cells이 필수 (S05 acceptance). 7일 고정 가정 불가 — `groups.dates DATE[]`는 가변 길이.
+- **소유자**: Backend
+- **마감**: S05b PR 머지 전 또는 S05a PR 머지 전 (둘 중 빠른 쪽)
+- **해결**: (a) `day_index` 채택 — `groups.dates`의 0-based offset. S05a Edge Function `votes_aggregate`에 `mapDayToIndex(rawRows, dates)` 추가 + handler에서 groups.dates SELECT 후 매핑. groups.dates에 없는 votes.day는 graceful skip (호스트가 dates 줄였을 때 안전). D11 본문 + 예제 갱신 완료 (D11 표 Payload spec 행 추가). S05b 클라이언트 헬퍼(`applyHeatmapPayload`)가 이미 (a) 가정으로 구현되어 있어 spec align 완료
+- **상태**: Closed (2026-05-26, S05a + Q-B21 patch 한 PR로 머지)
 
 ---
 

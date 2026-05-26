@@ -118,7 +118,7 @@
   - ⏳ 60fps 부하 테스트: 7명 모임 동시 투표 (저사양: iPhone SE 2, Galaxy A14) — S05e (production binary 측정 필요)
 - **Files**: `src/screens/group/[id]/grid.tsx`(미작성), `src/components/TimeGrid/`, `src/lib/votes/` (voteSet + api), `src/lib/heatmap/` (S05b types/classify/applyPayload/sweep/debounce/useHeatmapSubscription), `supabase/functions/votes_aggregate/`
 - **Worktree 분기**: 가능 (S03 OCR, S07 친구와 worktree 병행)
-- **Notes**: 7.3 ASCII flow 참조. **회사 운명이 60fps에 걸린 부분 (ENG_REVIEW §1.4)**. 잔여 worklet drag task는 reanimated + gesture-handler lazy install이 prereq — D25 lazy spec. Q-B21 (D11 payload day_index 차원) closure도 잔여 — S05a Edge Function patch 권고
+- **Notes**: 7.3 ASCII flow 참조. **회사 운명이 60fps에 걸린 부분 (ENG_REVIEW §1.4)**. 잔여 worklet drag task는 reanimated + gesture-handler lazy install이 prereq — D25 lazy spec. **Q-B21 closure 완료 (2026-05-26, S05a + day_index 한 묶음 머지)** — D11 payload spec에 day_index 추가 (`groups.dates DATE[]`의 0-based offset, 가변 day 지원)
 
 ### S07 — 친구 시스템 + 신고/차단
 

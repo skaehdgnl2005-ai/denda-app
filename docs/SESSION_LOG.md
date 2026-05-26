@@ -42,6 +42,34 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S05a + Q-B21 — votes_aggregate Edge Function (D11 broadcast) + day_index alignment (2026-05-26) — DONE
+- Depends: S00 (votes/groups table, Realtime), S05b (클라이언트 헬퍼 `applyHeatmapPayload`가 day_index 가정), [D11](DECISIONS.md#d11--realtime-히트맵--edge-function-합산-후-broadcast-옵션-b), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc), [D14](DECISIONS.md#d14--시간-슬롯-단위-15분--db-check)
+- Branch: `worktree-s05a-q-b21-day-index` (S05a author worktree `agent-ae72b67b533ba1d2d`에서 파일 3개 copy + day_index patch)
+- Changes:
+  - **Edge Function (S05a 코드 + Q-B21 patch)**:
+    - `supabase/functions/votes_aggregate/index.ts` (+~190 lines) — service_role client, groups.dates SELECT → mapDayToIndex(rawRows, dates) → aggregateVotes → broadcastHeatmap. `VoteRow {day_index, start_minute}` / `HeatmapSlot {day_index, start_minute, count}` / payload `{slots, updated_at(KST +09:00 ISO)}`. groups.dates에 없는 votes.day는 graceful skip
+    - `supabase/functions/votes_aggregate/_test.ts` (+~210 lines, 9 Deno tests) — aggregateVotes 4 + mapDayToIndex 3 + buildHeatmapPayload 1 + broadcastHeatmap 2 (channel·event·payload 검증)
+  - **Migration (S05a 원본 그대로)**:
+    - `supabase/migrations/0006_votes_aggregate_trigger.sql` (+95 lines) — votes AFTER INSERT/UPDATE/DELETE → pg_net `net.http_post` → Edge Function. `current_setting('app.*', true)` GUC 패턴 (vault 전환 TODO). SECURITY DEFINER + missing_ok=true → GUC 미설정 시 silent skip
+  - **D11 본문 갱신**:
+    - `docs/DECISIONS.md` D11 (+12 lines/-3 lines) — 표에 Payload spec 행 + Channel/event 행 신규. 구현 예제도 day_index 매핑 + groups.dates SELECT 패턴으로 갱신
+  - **Q-B21 closure**:
+    - `docs/OPEN_QUESTIONS.md` Q-B21 (status: Closed by D11 update 2026-05-26)
+- Tests: Deno test 9개 작성 (TDD-first). Deno CLI 미설치로 실행 deferred. typecheck/lint는 jest TS 영역 외 (Deno 환경). 사용자 측 `deno test supabase/functions/votes_aggregate/_test.ts --allow-env --allow-net --no-check`
+- Next:
+  - **S05c+S05d 이미 main 머지** (commit 61d2063) — Q-B21 closure로 vote commit DB write가 정상 작동 (votes INSERT → trigger → Edge Function → 정확한 day_index broadcast)
+  - **S05e (60fps 부하)**: production binary, iPhone SE 2 / Galaxy A14 — 본 세션 불가, 사용자 측 EAS Build 후 측정
+  - **GUC 사전 설정 의무** (production 배포 전): `ALTER DATABASE postgres SET app.supabase_url / app.service_role_key`
+  - **머지 방법**: `gh pr create --base main --head worktree-s05a-q-b21-day-index ...` + auto squash
+- Notes:
+  - **S05a author worktree(`agent-ae72b67b533ba1d2d`) take over** — S05a author가 commit (9bb461a) 후 PR 미생성 + locked 상태로 stale. 본 세션이 코드 파일 3개 copy + day_index patch + docs 한 묶음으로 ship. S05a worktree 자체는 cleanup 대상
+  - **Q-B21 (a)안 채택 근거** — `groups.dates DATE[]` 가변 길이라 7일 고정 가정 불가. day_iso(b) / week-minute(c) 대안은 클라이언트 산술 복잡도 ↑. day_index(a)가 클라이언트 기존 가정과 align + payload 크기 영향 미미
+  - **D11 본문이 이제 SSoT** — S05c+S05d ship 시점에는 D11 payload spec이 outdated. 본 PR 머지로 spec 동기화 완료
+  - **is_blocked 적용 SKIP 유지** — broadcast payload는 집계 count뿐, 개인정보 0. S05b PR #3 reviewer가 D16 위반 아니라고 판정한 패턴 그대로
+  - **migration 0005는 비어 있음** — S07-backend worktree(`agent-a39703870f6972b8c`)의 group_invitations blocking이 0005에 할당됐으나 PR 미생성. 별도 cleanup task
+
+---
+
 ## S07-block-supabase — friendsApi.blockUser supabase RPC + cascade (2026-05-26) — DONE (S07 close)
 - Depends: S07-d16-audit (2026-05-26 ship, group_members/votes RLS 보강), [D16](DECISIONS.md#d16--차단신고-일관성-helper-function--rls), S00 (blocks/friendships/friend_requests 0001 schema + is_blocked helper 0001:94 SECURITY DEFINER 패턴 mirror)
 - Changes:
