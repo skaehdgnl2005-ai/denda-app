@@ -748,6 +748,22 @@ const BranchAttribution = lazy(() => import('@/lib/branch/attribution'));
 
 ---
 
+## D31 — 차단 호스트 모임 = 부분 노출 (groups SELECT 불변 + 클라이언트 호스트 mask)
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | A가 B를 차단한 뒤 B가 호스트인 모임에 A가 이미 멤버로 있을 때 — `groups` SELECT는 변경 없음(모임 카드 노출). 호스트 닉네임·프로필은 이미 `users SELECT`의 is_blocked로 자연 mask됨. 추가 UI 처리 불요 (자연 mask가 충분). 사용자가 떠나고 싶으면 모임 카드 진입 → 기존 leave 흐름. |
+| 근거 | 멤버십 연속성이 차단 강도보다 우선. 진행 중 모임 일정·투표·확정 단절은 사용자 손해가 큼. `users SELECT`이 이미 호스트 row를 가리므로 D16 정신은 부분적으로 보존됨. |
+| 대안 | (B) 능동 leave 라벨 — 거부: "차단한 사용자가 만든 모임" 명시는 자연 mask보다 시각 노이즈 ↑ + UX 결정권을 강요. 자연 mask가 더 절제됨. (C) 완전 숨김(groups SELECT에 NOT is_blocked 추가) — 거부: 참여 중 모임이 갑자기 사라져 일정/투표 단절 + 호스트가 멤버 list 변화로 차단을 간접 감지 가능 (사회 신호 leak). D16 정신과 멤버십 연속성 트레이드오프에서 후자 채택. |
+| 소유자 | Founder (UX 결정) |
+| 결정일 | 2026-05-26 |
+| 의존 | D16 (차단·신고 helper). Q-A8 close. |
+| 결과 영향 | (1) `supabase/migrations/0007_d16_propagation_audit.sql` 그대로 — `groups` SELECT 미변경 정당화 명시화. (2) 신규 migration 불요. (3) `src/screens/groups/` 또는 `app/(tabs)/index.tsx` 모임 list 코드 변경 없음 — `users SELECT` 자연 mask가 처리. (4) S07 acceptance "차단된 사용자가 만든 모임 초대 = hidden"의 "초대"는 group_invitations(0005에서 처리)만, "내 모임 list"는 본 결정으로 자연 mask 부분 노출. (5) Q-A8 OPEN_QUESTIONS에서 Closed by D31 표기. |
+| Phase 3 전환 | 차단 정책 강화가 필요해지면 D31 supersede 후 (C) 옵션으로 전환 가능. 베타 사용자 데이터에서 "차단 호스트 모임 노출" 불만 발생 시 재평가. |
+| 출처 | 본 세션 (2026-05-26) — S07-d16-audit 결과 Q-A8 등록 → founder 결정 |
+
+---
+
 ## 향후 결정 추가 템플릿
 
 새 결정을 추가할 때 다음 형식을 복사:

@@ -128,7 +128,7 @@
   - ✅ 친구 요청·수락·해제 + RLS (S07-UI commit 8de33cb + S00 0001/0002 + S07-backend 0005)
   - ✅ 친구 탭 UI (S07-UI commit 8de33cb)
   - ✅ `is_blocked(viewer, target)` helper 적용한 SELECT (검색·추천·모임 멤버·초대) — S07-d16-audit migration 0007 (group_members + votes 보강, group_invitations은 0005)
-  - ⚠️ 차단된 사용자가 만든 모임 초대 = hidden — group_invitations은 0005에서 처리. `groups` SELECT 호스트 차단 UX는 Q-A8 (founder 결정 대기). 권고: 부분 노출 (현 상태 + 클라이언트 mask)
+  - ✅ 차단된 사용자가 만든 모임 초대 = hidden — group_invitations은 0005에서 처리. 모임 list는 [D31](DECISIONS.md#d31--차단-호스트-모임--부분-노출-groups-select-불변--클라이언트-호스트-mask) 부분 노출(`users SELECT` 자연 mask)
   - ❌ 신고 UI + 운영팀 카톡 채널 통지 (manual) — Sprint 0 #11 (운영 카톡 채널 셋업) prereq
 - **Files**: `src/screens/friends/`, `app/(tabs)/friends/`, `supabase/functions/_lib/blocking.ts`, `supabase/migrations/0005_group_invitations_blocking.sql`, `supabase/migrations/0007_d16_propagation_audit.sql`
 - **Worktree 분기**: 가능 (S07-backend는 worktree-agent-a39703870f6972b8c PR 대기, S07-d16-audit는 main 위 격리 진행 완료)

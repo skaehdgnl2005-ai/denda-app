@@ -42,6 +42,21 @@ STATUS는 다음 중 하나:
 
 ---
 
+## D31 결정 — 차단 호스트 모임 부분 노출 (Q-A8 close) (2026-05-26) — DONE
+- Depends: S07-d16-audit (2026-05-26 ship, Q-A8 등록), [D16](DECISIONS.md#d16--차단신고-일관성-helper-function--rls)
+- Changes:
+  - docs/DECISIONS.md (+18 lines) — D31 신규 (groups SELECT 불변 + users SELECT 자연 mask)
+  - docs/OPEN_QUESTIONS.md (-9 / +6) — Q-A8 "Closed by D31" 표기 + 결정 본문 inline
+- Tests: docs only, 코드 변경 0
+- Next: 코드 변경 없음 — S07 acceptance "차단된 사용자가 만든 모임 초대 = hidden" 항목이 명확화됨 (group_invitations은 0005, 모임 list는 D31 자연 mask)
+- Notes:
+  - **Founder 결정**: 옵션 (a) 부분 노출 채택. 옵션 (b) 능동 leave 라벨·(c) 완전 숨김 reject
+  - **자연 mask 검증**: 0002:19-24 `users_select_visible`이 `auth.uid() = id OR NOT is_blocked(auth.uid(), id)` — A가 B를 차단하면 B의 user row가 안 보이므로 모임 카드의 호스트 닉네임/프로필이 자동 mask. 추가 UI work 불요
+  - **D16 정신과의 거리**: D16은 "친구 검색·추천·모임 멤버·초대" 통과 의무. "모임 list" 자체는 D16 문구에 없음 — D31이 D16 위반 아님. 차단 호스트의 user 정보는 여전히 가려짐
+  - **Phase 3 재평가 가능**: 베타에서 "차단 호스트 모임 노출" 불만 발생 시 D31 supersede → 옵션 (c) 전환 (migration 0008 추가). 데이터 dependent
+
+---
+
 ## S07-d16-audit — D16 propagation audit (group_members + votes SELECT) (2026-05-26) — DONE (S07 partial 진척)
 - Depends: S00 (`is_blocked` helper at 0001 + 0002 RLS skeleton), S07-backend(0005 group_invitations 보강은 worktree PR 대기, audit는 main 위에서 독립 진행), [D16](DECISIONS.md#d16--차단신고-일관성-helper-function--rls)
 - Changes:
