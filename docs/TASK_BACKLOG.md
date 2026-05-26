@@ -125,7 +125,7 @@
 - **Status**: DONE (2026-05-26, sub-task 7개로 분할 완성. 운영 통지는 D32로 별도 task) | **Owner**: Mobile + Backend | **Sprint**: 3 | **Lane**: A
 - **Depends**: S00 (friendships, blocks, reports), D16 (helper function)
 - **Acceptance**:
-  - ✅ 친구 요청·수락·해제 + RLS (S07-UI commit 8de33cb + S00 0001/0002 + S07-backend 0005)
+  - ✅ 친구 요청·수락·해제 + RLS (S07-UI commit 8de33cb + S00 0001/0002 + S07-backend PR #2 머지 commit 569940a)
   - ✅ 친구 탭 UI (S07-UI commit 8de33cb)
   - ✅ `is_blocked(viewer, target)` helper 적용한 SELECT (검색·추천·모임 멤버·초대) — S07-d16-audit migration 0007 (group_members + votes 보강, group_invitations은 0005)
   - ✅ 차단된 사용자가 만든 모임 초대 = hidden — group_invitations은 0005에서 처리. 모임 list는 [D31](DECISIONS.md#d31--차단-호스트-모임--부분-노출-groups-select-불변--클라이언트-호스트-mask) 부분 노출(`users SELECT` 자연 mask)
@@ -133,7 +133,7 @@
   - ✅ 차단 cascade — S07-block-supabase 2026-05-26 (`src/lib/blocks/api.ts` + `0008_block_user_rpc.sql` atomic blocks INSERT + friendships/friend_requests 양방향 cascade)
   - ⏸️ 운영팀 카톡 채널 자동 통지 — [D32](DECISIONS.md#d32--베타-신고--reports-db-only-운영-통지-채널-deferred) deferred (Sprint 0 #11 prereq). 베타는 founder weekly manual review (Supabase dashboard SELECT reports)
 - **Files**: `src/screens/friends/`, `app/(tabs)/friends/`, `src/lib/reports/`, `src/lib/blocks/`, `supabase/functions/_lib/blocking.ts`, `supabase/migrations/0005_group_invitations_blocking.sql`, `supabase/migrations/0007_d16_propagation_audit.sql`, `supabase/migrations/0008_block_user_rpc.sql`
-- **Worktree 분기**: 가능 (S07-backend는 worktree-agent-a39703870f6972b8c PR 대기, S07-d16-audit/S07-report/S07-block-supabase는 main 위 격리 진행 완료)
+- **Worktree 분기**: 가능 (S07-backend PR #2 머지 완료 2026-05-26 commit 569940a, S07-d16-audit/S07-report/S07-block-supabase는 main 위 격리 진행 완료)
 
 ---
 

@@ -70,6 +70,27 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S07-backend PR #2 머지 + worktree cleanup (2026-05-26) — DONE
+- Depends: 머지 대상 = commit 8144822 (worktree-agent-a39703870f6972b8c, 2026-05-25 시점 S07-backend), [D16](DECISIONS.md#d16--차단신고-일관성-helper-function--rls)
+- Changes (PR #2 머지 결과 main에 fast-forward):
+  - supabase/migrations/0005_group_invitations_blocking.sql (+18) — `group_invitations_select_involving_self` 양방향 is_blocked
+  - supabase/functions/_lib/blocking.ts (+25) — `isBlocked(client, viewerId, targetId)` Edge Function RPC wrapper
+  - supabase/functions/_lib/blocking_test.ts (+73, 5 Deno tests TDD-first)
+  - merge commit 569940a
+- Cleanup:
+  - `gh pr merge 2 --merge --delete-branch` → remote `feature/s07-backend` 삭제
+  - `git worktree unlock + remove .claude/worktrees/agent-a39703870f6972b8c`
+  - `git branch -d worktree-agent-a39703870f6972b8c` (merged 후 안전 -d)
+  - `git fetch --prune`로 remote tracking 정리
+- Tests: 본 정리는 머지·remove 명령만, 코드 변경 0. PR 자체는 reviewer 서브에이전트(Critical 4) final pass GO 확인 후 머지 (0 critical findings)
+- Next: 코드 변경 없음. S07 전체(7 sub-task)가 정식 main에 통합 완료. 운영 통지(D32 deferred)만 남음. 잔여 외부 task: `_lib/blocking.ts`의 Deno 5 test 실제 실행(Deno CLI 설치 필요) + supabase deploy 후 group_invitations 양방향 차단 실 환경 검증
+- Notes:
+  - **Reviewer 2단 확인**: 1차(S07-backend 작업 시점) + 본 final pass 둘 다 통과. 0007과의 D16 패턴 정합 명시
+  - **자동 모드 권한 차단 → 재확인**: 첫 `gh pr merge` 시도는 auto mode classifier가 self-created PR + remote branch 삭제 차단. 사용자 명시 동의 ("진행해") + reviewer GO 후 재시도 머지 성공
+  - **historical entries 정합**: SESSION_LOG의 "S07-backend (PR 대기)" 문구는 S07-d16-audit/S07-report/S07-block-supabase entries에 명시되어 있었음 — 본 머지로 시점적 사실로 굳어짐 (post-merge fact-check는 본 entry로 cross-reference)
+
+---
+
 ## S07-block-supabase — friendsApi.blockUser supabase RPC + cascade (2026-05-26) — DONE (S07 close)
 - Depends: S07-d16-audit (2026-05-26 ship, group_members/votes RLS 보강), [D16](DECISIONS.md#d16--차단신고-일관성-helper-function--rls), S00 (blocks/friendships/friend_requests 0001 schema + is_blocked helper 0001:94 SECURITY DEFINER 패턴 mirror)
 - Changes:
