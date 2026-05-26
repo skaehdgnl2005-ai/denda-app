@@ -42,6 +42,62 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S12-publishers-f4 + S12-client — votes_all_in publisher (F4 wire-up) + expoNotifications token 등록 lib (2026-05-26) — PARTIAL (S12 publishers F4 + client 완성, F1/F2/F3 publishers + RN _layout wire-up 잔여)
+- Depends: S12-backend-f1-f4 ship (2026-05-26 commit 5eaf1b2 — notify_f1/f2/f3/f4 + `_lib/expo_push.ts`), [D17](DECISIONS.md#d17--push-f4-idempotency-groupsf4_sent_at-column) (F4 idempotency), [D33](DECISIONS.md#d33--모임-확정-fan-out--단일-dispatcher-q-b5-close) (dispatcher pattern), S00 (push_tokens + RLS self-only)
+- Context: S12 backend 4종은 ship 완료(5eaf1b2) — 본 turn은 사용자 "여기서 sub-task 진행하면 안 돼?" 요청으로 publishers + client 두 sub-task 통합 진행. F1/F2/F3 publisher는 `src/lib/friends/api.ts`가 mock 구현이고 모임 초대 API도 미존재 — supabase 실 backend 전환 prereq라 본 turn 외 (S07 후속). 본 turn 가능한 publisher = F4 (votes_aggregate Edge Function이 publisher). RN client lib는 자기 완결적 — DI-first lib + production wiring helper (setup pattern mirror).
+- Changes:
+  - **`supabase/functions/votes_aggregate/index.ts` (+~90 lines)**:
+    - **순수 함수 추가**:
+      - `countUniqueVoters(rows: {user_id: string|null}[])` — NON-NULL user_id의 unique 개수. 게스트(user_id=null) 제외 + 동일 user 다중 vote dedup
+      - `isAllMembersVoted({memberCount, voterCount})` — memberCount > 0 + voterCount === memberCount 엄격 equal (멤버 추가/탈퇴 race 안전망)
+    - **dispatcher register**: `notify_f4` handler를 in-process register (group_confirm/registerF5Handler pattern mirror). `votes_all_in` event → fakeReq → `notifyF4Handler` 호출. `f4HandlerRegistered` boolean으로 중복 register 회피. `_resetDispatcherRegistration` export로 test 환경 reset 가능
+    - **handler 통합**: 기존 broadcast flow 유지 + 추가로:
+      1. `votes.user_id`까지 SELECT (기존 day/start_minute만)
+      2. `group_members` 병렬 fetch (memberCount 산출)
+      3. broadcast 성공 후 `isAllMembersVoted` 체크
+      4. true면 `dispatch({type:'votes_all_in', groupId})` (try/catch로 격리 — dispatch 실패는 broadcast 결과에 영향 없음. notify_f4 자체가 f4_sent_at IS NULL idempotent하므로 매 votes change에 dispatch해도 안전)
+    - Response 확장: `{ ok, slot_count, all_voted, f4_dispatched }` — 새 field로 caller(현재는 DB trigger 0006) 영향 0
+  - **`supabase/functions/votes_aggregate/_test.ts` (+~70 lines, 9 tests)**:
+    - `countUniqueVoters` 4 tests (dedup / null 제외 / 빈 / 전부 null)
+    - `isAllMembersVoted` 5 tests (equal / less / greater (안전망) / 0 (빈 그룹) / 0+0 race)
+  - **`src/lib/push/expoNotifications.ts` (+~170 lines, 신규)**:
+    - **DI 인터페이스**: `ExpoNotificationsApi` (getPermissionsAsync/requestPermissionsAsync/getExpoPushTokenAsync/setNotificationHandler) + `PlatformApi` (OS) — Jest 환경 mock 가능
+    - **순수 함수**: `buildPushTokenRow({userId, token, platform})` — `push_tokens` UPSERT shape
+    - **`registerForPushNotifications(args)` 통합 flow**:
+      1. userId 빈 문자열 → 한국어 throw
+      2. iOS/Android만 처리 (web/기타 → granted=false silent)
+      3. `getPermissionsAsync` 현재 상태 → granted=true면 request 생략 (cached fast path)
+      4. granted=false 후 requestPermissionsAsync → 여전히 false면 token fetch/upsert skip + 반환
+      5. granted=true → `getExpoPushTokenAsync({projectId})` → ExponentPushToken
+      6. `push_tokens` UPSERT `ON CONFLICT user_id,token` → 동일 디바이스 재등록 안전 (RLS self-only — `auth.uid() = user_id`)
+      7. supabase error → 한국어 throw
+    - **dynamicRequire 어댑터**: `createExpoNotificationsApi()` (expo-notifications dynamic require + status→granted shim) + `createPlatformApi()` (react-native Platform dynamic require). Jest 환경에서 호출 시 한국어 throw (S06 setup pattern mirror)
+  - **`src/lib/push/expoNotifications.test.ts` (+~200 lines, 9 tests)**:
+    - buildPushTokenRow 2 (ios/android)
+    - registerForPushNotifications 7: granted=true upsert / permission denied / android platform / web 미지원 silent / upsert error throw / userId 빈 throw / getPermissionsAsync granted=true 시 request skip
+  - **`package.json` + `package-lock.json`**: `expo-notifications@~0.32.13` install (SDK 56 호환)
+- Tests:
+  - **Deno 194 passed + 0 failed** (185 → 194, +9: countUniqueVoters 4 + isAllMembersVoted 5)
+  - **Jest 476 passed + 1 skipped + 0 failed** (467 → 476, +9: expoNotifications)
+  - **typecheck 0 errors** (test에서 `calls[0]` undefined 가능성 → `const [first] = calls; first?.xxx` 패턴으로 noUncheckedIndexedAccess 정합)
+  - **lint 3 errors all pre-existing** (jest.setup.js no-undef — git stash 검증). 본 turn 신규 파일 모두 0
+- Next:
+  - **S12 acceptance 정식 close 직전 — 잔여 wire-up**:
+    1. **`app/_layout.tsx` push 등록 mount**: useAuth userId 있을 때 `registerForPushNotifications` 호출 (CalendarSyncRoot pattern mirror) + Notifications.setNotificationHandler({...}) 1회 — 별도 sub-task 권장 (production wiring 검증은 EAS Build 시점)
+    2. **F1/F2/F3 publishers**: friends/groups API supabase 실 backend 전환 prereq (S07 후속). 친구 요청/수락 + 모임 초대 API가 mock인 한 publisher wire-up 무의미. S07-supabase-publishers sub-task로 분리 권고
+    3. **마이크로카피 founder review**: Q-B12 closure. formatF*Title/Body 함수 시그너처 유지로 본문만 교체 안전 (founder confirm 후 본문 1줄 fix)
+  - **EAS Build 트랙 (사용자 측)**: expo-notifications projectId 발급 + app.config.ts에 `extra.eas.projectId` 설정 + iOS APNs 인증서 + Android FCM 토큰 발급
+- Notes:
+  - **F1/F2/F3 publishers를 본 turn에 wire-up 안 한 정직성**: `src/lib/friends/api.ts`가 mock array push 구현 (line 21~25 mockFriends·line 27~42 mockIncomingRequests). `sendRequest`는 supabase friend_requests INSERT 호출 안 함 → dispatcher publish 시점 자체가 미존재. 모임 초대 API는 코드에 없음. 본 turn에서 dispatcher.dispatch 호출만 추가해도 wire가 작동 안 함 (Edge Function이 호출돼야 in-process register handler가 실행됨). F1/F2/F3 push가 실 발송되려면 friends/invitations API가 supabase 실 backend로 전환되어야 함 — S07 후속 sub-task로 분리
+  - **F4 publisher는 wire-up 의미 있음**: votes_aggregate는 DB trigger 0006이 votes INSERT/UPDATE/DELETE마다 호출하는 실 publisher. 사용자가 vote할 때마다 votes_aggregate 호출 → 전원 vote 시 dispatcher publish → notify_f4 in-process 발송 → host에게 push. notify_f4 자체가 f4_sent_at IS NULL idempotent하므로 매 votes change에 dispatch 반복돼도 단 1회만 발송
+  - **isAllMembersVoted entry race 회피**: memberCount=0 (그룹 entry 직후, 호스트 본인이 members에 들어가기 전 race)도 false. voterCount > memberCount(외부 동기화 race)도 false. 엄격 `===` equal로 false positive 제거
+  - **dispatch try/catch 격리**: notify_f4 호출 자체가 push_tokens·notification_settings·groups 조회 + Expo Push API HTTP 호출 → 외부 의존성 많음. 실패 시 broadcast(slots) 결과는 이미 클라이언트로 전달됐으므로 영향 0. `f4_dispatched: false` 반환만 (operability metric — Sentry/logs에서 모니터)
+  - **dispatcher singleton state — votes_aggregate vs group_confirm 충돌 없음**: group_confirm은 `group_confirmed` event handler만 register. votes_aggregate는 `votes_all_in` event handler만 register. 같은 모듈 import scope에서 동작하면 _resetDispatcherRegistration clearHandlers()가 둘 다 reset해버려 충돌 가능성 — 그러나 Deno Edge Function lifecycle상 votes_aggregate와 group_confirm은 별도 process(별도 endpoint)에서 동작하므로 실제 production에서는 충돌 0. Deno test에서는 두 _test.ts가 별도 module import scope이므로 충돌 0
+  - **expoNotifications test에서 supabase mock의 upsert pattern**: supabase-js의 `.from(table).upsert(rows, {onConflict})`가 PostgrestQueryBuilder를 반환하지만 Promise like — 본 test는 PromiseLike resolve로 충분. 실 동작은 EAS Build production binary 검증
+  - **마이크로카피 Q-B12 founder review 분리 명시**: 본 turn formatF*Title/Body는 함수 export로 외부 caller가 본문 교체할 수 있는 구조 — Q-B12 closure 후 founder가 한 줄 fix하면 전체 시스템 영향 없음
+
+---
+
 ## S12-backend-f1-f4 — Push F1/F2/F3/F4 Edge Function + _lib/expo_push 공통 helper (2026-05-26) — PARTIAL (S12 backend 4종 완성, RN client/publishers 잔여)
 - Depends: S00 (push_tokens·notification_settings·groups.f4_sent_at·users.nickname·friend_requests·group_invitations), S07 ✅ DONE (friends 시스템 acceptance), [D17](DECISIONS.md#d17--push-f4-idempotency-groupsf4_sent_at-column) (F4 idempotency), [D33](DECISIONS.md#d33--모임-확정-fan-out--단일-dispatcher-q-b5-close) (단일 dispatcher pattern), Q-B12(마이크로카피 미작성 — 본 turn auto mode 자체 결정, founder review 대기)
 - Context: S12 push F1-F3 + F4 backend Edge Function 4종 작성. F5(notify_f5)에서 공통 Expo Push API 호출 + ticket 분리 + partial fail list 빌드를 `_lib/expo_push.ts`로 추출 → 5개 notify_* 공유. Publishers(friend_requests·friendships·group_invitations INSERT trigger + votes_aggregate에서 votes_all_in detect → dispatcher.dispatch) + RN client(src/lib/push/ expo-notifications token 등록)는 별도 sub-task로 분리 (본 turn scope 절제 — backend 응답 가능 상태 우선)

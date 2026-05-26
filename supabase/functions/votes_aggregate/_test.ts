@@ -17,7 +17,13 @@ import {
 } from 'https://deno.land/std@0.224.0/assert/mod.ts';
 import { DateTime } from 'npm:luxon@3.4.4';
 
-import { aggregateVotes, buildHeatmapPayload, mapDayToIndex } from './index.ts';
+import {
+  aggregateVotes,
+  buildHeatmapPayload,
+  countUniqueVoters,
+  isAllMembersVoted,
+  mapDayToIndex,
+} from './index.ts';
 
 // ---------------------------------------------------------------------------
 // Test 1: 합산 로직 — (day_index, start_minute)별 count로 그룹화 (Q-B21 close)
@@ -192,6 +198,62 @@ Deno.test('broadcast 호출 — channel name·event name·payload 검증', async
   const parsed = DateTime.fromISO(payload.updated_at, { setZone: true });
   assertEquals(parsed.offset, 9 * 60);
   assertEquals(payload.updated_at.includes('+09:00'), true);
+});
+
+// ---------------------------------------------------------------------------
+// Test 6: 빈 votes broadcast — slots: [] 로 발송 (group 존재 시)
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// S12-publishers-f4 — 전원 vote detect 순수 함수
+// ---------------------------------------------------------------------------
+Deno.test('countUniqueVoters — 동일 user_id 다중 vote는 1로 카운트', () => {
+  const rows = [
+    { user_id: 'u1' },
+    { user_id: 'u1' },
+    { user_id: 'u2' },
+    { user_id: 'u1' },
+    { user_id: 'u3' },
+  ];
+  assertEquals(countUniqueVoters(rows), 3);
+});
+
+Deno.test('countUniqueVoters — null user_id (게스트)는 제외', () => {
+  const rows = [
+    { user_id: 'u1' },
+    { user_id: null },
+    { user_id: 'u2' },
+    { user_id: null },
+  ];
+  assertEquals(countUniqueVoters(rows), 2);
+});
+
+Deno.test('countUniqueVoters — 빈 array → 0', () => {
+  assertEquals(countUniqueVoters([]), 0);
+});
+
+Deno.test('countUniqueVoters — 전부 null → 0', () => {
+  assertEquals(countUniqueVoters([{ user_id: null }, { user_id: null }]), 0);
+});
+
+Deno.test('isAllMembersVoted — voter == member > 0 → true', () => {
+  assertEquals(isAllMembersVoted({ memberCount: 4, voterCount: 4 }), true);
+});
+
+Deno.test('isAllMembersVoted — voter < member → false', () => {
+  assertEquals(isAllMembersVoted({ memberCount: 4, voterCount: 3 }), false);
+});
+
+Deno.test('isAllMembersVoted — voter > member (외부 동기화 race 안전망) → false', () => {
+  // 멤버보다 voter가 많을 일은 없지만 equal 엄격 비교로 false (== 만 통과)
+  assertEquals(isAllMembersVoted({ memberCount: 4, voterCount: 5 }), false);
+});
+
+Deno.test('isAllMembersVoted — member 0 (빈 그룹) → false', () => {
+  assertEquals(isAllMembersVoted({ memberCount: 0, voterCount: 0 }), false);
+});
+
+Deno.test('isAllMembersVoted — 둘 다 0 → false (entry 단계 race 회피)', () => {
+  assertEquals(isAllMembersVoted({ memberCount: 0, voterCount: 0 }), false);
 });
 
 // ---------------------------------------------------------------------------
