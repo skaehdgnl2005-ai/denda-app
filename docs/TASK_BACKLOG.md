@@ -8,9 +8,9 @@
 
 ## 진행 현황 요약
 
-- **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** sub-task (DONE 2026-05-26) + **S06-queue-foundation** + **S06-worker-integration** sub-task (DONE 2026-05-26)
-- **DONE**: 5 (S00, S01, S03, S04, S07) + S05 acceptance 7/7 (S05e 운영 task)
-- **IN_PROGRESS**: 3 (S05 — S05e 60fps 부하 실기기 잔여, S14 skeleton+utils+test-augment+violations-fix+e2e-setup, S06 — backend 묶음(0009/0010 + worker + 순수 함수) 완료, Google OAuth · expo-calendar · UI 모달 잔여)
+- **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** sub-task (DONE 2026-05-26) + **S06-queue-foundation** + **S06-worker-integration** sub-task (DONE 2026-05-26) + **S14-e2e-residual** + **S14-cross-day-sweep** sub-task (DONE 2026-05-26)
+- **DONE**: 6 (S00, S01, S03, S04, S07, S14) + S05 acceptance 7/7 (S05e 운영 task)
+- **IN_PROGRESS**: 2 (S05 — S05e 60fps 부하 실기기 잔여, S06 — backend 묶음(0009/0010 + worker + 순수 함수) 완료, Google OAuth · expo-calendar · UI 모달 잔여)
 - **TODO**: 8
 - **BLOCKED**: 1 (S10 — D1 지도 부분 답변 대기)
 
@@ -213,27 +213,26 @@
 
 ### S14 — Web Guest Page (Next.js)
 
-- **Status**: IN_PROGRESS (sub-task: skeleton ✅ + S14-utils ✅ + S14-test-augment ✅ + S14-violations-fix ✅ + S14-e2e-setup ✅ 2026-05-26 — RN spec 정합 + violations fix + Playwright base spec. 잔여: 시간 그리드 투표 → CTA user flow E2E(supabase mock route) · drift skip 2 그룹(Cross-day sweep · Realtime listen) · `lib/voteKey` 채택 optional) | **Owner**: Web | **Sprint**: 2-3 | **Lane**: C
+- **Status**: DONE 2026-05-26 (sub-task chain: skeleton ✅ + S14-utils ✅ + S14-test-augment ✅ + S14-violations-fix ✅ + S14-e2e-setup ✅ + S14-e2e-full-fix ✅ + S14-e2e-residual ✅ + S14-cross-day-sweep ✅. 운영 잔여는 별도 backlog) | **Owner**: Web | **Sprint**: 2-3 | **Lane**: C
 - **Depends**: S00 (group_guests, votes — migration 0004 ✅), D23 (Next.js 별도 codebase), S05 (시간 그리드 spec 공유)
-- **Acceptance**:
+- **Acceptance** (7/7 close):
   - ✅ Vercel project 셋업 (Next.js 16.2.6 + React 19.2.4 + Tailwind v4 + Pretendard 셀프호스팅)
   - ✅ 게스트 토큰 생성 — `localStorage` key `denda_guest_token_${groupId}` 모임별 별도 (Q-B7 자연 해소)
   - ✅ 닉네임 입력 → group_guests INSERT (`components/NicknameForm.tsx` + 0004 RLS anonymous insert)
-  - ✅ 시간 그리드 (RN과 별도 구현, 같은 동작 spec) — S14-violations-fix 2026-05-26로 close. GuestTimeGrid가 `lib/heatmap.classifyHeat` quartile + `lib/time.dayOfWeekKst` luxon Asia/Seoul 채택. self-broadcast 제거(D11). Conflict flag(D23 spec drift) mitigated
+  - ✅ 시간 그리드 (RN과 별도 구현, 같은 동작 spec) — S14-violations-fix + S14-cross-day-sweep 2026-05-26로 완전 close. `lib/heatmap.classifyHeat` quartile + `lib/time.dayOfWeekKst` luxon Asia/Seoul + `lib/voteKey` 채택 + RN `applySweepToRecord` 사각형 sweep 정합. self-broadcast 제거(D11). D23 cross-platform spec drift 0
   - ⏸️ Branch.io 단축 URL 생성 — S15(D28 자체 deferred deep link)로 분리
-  - ✅ 카톡 OG 메타 (`og:title`, `og:description`, `og:image`, `og:url`, `og:site_name`) — `app/g/[token]/page.tsx::generateMetadata`
-  - ✅ 모바일·태블릿 only (DESIGN §12.7) — `md:hidden` Tailwind responsive guard + 데스크톱 안내 화면
-  - ✅ 투표 완료 → "결과 알림 받으려면 → 카톡 공유" CTA + clipboard share
-- **잔여 sub-task**:
-  - **시간 그리드 투표 → CTA user flow E2E**: supabase RPC `save_guest_votes` mock 응답 필요 → `page.route('**/e2e-dummy.supabase.co/**', ...)` intercept + JSON fixture. 닉네임 입력 → 그리드 셀 클릭/드래그 → 저장 → CTA "결과 알림 받으려면 → 카톡 공유" 클릭 → clipboard 확인까지
-  - **카톡 OG 메타 E2E**: `page.locator('meta[property="og:title"]')` server-rendered metadata 검증
-  - **drift skip 2 그룹 unskip 잔여**:
-    - **Cross-day sweep** — RN `applySweepToRecord` 사각형 vs 현재 `handleMouseEnterCell` 경로 spec 결정 후 unskip
-    - **Realtime broadcast listen path** — S05a Edge Function payload spec(D11 day_index 포함) 확정 후 unskip + mock channel.on 콜백 trigger 통합 test
-  - **`lib/voteKey` 채택 잔여 (optional)**: GuestTimeGrid의 selectedSlots Record key가 `${day}_${minute}` 사용 → RN `${day}:${minute}` 직렬화와 다름. schema 정합 위해 컴포넌트 직렬화 통일 후보
+  - ✅ 카톡 OG 메타 (`og:title`, `og:description`, `og:image`, `og:url`, `og:site_name`) — `app/g/[token]/page.tsx::generateMetadata` + E2E spec(S14-e2e-full-fix)
+  - ✅ 모바일·태블릿 only (DESIGN §12.7) — `md:hidden` Tailwind responsive guard + 데스크톱 안내 화면 (3 projects E2E 검증)
+  - ✅ 투표 완료 → "결과 알림 받으려면 → 카톡 공유" CTA + clipboard share (full flow E2E)
+- **Tests**: Jest 84 + Playwright 18 (3 projects × 6 specs, mobile-safari·chromium·desktop) — 일체 0 skip, 0 fail. typecheck 0, lint 0
+- **운영 잔여 (별도 backlog)**:
+  - 시각 회귀 도구 도입 (Percy / Argos / Chromatic 선택)
+  - 카톡 native share intent (Web Share API + KakaoTalk URL scheme fallback)
+  - 호스트가 자신의 기존 vote 불러오기 — `fetchUserVotes(groupId, userId)` + initial selection seed
+  - dev 모드 외 production binary regression 측정 (D12 60fps 그리드 부하 검증)
 - **Files**: `web-guest/` (monorepo subdir, 별도 npm project + jest + playwright + tsconfig + tailwind v4)
 - **Worktree 분기**: 완전 독립 (별도 codebase)
-- **Notes**: S14-e2e-setup ship 2026-05-26 — Playwright base spec 3 케이스(root 안내 · desktop block · mobile nickname modal) + projects 3종(mobile-safari/mobile-chromium/desktop-chromium) + dummy supabase env + 운영자 README. 브라우저 install은 사용자 측 `npm run e2e:install` 한 번. jest 영역과 격리(`testPathIgnorePatterns: ['/playwright/']`)
+- **Notes**: S14-e2e-residual에서 Turbopack `workspace root` 자동 추론 실패가 hydration 회귀 root cause로 판명 — `next.config.ts::turbopack.root = __dirname` 1줄 fix가 mobile-safari WebKit 포함 3 projects 전부 unblock. S14-cross-day-sweep에서 RN `applySweepToRecord` 사각형 spec 채택으로 D23 마지막 drift 해소
 
 ### S15 — 자체 deferred deep link (게스트→회원 전환) — D28
 

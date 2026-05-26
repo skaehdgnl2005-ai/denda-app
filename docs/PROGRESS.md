@@ -13,7 +13,7 @@
 |---|---|---|---|---|
 | **Sprint 0** | W-1 (2026-05-22 ~ 2026-05-28) | 12 인프라 항목 + 디자인 자산 | Expo init + Supabase + EAS Build + 카카오 portal + Supabase Auth Kakao + 키해시 등록 완료 | ON_TRACK |
 | **Sprint 1** | W0 | S00, S11, S13 skeleton | S00 ✅, **S11 ✅ (백필 2026-05-26, 다크 검증 deferred)**, S13 eas.json (S01 portfolio) | DONE (S00·S11) |
-| **Sprint 2** | W1 | S01 + S10 + S14 병행 (★ Kakao 답변 review) | **S01 ✅** (D29), **S14 skeleton ✅ + S14-utils ✅ + S14-test-augment ✅ + S14-violations-fix ✅ + S14-e2e-setup ✅ 2026-05-26 (Playwright base spec 3 케이스 + projects 3종)**, S10 BLOCKED (Q-A2), **UI-§17 ✅ 2026-05-26** | IN_PROGRESS (S10 BLOCKED) |
+| **Sprint 2** | W1 | S01 + S10 + S14 병행 (★ Kakao 답변 review) | **S01 ✅** (D29), **S14 ✅ DONE 2026-05-26** (skeleton + utils + test-augment + violations-fix + e2e-setup + e2e-full-fix + e2e-residual + cross-day-sweep — Jest 84 + Playwright 18, 일체 0 skip), S10 BLOCKED (Q-A2), **UI-§17 ✅ 2026-05-26** | IN_PROGRESS (S10 BLOCKED) |
 | **Sprint 3** | W2 | S05 + S07 + S03 + S08 (baseline 시작) | **S05-UI ✅ + S05a ✅ + S05b ✅ (PR #3 78c8fe9) + S05c ✅ + S05d ✅ + S05 worklet drag ✅ + S05-screen-confirm ✅ 2026-05-26** = S05 acceptance 7/7 (S05e 60fps 실기기만 잔여) / **S07 ✅ DONE 2026-05-26** / **S03 ✅ DONE 2026-05-26 (a+b)** / S08 미시작 | IN_PROGRESS |
 | **Sprint 4** | W3 | S04 + S06 + S12 + S15 (TestFlight) | **S04 ✅ DONE 2026-05-26** (backend + UI via S05-screen-confirm) / **S06-queue-foundation ✅ + S06-worker-integration ✅ 2026-05-26** (DB schema + pg_cron + 순수 함수 + worker skeleton. Google OAuth · expo-calendar · UI 모달은 후속 sub-task) / S12·S15 미시작 | IN_PROGRESS (early start) |
 | **W3.5** | W3.5 | S17 QA 종합 + 안암 invite-only launch | 미시작 | — |
@@ -25,15 +25,15 @@
 **총 17 태스크 (S00 ~ S16) + S17 QA**
 
 ```
-DONE 정식:  █████▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  5 / 17 (29.4%) — S00, S01, S03, S04, S07 (S05도 사실상 7/7, S05e 운영)
-Active:    ██████████▒▒▒▒▒▒▒▒▒▒  8 / 17 (47%) — + S05 acceptance 7/7 (S05e 운영), S11 partial, S13 partial, S14 partial
+DONE 정식:  ██████▒▒▒▒▒▒▒▒▒▒▒▒▒▒  6 / 17 (35.3%) — S00, S01, S03, S04, S07, S14 (S05도 사실상 7/7, S05e 운영)
+Active:    ██████████▒▒▒▒▒▒▒▒▒▒  8 / 17 (47%) — + S05 acceptance 7/7 (S05e 운영), S11 partial, S13 partial
 ```
 
 | Lane | TODO | IN_PROGRESS (partial) | DONE | BLOCKED |
 |---|---|---|---|---|
 | **A (Foundation·Auth·Time grid·OCR)** | 0 | 1 (S05 acceptance 7/7 — S05e 60fps 실기기 잔여) | 5 (S00, S01, S03, S04, S07) | 0 |
 | **B (Map·Click-through·지도-일정)** | 2 (S08, S15-mapmode) | 0 | 0 | 1 (S10) |
-| **C (Web guest)** | 1 (S15 deeplink) | 1 (S14 skeleton) | 0 | 0 |
+| **C (Web guest)** | 1 (S15 deeplink) | 0 | 1 (S14) | 0 |
 | **D (Cross-cutting)** | 2 (S12, S17) | 3 (S06 queue-foundation / S11 tokens / S13 eas.json) | 0 | 1 (S16) |
 
 세부: [TASK_BACKLOG.md](TASK_BACKLOG.md)
