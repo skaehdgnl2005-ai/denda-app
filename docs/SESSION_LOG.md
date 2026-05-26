@@ -42,6 +42,48 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S06-worker-integration — calendar_push_worker Edge Function + pg_cron schedule + 순수 함수 확장 (2026-05-26) — DONE (S06 partial 진척)
+- Depends: S06-queue-foundation ship 2026-05-26 (`_lib/calendar_queue.ts` 순수 함수 + 0009 migration), [D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시) (partial fail 호스트 알림), [D20](DECISIONS.md#d20--calendar-push-fan-out--background-queue) (pg_cron + retry max 3), notify_f5 PartialFailEntry shape (`{user_id, reason, channel, occurred_at}` cross-channel JSONB)
+- Changes:
+  - **Migration**:
+    - `supabase/migrations/0010_calendar_cron.sql` (+50 lines) — `pg_cron` + `pg_net` extension 보장. `cron.schedule('calendar_push_worker_tick', '*/1 * * * *', net.http_post ...)` 매 1분 trigger. GUC missing → WHERE 절 자연 skip (S05a 0006과 동일 패턴). idempotent unschedule 후 재등록 (재실행 안전)
+  - **순수 함수 확장** (`_lib/calendar_queue.ts`, +130 lines):
+    - `CALENDAR_PUSH_CHANNEL = 'calendar_push'` 상수
+    - `PartialFailEntry {user_id, reason, channel, occurred_at}` interface (notify_f5 shape mirror)
+    - `MemberFailure {userId, reason}` + `BuildCalendarPartialFailArgs`
+    - `buildCalendarPartialFailEntries(args)` — failures → PartialFailEntry[] (channel default 'calendar_push', override 가능)
+    - `appendPartialFailEntries(current, new)` — immutable concat (worker SELECT → append → UPDATE pattern)
+    - `selectPendingFromRows(rows)` — `isCalendarPushPending` 적용한 application 안전망 (SQL partial index 1차 + race window 2차)
+    - `MemberPushOutcome` discriminated union ({result: 'ok'} | {result: {reason}})
+    - `GroupPushDecision` + `decideGroupPushOutcome(args)` — 100% 순수 의사결정. 모두 ok → `shouldSetPushedAt=true`. 일부 실패 → `nextRetryState` + partial entries 생성. 멤버 0명 → 큐 무한 누적 회피 위해 `shouldSetPushedAt=true`
+    - `CalendarQueueGroup`에 `partial_fail_list?: PartialFailEntry[]` 옵셔널 확장 (worker SELECT 컬럼)
+  - **Worker Edge Function** (`supabase/functions/calendar_push_worker/index.ts`, +210 lines):
+    - `CalendarPushUnimplementedError` + `pushToMemberCalendar` stub — S06-google-oauth + S06-apple-expo-calendar에서 실 구현으로 교체. 본 sub-task에서는 모두 fail로 분류되어 retry_count 누적 검증
+    - `processCalendarPushQueue(deps)` — SELECT pending → `selectPendingFromRows` → 각 group: members fetch + `buildCalendarEventPayload` + `Promise.allSettled` push iterate + `decideGroupPushOutcome` + DB UPDATE
+    - `WorkerSummary {scanned, pushedComplete, pushedPartialFail, retryStopped, skipped}` 응답
+    - HTTP handler (POST) — service_role client + 에러 wrap. pg_cron이 service_role bearer로 호출
+  - **Deno tests 확장** (`_lib/calendar_queue_test.ts`, +175 lines):
+    - `buildCalendarPartialFailEntries` 5 tests (CHANNEL 상수, 빈/1/다중/channel override)
+    - `appendPartialFailEntries` 4 tests (empty + new / existing + new / immutable / 둘 다 빈)
+    - `selectPendingFromRows` 3 tests (모두 pending / mix / 빈)
+    - `decideGroupPushOutcome` 5 tests (모두 ok / 일부 실패 retry=0 / retry=2 shouldStop / 멤버 0명 / 모두 실패 entries 순서)
+- Tests: Deno **34 tests TDD-first** (기존 17 + 신규 17. CLI 미설치로 실행 deferred — S06-queue-foundation·S04-backend·votes_aggregate 동일 컨벤션). tsconfig excludes로 RN jest/tsc 영향 0. design-guard 위반 0 (bare Date 0 / hex 0)
+- Next:
+  - **S06-google-oauth** (다음 세션): `src/lib/calendar/google.ts` Google Calendar OAuth + token refresh (SecureStore) + `events.insert` wrapper. `pushToMemberCalendar` stub 교체 — users.calendar_preference SELECT → 'google' 또는 'both'이면 events.insert 호출
+  - **S06-apple-expo-calendar** (다음 세션): `src/lib/calendar/apple.ts` `expo-calendar` lazy install + iOS 17+ write-only 권한. Apple은 client-side만 가능 → worker가 직접 push 못함 → 별도 mechanism 필요 (예: F-style notification + client app이 expo-calendar.createEventAsync 호출). 본 ship의 worker stub 교체 시 명확
+  - **S06-ui-first-time-modal** / **S06-ui-reauth-modal** (다음 세션): 모임 첫 확정 시 "어디 추가할까요" + `users.calendar_preference` 컬럼 추가 / 프로필 캘린더 연결 관리 화면
+  - **운영 사전 조건** (production deploy 전): `ALTER DATABASE postgres SET app.supabase_url / app.service_role_key` GUC 세팅
+- Notes:
+  - **Apple Calendar는 worker에서 직접 push 불가** — `expo-calendar`는 클라이언트 디바이스 권한. 본 sub-task stub은 두 provider 통합 인터페이스로 작성됐지만, S06-apple-expo-calendar 시점에 worker가 Apple 사용자에게는 push notification 트리거 + client app이 expo-calendar 호출 패턴으로 변경 필요. 본 sub-task가 미리 wiring을 stub 처리해 둔 이유 — 다음 sub-task 진입 시 명확한 교체 지점
+  - **Promise.allSettled로 멤버 push 격리** — 한 멤버의 OAuth token 만료가 다른 멤버 push를 차단 X. notify_f5의 Expo Push partition 패턴과 동일 (격리 + partial_fail_list 누적)
+  - **순수 함수 분리의 가치** — `decideGroupPushOutcome`은 worker DB UPDATE 의사결정을 100% 순수로 추출. mock supabase client 없이도 의사결정 logic 5 케이스 검증. worker integration test는 deferred하지만 핵심 path는 verified
+  - **partial_fail_list lastWriteWins race 수용** — worker가 동시 instance로 같은 group을 처리하면 lastWriteWins. pg_cron 1분 주기 + Edge timeout 60s = 동시 실행 가능. Phase 3 fan-out 증가 시 `UPDATE ... WHERE calendar_retry_count = $expected` optimistic locking 또는 advisory lock 검토
+  - **stub의 의미** — 본 sub-task에서 worker가 실 환경에 배포되면 모든 큐 entry가 3회 fail 누적 후 영구 stop. 그러나 S06-google-oauth ship 전에는 production deploy 안 함. 본 sub-task는 코드 path 안전성만 보장
+  - **calendar_queue.ts 안의 PartialFailEntry shape는 notify_f5/index.ts의 PartialFailEntry와 schema 동일** — JSONB column이 두 channel을 공유. 향후 `_lib/partial_fail.ts`로 추출 가능 (리팩토링 risk, 본 sub-task 외)
+  - **CalendarQueueGroup의 `partial_fail_list?` 옵셔널**: 기존 tests의 `baseGroup`은 partial_fail_list 없이도 동작 (이전 ship의 5 tests 회귀 0)
+
+---
+
 ## S06-queue-foundation — calendar push background queue 기반 (DB schema + 순수 함수) (2026-05-26) — DONE (S06 partial 진척)
 - Depends: S04-backend ship 2026-05-26 (group_confirm Edge Function publisher + dispatcher real impl + `group_confirmed` event type 정의), S00 (groups.confirmed_*·partial_fail_list 컬럼 — 0001:198-218), [D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시) (단방향 + partial fail report + token expiry not silent), [D20](DECISIONS.md#d20--calendar-push-fan-out--background-queue) (background queue + retry max 3 + pg_cron), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc) (KST 표기), [D15](DECISIONS.md#d15--schedulessource-enum--phase-12은-provider-구분-포기) (apple_ios 통합 bucket)
 - Branch: `worktree-s06-calendar-sync` (origin/main에서 ff → local main까지 fast-forward 8 commit 통합)

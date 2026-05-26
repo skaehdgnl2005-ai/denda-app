@@ -16,6 +16,12 @@ import { DateTime } from 'npm:luxon@3.4.4';
  */
 export const CALENDAR_PUSH_MAX_RETRY = 3;
 
+/**
+ * groups.partial_fail_list JSONB entry의 channel 라벨. notify_f5는 'f5_push',
+ * calendar_push_worker는 'calendar_push'. JSONB schema는 두 channel이 공유 (notify_f5/index.ts PartialFailEntry).
+ */
+export const CALENDAR_PUSH_CHANNEL = 'calendar_push';
+
 const KST_ZONE = 'Asia/Seoul';
 
 /**
@@ -33,7 +39,7 @@ const KO_WEEKDAY: Record<number, string> = {
 
 /**
  * worker가 SELECT한 groups row 중 calendar push 추적에 필요한 부분.
- * (id·name·confirmed_*·calendar_*만 — host_id/멤버는 worker가 별도 fetch)
+ * (id·name·confirmed_*·calendar_*·partial_fail_list — host_id/멤버는 worker가 별도 fetch)
  */
 export interface CalendarQueueGroup {
   id: string;
@@ -43,6 +49,7 @@ export interface CalendarQueueGroup {
   confirmed_end_at: string | null;
   calendar_pushed_at: string | null;
   calendar_retry_count: number;
+  partial_fail_list?: PartialFailEntry[];
 }
 
 /**
@@ -73,6 +80,28 @@ export interface CalendarEventPayload {
 export interface NextRetryState {
   nextCount: number;
   shouldStop: boolean;
+}
+
+/**
+ * groups.partial_fail_list JSONB entry — notify_f5와 동일 shape (cross-channel JSONB lastWriteWins).
+ * channel은 push 출처를 식별 (운영 통계 + 호스트 알림 분기).
+ */
+export interface PartialFailEntry {
+  user_id: string;
+  reason: string;
+  channel: string;
+  occurred_at: string; // KST ISO
+}
+
+export interface MemberFailure {
+  userId: string;
+  reason: string;
+}
+
+export interface BuildCalendarPartialFailArgs {
+  failures: MemberFailure[];
+  occurredAtKstIso: string;
+  channel?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -194,4 +223,127 @@ function formatEndOfDayLabel(startKst: DateTime, endKst: DateTime): string {
     return '24:00';
   }
   return endKst.toFormat('HH:mm');
+}
+
+// ---------------------------------------------------------------------------
+// Partial fail JSONB helpers — D19 부분 실패 누적
+// ---------------------------------------------------------------------------
+
+/**
+ * 멤버 실패 list → groups.partial_fail_list JSONB entry array.
+ *
+ * - notify_f5의 PartialFailEntry shape과 동일 (cross-channel lastWriteWins JSONB)
+ * - failures가 빈 array면 빈 array 반환 (worker가 caller 측에서 length check 없이 호출 가능)
+ * - channel default = 'calendar_push' (CALENDAR_PUSH_CHANNEL 상수)
+ */
+export function buildCalendarPartialFailEntries(
+  args: BuildCalendarPartialFailArgs,
+): PartialFailEntry[] {
+  const channel = args.channel ?? CALENDAR_PUSH_CHANNEL;
+  return args.failures.map((f) => ({
+    user_id: f.userId,
+    reason: f.reason,
+    channel,
+    occurred_at: args.occurredAtKstIso,
+  }));
+}
+
+/**
+ * groups.partial_fail_list 현재 JSONB array에 new entries를 append.
+ * - immutable: 원본 currentList 변경 X (worker가 SELECT → append → UPDATE 패턴)
+ * - 빈 + 빈 = 빈 (lastWriteWins JSONB 갱신은 UPDATE 호출 측에서 if(length>0) 가드 권장)
+ */
+export function appendPartialFailEntries(
+  currentList: PartialFailEntry[],
+  newEntries: PartialFailEntry[],
+): PartialFailEntry[] {
+  return [...currentList, ...newEntries];
+}
+
+// ---------------------------------------------------------------------------
+// Queue selection 안전망 — worker가 SELECT한 rows를 isCalendarPushPending로 한 번 더 필터
+// ---------------------------------------------------------------------------
+
+/**
+ * worker가 DB SELECT 결과를 받은 후 application level에서 한 번 더 isCalendarPushPending 적용.
+ * SQL WHERE 절(partial index 활용)이 1차 필터링하지만, retry_count 변경·calendar_pushed_at SET이
+ * 동시 발생할 수 있는 race window 안전망.
+ *
+ * 순서는 입력 그대로 보존 (worker가 deterministic 처리 순서를 보장하려는 경우 유용).
+ */
+export function selectPendingFromRows(
+  rows: CalendarQueueGroup[],
+): CalendarQueueGroup[] {
+  return rows.filter(isCalendarPushPending);
+}
+
+// ---------------------------------------------------------------------------
+// decideGroupPushOutcome — worker의 DB UPDATE 의사결정 (100% 순수)
+// ---------------------------------------------------------------------------
+
+/**
+ * 한 멤버에 대한 push 결과. result='ok' 또는 실패 사유 포함.
+ */
+export type MemberPushOutcome =
+  | { userId: string; result: 'ok' }
+  | { userId: string; result: { reason: string } };
+
+/**
+ * worker가 멤버 iterate 후 groups row에 적용할 UPDATE 묶음.
+ *   - shouldSetPushedAt: true → calendar_pushed_at SET (모든 멤버 성공)
+ *   - shouldSetPushedAt: false → partial_fail_list append + calendar_retry_count UPDATE
+ *   - shouldStop: retry max 도달 → 호스트 알림 trigger 후보 (다음 sub-task 책임)
+ */
+export interface GroupPushDecision {
+  groupId: string;
+  shouldSetPushedAt: boolean;
+  newRetryCount: number;
+  newPartialFailEntries: PartialFailEntry[];
+  shouldStop: boolean;
+}
+
+export interface DecideGroupPushOutcomeArgs {
+  group: CalendarQueueGroup;
+  memberOutcomes: MemberPushOutcome[];
+  occurredAtKstIso: string;
+}
+
+/**
+ * 멤버 outcomes 모두 'ok' → calendar_pushed_at SET, retry_count·partial_fail 변경 X.
+ * 1+ 멤버 실패 → retry_count++ + partial_fail_list append. retry_count==MAX 도달 시 shouldStop=true.
+ *
+ * 멤버 0명 모임은 outcomes도 빈 → 모두 'ok'로 해석 (shouldSetPushedAt=true).
+ * 멤버 없는 모임이 큐에 진입한 케이스는 정상은 아니지만 큐 무한 누적 방지.
+ */
+export function decideGroupPushOutcome(
+  args: DecideGroupPushOutcomeArgs,
+): GroupPushDecision {
+  const failures: MemberFailure[] = args.memberOutcomes
+    .filter(
+      (o): o is { userId: string; result: { reason: string } } =>
+        typeof o.result === 'object' && o.result !== null && 'reason' in o.result,
+    )
+    .map((o) => ({ userId: o.userId, reason: o.result.reason }));
+
+  if (failures.length === 0) {
+    return {
+      groupId: args.group.id,
+      shouldSetPushedAt: true,
+      newRetryCount: args.group.calendar_retry_count,
+      newPartialFailEntries: [],
+      shouldStop: false,
+    };
+  }
+
+  const retry = nextRetryState(args.group.calendar_retry_count);
+  return {
+    groupId: args.group.id,
+    shouldSetPushedAt: false,
+    newRetryCount: retry.nextCount,
+    newPartialFailEntries: buildCalendarPartialFailEntries({
+      failures,
+      occurredAtKstIso: args.occurredAtKstIso,
+    }),
+    shouldStop: retry.shouldStop,
+  };
 }
