@@ -42,6 +42,38 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S14-e2e-residual — Turbopack root fix + 4종 unskip + realtime broadcast spec (2026-05-26) — DONE (S14 partial 진척, e2e 일체 0 skip)
+- Depends: S14-e2e-full-fix (commit 9dea7e7 — 9 passed + 6 skipped 잔여), [D11](DECISIONS.md#d11--realtime-히트맵--edge-function-합산-후-broadcast-옵션-b) (broadcast publisher = Edge Function), Q-B21 close (broadcast payload day_index spec)
+- Branch: main 직접 (web-guest 격리)
+- Changes:
+  - **Root cause 진단** (가장 중요): playwright spec body 안에서 `page.on('console')` + `page.on('framenavigated')` + 초당 `page.evaluate(...)` 폴링 + dev server stdout 직접 관찰 → Turbopack 매 분 panic `FATAL ... Failed to write app endpoint /g/[token]/page ... Next.js package not found`. 부모 `c:\dev\denda-app\package-lock.json`(RN 앱)과 `web-guest/package-lock.json` 둘 다 존재 → Turbopack workspace root inference가 부모로 잘못 잡혀 web-guest의 `node_modules/next`를 못 찾아 panic → Fast Refresh 무한 rebuild → 클라 hydration 미완 → useEffect 못 돔 → 모달 mount 안 되는 회귀
+  - **`web-guest/next.config.ts`**: `turbopack.root = __dirname` 추가 (이 한 줄이 4종 skip 중 3종을 단일 fix로 unblock — root cause 단일성 확인). `node_modules/next/dist/docs/01-app/03-api-reference/05-config/01-next-config-js/turbopack.md` 정합. AGENTS.md "This is NOT the Next.js you know" 준수
+  - **`web-guest/playwright/guest_flow.spec.ts`**:
+    - mobile viewport spec(38:7) `test.skip(true, ...)` 제거 — 3 projects 모두 pass
+    - 새 describe `Realtime broadcast listen path — heatmap_update → refreshVotes`(101:7) — broadcast 핸들러 동작을 클라에서 검증하는 spec. `page.route('**/rest/v1/votes**', ...)` intercept + 모달 진입 → guestToken set → `window.__dendaE2E_triggerHeatmapBroadcast()` 호출 → `votesFetchCount > beforeCount` poll. supabase Realtime client websocket dependency 없이 listen-and-refresh path 단독 검증 (실 broadcast payload spec은 S05a votes_aggregate Edge Function 책임)
+  - **`web-guest/playwright/guest.spec.ts`**:
+    - `test.describe.skip` → `test.describe` (full flow unskip — mobile-chromium + desktop-chromium pass)
+    - mobile-safari `test.skip(testInfo.project.name === 'mobile-safari', ...)` 제거 → WebKit도 통과. Turbopack panic이 모든 browser engine에 동시 영향이었음 (WebKit-specific 이슈 아니었음)
+    - 상단 spec body 헤더에서 "mobile-safari mount 지연 별도 sub-task" 노트 제거 (이제 stable)
+  - **`web-guest/components/GuestTimeGrid.tsx`** realtime useEffect E2E 분기 확장: 기존 `if (E2E) return;` → window-scoped trigger 노출. spec이 핸들러 동작을 모방하면서 supabase Realtime websocket 의존성 우회. production 영향 0 (E2E 분기만 변경)
+- Tests:
+  - **Playwright 18 total → 18 passed + 0 skipped + 0 failed** (3 projects × 6 specs = 18, mobile-safari·mobile-chromium·desktop-chromium 전부 green, retries=0 측정 17초)
+  - web-guest Jest **82 (79 passed + 3 skipped 의도)** — 회귀 0
+  - typecheck 0, lint: 본 ship 신규 0 (사전 존재 잔여: `jest.config.js` require-imports + `tailwind.config.ts` anonymous-default-export — 본 ship 외 영역)
+- Next:
+  - **Cross-day sweep spec**: RN `applySweepToRecord` 사각형 vs 현재 `handleMouseEnterCell` 경로 UX 일치 결정 필요(사용자 입력). 별도 sub-task로 분리
+  - **S14 잔여 sub-task**: 시각 회귀(Percy/Argos), 카톡 native share intent, 본인 vote 불러오기, dev 모드 외 production binary regression — 별도 backlog
+  - **S14 acceptance 진척**: e2e setup → base → flow → realtime listen + OG 모두 close. S14 사실상 acceptance 도달 (Cross-day sweep만 잔여)
+- Notes:
+  - **`turbopack.root` 누락 → "Next.js package not found" panic은 web-guest 첫 ship 시점부터 잠재(commit e5b685f S14-e2e-setup)**. 그러나 e5b685f 직후 retry로 flaky 통과한 이유는 dev server 캐시 + 일부 spec이 hydration 의존 없어서 통과. 23cef5c·9dea7e7로 voteKey 채택 + E2E 분기 추가하면서 hydration 의존 늘어나자 panic 영향 노출. 결과적으로 1줄 config fix가 RC + voteKey 채택 후 부담 모두 해소
+  - **Realtime broadcast spec의 검증 범위**: 본 spec은 "broadcast 핸들러가 호출되면 refreshVotes가 supabase REST endpoint를 hit한다"는 클라 path 단독 검증. 실 broadcast publisher(S05a votes_aggregate Edge Function)의 payload spec(day_index, viewer_user_id 등)은 Deno test로 별도 검증 (TEST_PLAN §3.3). 두 spec이 합쳐 D11 end-to-end 보장
+  - **window-scoped E2E trigger pattern**: production 영향 0 (NEXT_PUBLIC_IS_E2E === 'true' 분기에만 노출). Playwright `page.evaluate` + `expect.poll`로 trigger 함수 등록 시점까지 대기 → race 없음. RN쪽엔 대응 패턴 없음 — Maestro는 mobile native에서 다른 mechanism (deeplink·intent 등) 권고
+  - **mobile-safari WebKit 통과 = 별도 sub-task 불필요**: 사용자 메시지 "안 풀리면 별도 sub-task로 분리 합의 가능"의 케이스 아님. Turbopack panic 해소만으로 모든 browser engine green. 무리한 debugging 회피 원칙 준수 (디버깅 path가 효과 발생 즉시 종료)
+  - **`reuseExistingServer: !process.env.CI` + `retries: 2`(local) 설정 유지**: 본 fix로 retry 거의 불필요해졌지만 CI 환경 다양성(M-resource·node version drift) 대비 보존. 본 ship 측정값은 retries=0 — fix 효과 검증용
+  - **AGENTS.md 준수**: "This is NOT the Next.js you know — Read node_modules/next/dist/docs/" 지시에 따라 `turbopack.root` 문서 직접 확인 후 적용. 학습 데이터의 Next.js 13/14 패턴이 아닌 16.2.6 정합 config 작성
+
+---
+
 ## S14-e2e-full-fix — OG 메타 spec + lib/voteKey 채택 + E2E 분기 보강 + stability 회귀 분리 (2026-05-26) — DONE (S14 partial 진척)
 - Depends: S14-e2e-setup (commit e5b685f) + post-launch fix (commit 23cef5c). lib/voteKey ship (S14-utils 2026-05-26)
 - Branch: main 직접 (web-guest 격리)

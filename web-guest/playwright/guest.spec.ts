@@ -4,22 +4,16 @@ import { test, expect, devices } from '@playwright/test';
 //
 // NEXT_PUBLIC_IS_E2E=true 환경에서 컴포넌트(ClientPage·NicknameForm·GuestTimeGrid)가 supabase
 // 호출 skip + 즉시 진행. 닉네임 입력 → 모달 close → 그리드 셀 클릭 → CTA "결과 알림 받으려면 →" 표시.
-//
-// mobile-safari(WebKit)는 mount 지연으로 skip — 별도 디버깅 sub-task.
 
 const E2E_TOKEN = 'e2e-flow-token';
 
-// S14-violations-fix (2026-05-26): NicknameForm.handleSubmit + GuestTimeGrid.commitVotes에
-// NEXT_PUBLIC_IS_E2E 분기 추가했으나, modal mount → fill → submit → modal close → cell mousedown
-// → CTA visible 통합 flow가 mobile-chromium·desktop-chromium에서 timing/mount 이슈로 unstable.
-// trace 분석 + 분기 정합 별도 sub-task. spec body는 ready, dev server compile 시간 + React
-// effect propagation 동기화 보강 필요.
-test.describe.skip('Web Guest Page E2E Flow — 닉네임 입력 → 그리드 셀 select → CTA', () => {
+// S14-e2e-flow (2026-05-26): NicknameForm.handleSubmit + GuestTimeGrid.commitVotes의
+// NEXT_PUBLIC_IS_E2E 분기 + Turbopack workspace root fix(`next.config.ts`)로 full flow
+// stable. modal mount → fill → submit → modal close → cell mousedown → CTA visible.
+test.describe('Web Guest Page E2E Flow — 닉네임 입력 → 그리드 셀 select → CTA', () => {
   test('닉네임 → 그리드 셀 select → 본인 슬롯 border-brand-500 + CTA visible', async ({
     browser,
-  }, testInfo) => {
-    test.skip(testInfo.project.name === 'mobile-safari', 'WebKit mobile render 지연 — 별도 sub-task');
-
+  }) => {
     // mobile viewport 강제 (md:hidden 데스크톱 안내 화면 회피)
     const context = await browser.newContext({ ...devices['iPhone 13'] });
     const page = await context.newPage();

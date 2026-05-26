@@ -35,14 +35,11 @@ test.describe('web-guest base flow (supabase mock 없이 진행 가능한 분기
     await context.close();
   });
 
-  test('/g/[token] mobile viewport — 모임 헤더 + 닉네임 모달', async ({ browser }, testInfo) => {
-    // 2026-05-26 stability 회귀 발견. e5b685f 시점 retry로 flaky 통과 → 23cef5c 시점 stable
-    // → 본 ship 시점(voteKey 채택 + handleSubmit/commitVotes E2E 분기 추가) 후 mobile-chromium·
-    // desktop-chromium에서 retry=2도 fail. dev server compile 영향 또는 NicknameForm useEffect
-    // 의 NEXT_PUBLIC_IS_E2E 분기가 mobile viewport에서 안 먹히는 듯 — trace 분석 별도 sub-task.
-    // mobile-safari WebKit은 처음부터 skip(WebKit mount 지연). 모든 mobile/desktop project에서
-    // 일시 skip + 다음 ship에서 trace 진단 후 unskip.
-    test.skip(true, 'mobile viewport modal mount 회귀 — 별도 trace 분석 sub-task');
+  test('/g/[token] mobile viewport — 모임 헤더 + 닉네임 모달', async ({ browser }) => {
+    // S14-e2e-stability fix (2026-05-26): Turbopack workspace root 자동 감지 실패가 root cause
+    // 였음. `web-guest/package-lock.json`과 부모 `denda-app/package-lock.json` 둘 다 존재 → 부모
+    // 루트로 잘못 잡혀 "Next.js package not found" panic + Fast Refresh 무한 rebuild → 클라
+    // hydration 미완 → 모달 useEffect 못 돔. `next.config.ts::turbopack.root = __dirname`으로 해소.
     // 모바일 viewport (iPhone 13)
     const context = await browser.newContext({ ...devices['iPhone 13'] });
     const page = await context.newPage();
@@ -89,5 +86,65 @@ test.describe('web-guest base flow (supabase mock 없이 진행 가능한 분기
 
     const ogImage = await page.locator('meta[property="og:image"]').getAttribute('content');
     expect(ogImage).toMatch(/\/og_image\.png$/);
+  });
+});
+
+// S14-e2e-realtime — `votes_aggregate` Edge Function broadcast(D11) 수신 path 검증.
+//
+// GuestTimeGrid의 realtime useEffect가 E2E mode에서 노출하는
+// `window.__dendaE2E_triggerHeatmapBroadcast`를 호출해 핸들러를 흉내내고, page.route로
+// supabase /rest/v1/votes endpoint를 intercept해 refreshVotes 호출 여부를 검증한다.
+//
+// 실제 broadcast payload spec(day_index 등)은 S05a votes_aggregate Edge Function의 책임이며
+// Q-B21 closed entry에서 확정. 본 spec은 클라이언트의 listen-and-refresh path만 검증한다.
+test.describe('Realtime broadcast listen path — heatmap_update → refreshVotes', () => {
+  test('broadcast 트리거 시 /rest/v1/votes REST refresh 호출', async ({ browser }) => {
+    const context = await browser.newContext({ ...devices['iPhone 13'] });
+    const page = await context.newPage();
+
+    let votesFetchCount = 0;
+    await page.route('**/rest/v1/votes**', async (route) => {
+      votesFetchCount++;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      });
+    });
+
+    await page.goto(`/g/${E2E_TOKEN}`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+
+    // 닉네임 입력 → guestToken set → GuestTimeGrid mount → realtime useEffect 실행
+    const modal = page.locator('div.fixed.inset-0.z-50');
+    await modal.waitFor({ state: 'visible', timeout: 15_000 });
+    await modal.locator('#nickname-input').fill('테스터');
+    await modal.locator('button[type="submit"]').click();
+
+    // GuestTimeGrid cell mount + window trigger 노출 대기
+    await page.locator('[data-slot-cell]').first().waitFor({ state: 'visible', timeout: 5_000 });
+    await expect
+      .poll(
+        () =>
+          page.evaluate(
+            () =>
+              typeof (window as Window & { __dendaE2E_triggerHeatmapBroadcast?: () => void })
+                .__dendaE2E_triggerHeatmapBroadcast === 'function',
+          ),
+        { timeout: 5_000 },
+      )
+      .toBe(true);
+
+    const beforeCount = votesFetchCount;
+
+    // broadcast 핸들러 수동 트리거 (votes_aggregate Edge Function의 `heatmap_update` 흉내)
+    await page.evaluate(() => {
+      const w = window as Window & { __dendaE2E_triggerHeatmapBroadcast?: () => void };
+      w.__dendaE2E_triggerHeatmapBroadcast?.();
+    });
+
+    // refreshVotes가 supabase /rest/v1/votes endpoint hit 검증
+    await expect.poll(() => votesFetchCount, { timeout: 5_000 }).toBeGreaterThan(beforeCount);
+
+    await context.close();
   });
 });

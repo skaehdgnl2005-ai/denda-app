@@ -87,8 +87,19 @@ export default function GuestTimeGrid({
 
   // Subscribe to real-time updates for heatmap updates
   useEffect(() => {
-    // S14-e2e-setup: dummy supabase URL → websocket connection 영구 retry 회피.
-    if (process.env.NEXT_PUBLIC_IS_E2E === 'true') return;
+    if (process.env.NEXT_PUBLIC_IS_E2E === 'true') {
+      // dummy supabase URL websocket retry 회피 + Playwright spec이 핸들러 동작을 검증할 수
+      // 있도록 window-scoped trigger 노출. spec은 page.route로 /rest/v1/votes intercept 후
+      // 트리거 호출 → refreshVotes 호출(REST hit) 검증.
+      const trigger = () => {
+        refreshVotes();
+      };
+      const w = window as Window & { __dendaE2E_triggerHeatmapBroadcast?: () => void };
+      w.__dendaE2E_triggerHeatmapBroadcast = trigger;
+      return () => {
+        delete w.__dendaE2E_triggerHeatmapBroadcast;
+      };
+    }
     const channel = supabase
       .channel(`group:${groupId}`)
       .on('broadcast', { event: 'heatmap_update' }, () => {
