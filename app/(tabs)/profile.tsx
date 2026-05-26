@@ -53,16 +53,18 @@ export default function ProfileScreen() {
         <Body variant="bold" color={colors.text.primary}>
           {nickname || '게스트'}
         </Body>
-        <Caption
-          variant="default"
-          color={colors.text.tertiary}
-          style={{ marginTop: 4 }}
-        >
+        <Caption variant="default" color={colors.text.tertiary} style={{ marginTop: 4 }}>
           카카오 로그인
         </Caption>
       </View>
 
       <View style={{ paddingHorizontal: space[4], marginTop: space[10] }}>
+        <SettingRow
+          icon="캘린더"
+          label="에브리타임 시간표 가져오기"
+          onPress={() => router.push('/schedule/everytime')}
+          testID="everytime-import-link"
+        />
         <SettingRow icon="알림 켜짐" label="알림 설정" />
         <SettingRow icon="신고" label="신고·차단 관리" />
         <SettingRow icon="다크/라이트" label="화면 모드" />
@@ -91,31 +93,50 @@ export default function ProfileScreen() {
   );
 }
 
-function SettingRow({ icon, label }: { icon: ' 알림 켜짐' | '알림 켜짐' | '신고' | '다크/라이트'; label: string }) {
+function SettingRow({
+  icon,
+  label,
+  onPress,
+  testID,
+}: {
+  icon: '알림 켜짐' | '신고' | '다크/라이트' | '캘린더';
+  label: string;
+  onPress?: () => void;
+  testID?: string;
+}) {
   const { colors, space, radius } = useTheme();
-  return (
+  const content = (
     <View
       style={{
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: space[3],
         paddingHorizontal: space[3],
-        marginBottom: space[2],
         borderRadius: radius.md,
         backgroundColor: colors.surface[2],
       }}
     >
       <Icon name={icon as never} color={colors.text.secondary} size={20} />
-      <Body
-        variant="primary"
-        color={colors.text.primary}
-        style={{ flex: 1, marginLeft: space[3] }}
-      >
+      <Body variant="primary" color={colors.text.primary} style={{ flex: 1, marginLeft: space[3] }}>
         {label}
       </Body>
       <Icon name="화살표" color={colors.text.tertiary} size={18} />
     </View>
   );
+  if (onPress) {
+    return (
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        testID={testID}
+        style={({ pressed }) => ({ marginBottom: space[2], opacity: pressed ? 0.7 : 1 })}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+  return <View style={{ marginBottom: space[2] }}>{content}</View>;
 }
 
 const styles = StyleSheet.create({

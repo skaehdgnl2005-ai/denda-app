@@ -42,6 +42,37 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S03b — 에브리타임 OCR UI (학기 모달·미리보기·confirm·만료 필터) (2026-05-26) — DONE (S03 완성)
+- Depends: S03a (Edge Function `ocr_everytime` + 클라 wrapper, ship 2026-05-26 16559b9), S00 (`schedules` table + source enum), [D2](DECISIONS.md#d2--phase-12-scope-reduction-다크-디테일만-reduce) (OCR keep), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc), §17 (anti-AI-feel)
+- Changes:
+  - **순수 함수 TDD-first**:
+    - `src/lib/ocr/semesterValidation.ts` (+62 lines) + `.test.ts` (16 케이스) — YYYY-MM-DD 검증, 학기 14~200일 sanity, 한국어 에러 메시지
+    - `src/lib/ocr/courseListEditor.ts` (+78 lines) + `.test.ts` (24 케이스) — immutable add/update/remove + `normalizeTimeInput` ("10"→"10:00", "1030"→"10:30", "10:5"→"10:05") + `validateCourse` + `hasAnyValidationError`
+    - `src/lib/schedules/activeFilter.ts` (+18 lines) + `.test.ts` (6 케이스) — `isScheduleActive` + PostgREST `.or` filter 문자열 빌더
+  - **클라이언트 lib**:
+    - `src/lib/ocr/imagePicker.ts` (+72 lines) — `expo-image-picker` lazy import + `ImagePickerUnavailableError`/`ImagePickerPermissionDeniedError` 분기. 미설치 시 사용자에게 "곧 활성화돼요" 안내
+    - `src/lib/schedules/queries.ts` (+44 lines) — `fetchActiveSchedules` + `fetchEverytimeSchedules` (KST→UTC ISO 산출 후 expires_at filter)
+  - **컴포넌트**:
+    - `src/components/everytime/SemesterInput.tsx` (+103 lines) — 학기 시작·종료 TextInput + 인라인 한국어 에러 (DESIGN §11.3 인라인 패턴)
+    - `src/components/everytime/CourseRow.tsx` (+218 lines) — 강의명 + 요일 7-chip 선택 + 시작/종료/강의실 + 삭제 + 인라인 에러. blur 시 `normalizeTimeInput` 자동
+  - **화면**:
+    - `app/schedule/_layout.tsx` (+11 lines) — Stack
+    - `app/schedule/everytime.tsx` (+357 lines) — `input → ocr_loading → preview → confirming → success` 5단계 state machine. 권한 거부 + 미설치 + 사용자 취소 분기. `replaceExisting` 토글로 두 번째 import 시 덮어쓰기 옵션
+    - `app/_layout.tsx` (+1 line) — Stack에 `schedule` 등록
+  - **진입점**:
+    - `app/(tabs)/profile.tsx` (+11 lines) — `SettingRow`에 `onPress` 지원 + "에브리타임 시간표 가져오기" 행 추가 (icon=캘린더)
+- Tests: Jest **139 passed** (S03a 93 + S03b 신규 46), 1 skipped (ocr_eval by design), typecheck 0, lint 0 (S03b 영역)
+- Next: S03 완성 → S04 (모임 확정 push) 또는 S05b (TimeGrid worklet drag, 회사 운명) 본격 진행 가능
+- Notes:
+  - **`expo-image-picker` 미설치 — 다음 EAS Build 시점 lazy install 필요**. 현 상태에서 사용자가 사진 선택 버튼 누르면 "곧 활성화돼요" 안내 + flow 차단. 코드 path는 모두 ready (권한 분기 포함) — install 1줄(`npx expo install expo-image-picker`) + EAS Build 후 즉시 작동. Sprint 0 인프라 보강 list에 등록 권고
+  - **§17 anti-AI-feel 적용**: §17.1 brand-500 CTA 1개("일정에 저장하기") · §17.2 학기 input form 즉시 가치 · §17.3 카드 위계 3단(강의명/요일/시간) · §17.5 disabled = surface-2+text-tertiary (brand-200 X) · §17.6 친근체("시간표를 가져왔어요!")
+  - **D13 KST 강제**: `validateSemesterDate`는 luxon Asia/Seoul, `queries.ts::nowUtcIso()`는 KST→UTC. `new Date()` 직접 0
+  - **권한 거부 흐름**: ImagePickerPermissionDeniedError로 명시. iOS Settings.app 안내 카피 ("설정에서 권한을 켠 뒤 다시 시도해주세요")
+  - **`groups` SELECT 호스트 차단 UX**: parallel S07-d16-audit 세션이 D31로 close (groups SELECT 불변 + users SELECT 자연 mask). 본 S03b 코드 영향 0
+  - **acceptance 잔여 1건 — ground truth 데이터 ~20장 수집은 운영 task**. 인프라(`tests/ocr/README.md` + `ocr_eval.test.ts` + `case_01.expected.json` skeleton)는 S03a에서 완성됨
+
+---
+
 ## D31 결정 — 차단 호스트 모임 부분 노출 (Q-A8 close) (2026-05-26) — DONE
 - Depends: S07-d16-audit (2026-05-26 ship, Q-A8 등록), [D16](DECISIONS.md#d16--차단신고-일관성-helper-function--rls)
 - Changes:

@@ -12,8 +12,4 @@
 
 ## 🟢 활성 작업
 
-### S03 에브리타임 OCR — S03b UI 진행 중
-- **상태**: S03a DONE 2026-05-26 (Edge Function + 순수 함수 3종 + eval 인프라). S03b UI 시작
-- **다음 단계 (S03b)**: 순수 함수 TDD (semesterValidation / courseListEditor / activeSchedulesFilter) → CourseRow + SemesterPicker 컴포넌트 → `app/schedule/everytime/` 화면 → 프로필 진입 버튼
-- **블로커**: 없음. `expo-image-picker` 미설치 → 첫 ship에서 picker를 lazy-load stub function으로 추상화 + Notes로 추적
-- **마지막 update**: 2026-05-26 KST (S03b 시작)
+(없음 — 새 세션은 [PROGRESS.md](PROGRESS.md)의 active Sprint 확인 후 `/start-task`로 시작)

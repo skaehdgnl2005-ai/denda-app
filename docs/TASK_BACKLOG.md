@@ -9,8 +9,8 @@
 ## 진행 현황 요약
 
 - **총 17 태스크** (S00 ~ S16)
-- **DONE**: 2 (S00, S01)
-- **IN_PROGRESS**: 1 (S03 — S03a backend DONE 2026-05-26, S03b UI 남음)
+- **DONE**: 3 (S00, S01, S03)
+- **IN_PROGRESS**: 0
 - **TODO**: 13
 - **BLOCKED**: 1 (S10 — D1 지도 부분 답변 대기)
 
@@ -72,20 +72,20 @@
 
 ### S03 — 에브리타임 OCR (Gemini Vision)
 
-- **Status**: IN_PROGRESS (S03a backend DONE 2026-05-26) | **Owner**: Backend + Mobile | **Sprint**: 3 | **Lane**: A
+- **Status**: DONE (S03a 2026-05-26 backend + S03b 2026-05-26 UI) | **Owner**: Backend + Mobile | **Sprint**: 3 | **Lane**: A
 - **Depends**: S00 (schedules table), S01 (auth)
 - **Acceptance**:
   - ✅ Gemini Vision API client (Edge Function 내부)
   - ✅ 학교 시간표 OCR Edge Function (`supabase/functions/ocr_everytime/`)
-  - ⬜ 학기 시작·종료일 입력 모달 (S03b UI)
+  - ✅ 학기 시작·종료일 입력 모달 (`SemesterInput` + `app/schedule/everytime.tsx`)
   - ✅ 매주 반복 일정 자동 INSERT to schedules (source = 'everytime', action=confirm)
-  - ✅ 학기 종료 자동 만료 (expires_at column 설정, 클라이언트 query에서 필터)
-  - ⬜ 미리보기·confirm step (S03b UI — Edge Function은 preview/confirm 두 단계 준비됨)
-  - ⬜ Ground truth eval set ~20장 (운영 task — 인프라 + README + ocr_eval.test.ts 스켈레톤 준비됨)
+  - ✅ 학기 종료 자동 만료 (expires_at column 설정, `activeFilter` + `queries.ts`로 클라이언트 query 필터)
+  - ✅ 미리보기·confirm step (`CourseRow` 편집 + 5단계 state machine)
+  - ⚠️ Ground truth eval set ~20장 (운영 task — 인프라 + README + ocr_eval.test.ts 스켈레톤 준비됨, 실제 데이터 수집은 운영 트랙)
   - ✅ **OCR 일정은 외부 캘린더 push 안 함** (source='everytime' enum 격리 — D2 / ENG_REVIEW §9.4)
-- **Files**: `src/screens/schedule/everytime/` (S03b), `supabase/functions/ocr_everytime/` ✅, `tests/ocr/ground_truth/` (운영)
+- **Files**: `app/schedule/everytime.tsx` + `_layout.tsx`, `src/components/everytime/`, `src/lib/ocr/`, `src/lib/schedules/`, `supabase/functions/ocr_everytime/`, `tests/ocr/`
 - **Worktree 분기**: 가능 (S05·S07과 병행)
-- **Notes**: D2에서 founder가 OCR keep 결정. P1 학생 segment 가치 + 학기 시작 timing critical. S03a backend 진척: SESSION_LOG 2026-05-26 entry 참조
+- **Notes**: D2에서 founder가 OCR keep 결정. P1 학생 segment 가치 + 학기 시작 timing critical. **`expo-image-picker` 미설치 → 다음 EAS Build 시점 lazy install 필요** (`npx expo install expo-image-picker`). 권한 거부 분기 등 코드 path는 ready. Sprint 0 인프라 보강 list 등록 권고
 
 ### S04 — 모임 확정 + 멤버 푸시 (F5)
 

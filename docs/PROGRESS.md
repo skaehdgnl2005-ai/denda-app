@@ -14,7 +14,7 @@
 | **Sprint 0** | W-1 (2026-05-22 ~ 2026-05-28) | 12 인프라 항목 + 디자인 자산 | Expo init + Supabase + EAS Build + 카카오 portal + Supabase Auth Kakao + 키해시 등록 완료 | ON_TRACK |
 | **Sprint 1** | W0 | S00, S11, S13 skeleton | S00 ✅, **S11 ✅ (백필 2026-05-26, 다크 검증 deferred)**, S13 eas.json (S01 portfolio) | DONE (S00·S11) |
 | **Sprint 2** | W1 | S01 + S10 + S14 병행 (★ Kakao 답변 review) | **S01 ✅** (D29), **S14 skeleton ✅ (백필)**, S10 BLOCKED (Q-A2), **UI-§17 ✅ 2026-05-26** | IN_PROGRESS (S10 BLOCKED) |
-| **Sprint 3** | W2 | S05 + S07 + S03 + S08 (baseline 시작) | **S05-UI ✅ + S05a ✅ (PR 대기)** = S05 partial / **S07-UI ✅ + S07-backend ✅ (PR 대기) + S07-d16-audit ✅ 2026-05-26** = S07 partial / **S03a ✅ (backend)** = S03 partial / S08 미시작 | IN_PROGRESS |
+| **Sprint 3** | W2 | S05 + S07 + S03 + S08 (baseline 시작) | **S05-UI ✅ + S05a ✅ (PR 대기)** = S05 partial / **S07-UI ✅ + S07-backend ✅ (PR 대기) + S07-d16-audit ✅** = S07 partial / **S03 ✅ DONE 2026-05-26 (a+b)** / S08 미시작 | IN_PROGRESS |
 | **Sprint 4** | W3 | S04 + S06 + S12 + S15 (TestFlight) | 미시작 | — |
 | **W3.5** | W3.5 | S17 QA 종합 + 안암 invite-only launch | 미시작 | — |
 
@@ -25,13 +25,13 @@
 **총 17 태스크 (S00 ~ S16) + S17 QA**
 
 ```
-DONE 정식:  ██▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  2 / 17 (11.8%) — S00, S01
-Active:    ████████▒▒▒▒▒▒▒▒▒▒▒▒  7 / 17 (41%) — + S05 partial, S07 partial, S11 partial, S13 partial, S14 partial
+DONE 정식:  ███▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  3 / 17 (17.6%) — S00, S01, S03
+Active:    █████████▒▒▒▒▒▒▒▒▒▒▒  7 / 17 (41%) — + S05 partial, S07 partial, S11 partial, S13 partial, S14 partial
 ```
 
 | Lane | TODO | IN_PROGRESS (partial) | DONE | BLOCKED |
 |---|---|---|---|---|
-| **A (Foundation·Auth·Time grid·OCR)** | 1 (S04) | 3 (S05 = UI+a / S07 = UI+backend / S03 = a backend) | 2 (S00, S01) | 0 |
+| **A (Foundation·Auth·Time grid·OCR)** | 1 (S04) | 2 (S05 = UI+a / S07 = UI+backend) | 3 (S00, S01, S03) | 0 |
 | **B (Map·Click-through·지도-일정)** | 2 (S08, S15-mapmode) | 0 | 0 | 1 (S10) |
 | **C (Web guest)** | 1 (S15 deeplink) | 1 (S14 skeleton) | 0 | 0 |
 | **D (Cross-cutting)** | 3 (S06, S12, S17) | 2 (S11 tokens / S13 eas.json) | 0 | 1 (S16) |
@@ -127,7 +127,7 @@ Active:    ████████▒▒▒▒▒▒▒▒▒▒▒▒  7 / 17 
 | W-1 (Sprint 0) | S00 | 1 | 인프라 셋업 + Backend foundation |
 | W0 (Sprint 1) | S11 (백필 partial) | 2 | design system + Pretendard |
 | W1 (Sprint 2) | S01, S14-skel, S05-UI, S07-UI (백필), UI-§17, S05a + S07-backend (PR 대기) | ~8 (정식 DONE 1: S01) | ★ D29 OIDC 채택 + §17 신설 + worktree backend 2건 |
-| W2 (Sprint 3) | S03a (backend partial), S07-d16-audit | 2 partial | baseline 시작 (S03b UI + S05b worklet 진행 예정). D16 RLS hardening |
+| W2 (Sprint 3) | S03a + S03b → S03 ✅ 완성, S07-d16-audit, D31 결정 | 3 (S03 DONE 정식) | OCR 끝. S05b worklet drag 다음. D16 RLS hardening. D31 차단 호스트 정책 |
 | W3 (Sprint 4) | — | — | TestFlight |
 | W3.5 | — | — | Launch |
 
@@ -136,5 +136,5 @@ Active:    ████████▒▒▒▒▒▒▒▒▒▒▒▒  7 / 17 
 ## 📅 마지막 업데이트
 
 - **날짜**: 2026-05-26
-- **업데이트한 사람**: S07-d16-audit (D16 propagation audit migration 0007) ship
-- **다음 update**: S03b UI 진행 또는 S05b worklet drag 진행 시
+- **업데이트한 사람**: S03b ship (S03 완성: OCR UI 학기 모달·미리보기·confirm·만료 필터)
+- **다음 update**: S05b worklet drag 진행 시
