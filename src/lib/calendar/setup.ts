@@ -245,6 +245,40 @@ export async function deleteGoogleTokensFromServer(
 }
 
 // ---------------------------------------------------------------------------
+// AppState 어댑터 — react-native AppState → AppStateAdapter
+// ---------------------------------------------------------------------------
+
+/**
+ * production 환경에서 react-native의 AppState API를 useApplePendingSync hook의
+ * AppStateAdapter 인터페이스에 맞춰 wrap. dynamicRequire로 react-native lazy load —
+ * Jest 환경에서는 호출되지 않음 (CalendarSyncRoot 테스트는 mock appState DI 사용).
+ */
+export function createAppStateAdapter(): import('./useApplePendingSync').AppStateAdapter {
+  const RNAppState = (
+    dynamicRequire('react-native') as {
+      AppState: {
+        currentState: string;
+        addEventListener: (
+          event: 'change',
+          listener: (state: string) => void,
+        ) => { remove: () => void };
+      };
+    }
+  ).AppState;
+  return {
+    get currentState() {
+      return RNAppState.currentState as import('./useApplePendingSync').AppStateStatus;
+    },
+    addEventListener(event, listener) {
+      const sub = RNAppState.addEventListener(event, (state) =>
+        listener(state as import('./useApplePendingSync').AppStateStatus),
+      );
+      return { remove: () => sub.remove() };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // signInGoogleAndUpload — authorize + storage read + server upload 묶음
 // ---------------------------------------------------------------------------
 

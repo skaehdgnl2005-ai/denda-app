@@ -4,11 +4,18 @@
 
 import { Stack, SplashScreen } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useFonts } from 'expo-font';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { authStore } from '@/lib/auth/setup';
+import { authStore, useAuth } from '@/lib/auth/setup';
+import { CalendarSyncRoot } from '@/lib/calendar/CalendarSyncRoot';
+import { fetchCalendarPreference } from '@/lib/calendar/preference';
+import {
+  createAppStateAdapter,
+  createAppleCalendarProvider,
+} from '@/lib/calendar/setup';
+import { supabase } from '@/lib/supabase/client';
 import { ThemeProvider } from '@/design/theme';
 
 // Prevent splash screen from auto-hiding before asset loading is complete
@@ -43,6 +50,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ThemeProvider>
         <StatusBar style="auto" />
+        <CalendarSyncRootConnected />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="(auth)" />
@@ -52,5 +60,24 @@ export default function RootLayout() {
         </Stack>
       </ThemeProvider>
     </SafeAreaProvider>
+  );
+}
+
+/**
+ * production wiring for CalendarSyncRoot — useAuth로 userId 받고 native AppState 어댑터
+ * + createAppleCalendarProvider(expo-calendar dynamicRequire) wire-up. CalendarSyncRoot
+ * 자체는 DI 친화로 Jest tested. 본 wrapper는 _layout.tsx와 함께 untested glue.
+ */
+function CalendarSyncRootConnected(): React.JSX.Element {
+  const userId = useAuth((s) => s.session?.user.id);
+  const appState = useMemo(() => createAppStateAdapter(), []);
+  return (
+    <CalendarSyncRoot
+      userId={userId}
+      supabase={supabase}
+      fetchPreference={(id) => fetchCalendarPreference(supabase, id)}
+      createAppleProvider={createAppleCalendarProvider}
+      appState={appState}
+    />
   );
 }

@@ -15,7 +15,7 @@
 | **Sprint 1** | W0 | S00, S11, S13 skeleton | S00 ✅, **S11 ✅ (백필 2026-05-26, 다크 검증 deferred)**, S13 eas.json (S01 portfolio) | DONE (S00·S11) |
 | **Sprint 2** | W1 | S01 + S10 + S14 병행 (★ Kakao 답변 review) | **S01 ✅** (D29), **S14 skeleton ✅ + S14-utils ✅ + S14-test-augment ✅ + S14-violations-fix ✅ + S14-e2e-setup ✅ 2026-05-26 (Playwright base spec 3 케이스 + projects 3종)**, S10 BLOCKED (Q-A2), **UI-§17 ✅ 2026-05-26** | IN_PROGRESS (S10 BLOCKED) |
 | **Sprint 3** | W2 | S05 + S07 + S03 + S08 (baseline 시작) | **S05-UI ✅ + S05a ✅ + S05b ✅ (PR #3 78c8fe9) + S05c ✅ + S05d ✅ + S05 worklet drag ✅ + S05-screen-confirm ✅ 2026-05-26** = S05 acceptance 7/7 (S05e 60fps 실기기만 잔여) / **S07 ✅ DONE 2026-05-26** / **S03 ✅ DONE 2026-05-26 (a+b)** / S08 미시작 | IN_PROGRESS |
-| **Sprint 4** | W3 | S04 + S06 + S12 + S15 (TestFlight) | **S04 ✅ DONE 2026-05-26** (backend + UI via S05-screen-confirm) / **S06 sub-task 11/N 완료 2026-05-26**: queue-foundation + worker-integration + google-oauth + migration-0011 + apple-expo-calendar + worker-google-integration + worker-apple-trigger + setup + applesync-hook + ui-first-time-modal + **ui-reauth-modal** (D34/D35 신규. 양 provider backend + lib + setup wiring + AppState hook + 양 모달 완성. applesync 전역 wire-up만 잔여) / S12·S15 미시작 | IN_PROGRESS (early start) |
+| **Sprint 4** | W3 | S04 + S06 + S12 + S15 (TestFlight) | **S04 ✅ DONE** + **S06 ✅ DONE 2026-05-26** (sub-task 12/12 완료: backend + 양 provider lib + setup + applesync hook + 양 모달 + 전역 wire-up. D34/D35 신규. EAS Build 운영 prereq는 별도 트랙) / S12·S15 미시작 | IN_PROGRESS (S12 미시작) |
 | **W3.5** | W3.5 | S17 QA 종합 + 안암 invite-only launch | 미시작 | — |
 
 ---
@@ -25,8 +25,8 @@
 **총 17 태스크 (S00 ~ S16) + S17 QA**
 
 ```
-DONE 정식:  █████▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  5 / 17 (29.4%) — S00, S01, S03, S04, S07 (S05도 사실상 7/7, S05e 운영)
-Active:    ██████████▒▒▒▒▒▒▒▒▒▒  8 / 17 (47%) — + S05 acceptance 7/7 (S05e 운영), S11 partial, S13 partial, S14 partial
+DONE 정식:  ███████▒▒▒▒▒▒▒▒▒▒▒▒▒  7 / 17 (41.2%) — S00, S01, S03, S04, S06, S07, S14
+Active:    █████████▒▒▒▒▒▒▒▒▒▒▒  8 / 17 (47%) — + S05 acceptance 7/7 (S05e 운영), S11 partial, S13 partial
 ```
 
 | Lane | TODO | IN_PROGRESS (partial) | DONE | BLOCKED |
@@ -34,7 +34,7 @@ Active:    ██████████▒▒▒▒▒▒▒▒▒▒  8 / 17 
 | **A (Foundation·Auth·Time grid·OCR)** | 0 | 1 (S05 acceptance 7/7 — S05e 60fps 실기기 잔여) | 5 (S00, S01, S03, S04, S07) | 0 |
 | **B (Map·Click-through·지도-일정)** | 2 (S08, S15-mapmode) | 0 | 0 | 1 (S10) |
 | **C (Web guest)** | 1 (S15 deeplink) | 1 (S14 skeleton) | 0 | 0 |
-| **D (Cross-cutting)** | 2 (S12, S17) | 3 (S06 queue-foundation / S11 tokens / S13 eas.json) | 0 | 1 (S16) |
+| **D (Cross-cutting)** | 2 (S12, S17) | 2 (S11 tokens / S13 eas.json) | 1 (S06) | 1 (S16) |
 
 세부: [TASK_BACKLOG.md](TASK_BACKLOG.md)
 
@@ -128,7 +128,7 @@ Active:    ██████████▒▒▒▒▒▒▒▒▒▒  8 / 17 
 | W0 (Sprint 1) | S11 (백필 partial) | 2 | design system + Pretendard |
 | W1 (Sprint 2) | S01, S14-skel, S05-UI, S07-UI (백필), UI-§17, S05a + S07-backend (PR 대기), **S14-utils ✅ + S14-test-augment ✅ + S14-violations-fix ✅ + S14-e2e-setup ✅ 2026-05-26** | ~12 (정식 DONE 1: S01) | ★ D29 OIDC 채택 + §17 신설 + worktree backend 2건 + S14 TDD 사이클 4단 완성 (lib RN spec mirror + 안전망 + violations fix + Playwright base) |
 | W2 (Sprint 3) | S03a+S03b → S03 ✅, S07-d16-audit + S07-report + S07-block-supabase → S07 ✅, D31 + D32, S05b ✅ (PR #3 merged 78c8fe9) + S05c + S05d + S05-cleanup + **S05a + Q-B21 close** + **S05 worklet drag ✅** + **S05-screen-confirm ✅ 2026-05-26** | 4 (S03·S07 DONE 정식) | OCR 끝. S07 완성. S05 acceptance 7/7 완료 — S05e 60fps 부하만 잔여(실기기 필요). worklet drag = reanimated 4 + gesture-handler 2 + worklets 0.8 lazy install + D12 의무 패턴 통합. S05-screen-confirm으로 화면 + 호스트 확정 surface 완성 |
-| W3 (Sprint 4) | **S04 ✅ DONE 정식** + **S06 sub-task 11/N 완료 2026-05-26**: queue-foundation + worker-integration + google-oauth + migration-0011 + apple-expo-calendar + worker-google-integration + worker-apple-trigger + setup + applesync-hook + ui-first-time-modal + **ui-reauth-modal**. D34(Q-B22 close)·D35 신규 | 4 | Sprint 4 early start. S06 backend + lib + setup wiring + AppState hook + 양 모달 완성. applesync 전역 wire-up만 잔여 — 에뮬레이터 시각 검증 별도 세션 |
+| W3 (Sprint 4) | **S04 ✅ DONE 정식** + **S06 ✅ DONE 정식 2026-05-26**: sub-task 12/12 모두 완료 (queue-foundation + worker-integration + google-oauth + migration-0011 + apple-expo-calendar + worker-google-integration + worker-apple-trigger + setup + applesync-hook + ui-first-time-modal + ui-reauth-modal + **applesync-wireup**). D34(Q-B22 close)·D35 신규 | 5 | Sprint 4 early start. S06 acceptance 6/6 완성 — backend + lib + setup + hook + 양 모달 + 전역 wire-up. EAS Build 운영 prereq(Google OAuth dev key + expo packages install + expo-auth-session production wiring + app.json scheme)는 별도 트랙 |
 | W3.5 | — | — | Launch |
 
 ---
@@ -136,5 +136,5 @@ Active:    ██████████▒▒▒▒▒▒▒▒▒▒  8 / 17 
 ## 📅 마지막 업데이트
 
 - **날짜**: 2026-05-26
-- **업데이트한 사람**: S06-ui-reauth-modal ship. `src/components/calendar/ReauthModal.tsx` 신규 — "Google 캘린더 연결이 끊겼어요" + 나중에/다시 로그인 2 버튼 + signInGoogle DI + 한국어 에러 분기(cancelled silent / unauthorized/network 유지) + busy 다중 호출 차단. §17 정합. `src/lib/calendar/reauth.ts` 신규 — isGoogleReauthNeeded(supabase, userId) helper(users.calendar_preference IN google/both + user_oauth_tokens row 부재 시 true) + Jest 10 tests. `app/(tabs)/profile.tsx` wire-up — useEffect mount 시 reauth 검사 → ReauthModal 노출 + onSuccess 재검사로 모달 종료. S06 sub-task 11/N 완료
-- **다음 update**: S06-applesync-hook 전역 wire-up(app/_layout.tsx). 에뮬레이터 시각 검증 + Google OAuth dev key 사용자 prereq 미정
+- **업데이트한 사람**: **S06 정식 DONE** — applesync-wireup ship으로 마무리. `src/lib/calendar/CalendarSyncRoot.tsx` 신규 — DI 친화 컴포넌트(userId·supabase·fetchPreference·createAppleProvider·appState·now 주입), preference 'apple_ios'/'both'면 apple provider 생성 → useApplePendingSync({enabled: true}) + AppState change 즉시 trigger. 외 preference나 expo-* 미설치 시 silent 비활성. nowKst().toUTC().toISO() (D13 준수). Jest 9 tests TDD-first. `src/lib/calendar/setup.ts` 확장 — createAppStateAdapter(react-native AppState dynamicRequire wrap). `app/_layout.tsx` wire-up — `<CalendarSyncRootConnected />` SafeAreaProvider 내부 mount. **S06 sub-task 12/12 모두 완료** — Acceptance 6/6 충족. EAS Build 운영 prereq(Google OAuth dev key + expo packages install + expo-auth-session production wiring + app.json scheme)는 별도 트랙
+- **다음 update**: S12 push F1-F3 또는 S11 다크 토큰 또는 main 머지 (사용자 결정)

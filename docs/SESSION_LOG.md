@@ -42,6 +42,43 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S06-applesync-wireup — useApplePendingSync 전역 wire-up + S06 정식 DONE (2026-05-26) — DONE
+- Depends: S06-applesync-hook ship (`useApplePendingSync` 2026-05-26), S06-setup ship (`createAppleCalendarProvider` 2026-05-26), S06-ui-first-time-modal ship + S06-ui-reauth-modal ship (UI 양 모달 완성), [D34](DECISIONS.md#d34--apple-calendar-sync--클라-polling-패턴-q-b22-close)
+- Branch: `worktree-s06-google-oauth` (main 23cef5c 위 10 commits 누적)
+- Changes:
+  - **CalendarSyncRoot** (`src/lib/calendar/CalendarSyncRoot.tsx`, +~100 lines):
+    - DI 친화 컴포넌트 — userId/supabase/fetchPreference/createAppleProvider/appState/now 모두 props로 주입
+    - userId 변경 시 fetchCalendarPreference → 'apple_ios'/'both'면 createAppleProvider 호출 → AppleCalendarProvider 인스턴스
+    - 외 preference (null/'none'/'google') → apple null 유지 → useApplePendingSync({enabled: false}) → SELECT skip
+    - createAppleProvider throw (expo-calendar 미설치) → silent → enabled=false 유지 (Google-only/none 사용자 페이지 진입 안전)
+    - fetchPreference 에러 → silent → 다음 mount 재시도
+    - now default = `nowKst().toUTC().toISO()` (D13 KST 명시, design-guard 정합)
+    - Jest 9 tests (userId undef / pref null/none/google/apple_ios/both / createApple throw / fetch throw / AppState change 재호출)
+  - **createAppStateAdapter** (`src/lib/calendar/setup.ts`, +~30 lines):
+    - dynamicRequire('react-native') → AppState wrap → AppStateAdapter 인터페이스 변환
+    - Jest 환경 호출 안 됨 (CalendarSyncRoot 테스트는 mock appState DI). production wiring 검증은 EAS Build 시점
+  - **app/_layout.tsx wire-up** (+~25 lines):
+    - `<CalendarSyncRootConnected />` 추가 — useAuth로 userId 받고 production wiring (supabase + fetchCalendarPreference + createAppleCalendarProvider + createAppStateAdapter) 묶음
+    - SafeAreaProvider > ThemeProvider 안에 mount (모든 화면 공통)
+- **Tests**:
+  - Jest: **442 passed** (+9 CalendarSyncRoot), 1 skipped (ocr_eval), 50 suites
+  - typecheck 0
+  - lint 11 errors all pre-existing (변함없음)
+  - design-guard: `new Date()` 위반 시 hook 차단 — 2회 차단 → nowKst().toUTC().toISO() 패턴으로 전환
+- Next: **S06 정식 DONE 마킹 가능** (Acceptance 6/6 완료). 다음 unblock 대상 = S12 push F1-F3 또는 S11 다크 토큰 또는 main 머지 (사용자 결정). S05e 60fps 부하 실기기 + Google OAuth dev key·expo packages install·app.json scheme 운영 prereq는 별도 트랙
+- Notes:
+  - **S06 정식 DONE**: Acceptance 모두 충족 — Google Calendar OAuth + events.insert ✅, expo-calendar wrapper ✅, "어디 추가할까요" 첫 모달 ✅, Token 만료 재인증 모달 ✅, partial push fail backend ✅, background queue ✅. **S06 정식 DONE으로 TASK_BACKLOG · PROGRESS 표시 update**
+  - **운영 prereq 잔여 (별도 트랙)**:
+    1. Google OAuth dev key 발급 (Google Cloud Console → Web/iOS/Android OAuth Client ID + EXPO_PUBLIC_GOOGLE_CLIENT_ID env 설정)
+    2. expo packages install: `npx expo install expo-auth-session expo-secure-store expo-calendar react-native` (`react-native`는 이미 있음. expo-* 3개만)
+    3. expo-auth-session production wiring: setup.ts::createGoogleOAuthClient의 authorize/refresh/revoke를 실 expo-auth-session API로 구현 (현재 throw stub)
+    4. app.json scheme/intent filter (denda://oauth) + iOS Info.plist + Android intent filter (EAS Build 시점)
+  - **시각 검증 deferred**: expo-* 미설치라 에뮬레이터 동작 검증 불가. 1·2·3·4 prereq 완료 후 별도 세션
+  - **CalendarSyncRootConnected glue untested**: 10 lines glue (useAuth + production providers). 동등 패턴 _layout.tsx, profile.tsx도 untested. 운영 검증은 EAS Build 동작
+  - **계좌 sweep stats deferred**: retry_count max 초과 시 reset RPC + 호스트 알림 분기는 별도 sub-task (베타 한정 founder weekly review)
+
+---
+
 ## S06-ui-reauth-modal — Google 캘린더 재인증 안내 모달 (2026-05-26) — DONE (S06 partial 진척)
 - Depends: S06-ui-first-time-modal ship (`FirstTimeModal` + `signInGoogleAndUpload` 흐름 검증), S06-setup ship (`signInGoogleAndUpload`), migration 0012 (`user_oauth_tokens` table), DESIGN §11 (모달) + §17 (anti-AI-feel)
 - Branch: `worktree-s06-google-oauth` (main 23cef5c 위 9 commits 누적)

@@ -12,10 +12,5 @@
 
 ## 🟢 활성 작업
 
-### S06 Calendar Sync — UI 마무리 (applesync 전역 wire-up 잔여)
-- **상태**: S06-ui-first-time-modal ✅ + S06-ui-reauth-modal ✅ ship. 다음 sub-task = S06-applesync-hook 전역 wire-up
-- **다음 단계**: useApplePendingSync를 app/_layout.tsx 전역 mount + enabled flag(users.calendar_preference IN apple_ios/both 감지) + skippedUnauthorized→ReauthModal trigger 검토
-- **블로커**: 없음 (backend + lib + 양 모달 모두 ship됨)
-- **마지막 update**: 2026-05-26 (KST) — S06-ui-reauth-modal ship 직후
 
 
