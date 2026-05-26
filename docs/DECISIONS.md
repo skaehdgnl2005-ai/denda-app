@@ -764,6 +764,22 @@ const BranchAttribution = lazy(() => import('@/lib/branch/attribution'));
 
 ---
 
+## D32 — 베타 신고 = reports DB-only, 운영 통지 채널 deferred
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | 베타(Phase 1+2) 신고 flow는 **사용자 UI → reports table INSERT만** 진행. 운영팀 카톡 채널 자동 통지(`notify_admin` Edge Function + webhook)는 Sprint 0 #11 운영 카톡 채널 셋업 완료 후 별도 task로 deferred. 베타 동안 founder는 Supabase dashboard에서 weekly로 `SELECT * FROM reports WHERE created_at > NOW() - INTERVAL '7 days'`로 manual review. |
+| 근거 | 운영팀 카톡 채널 셋업(카카오비즈 채널 인증 + webhook 토큰 발급)은 현 시점 시간·리소스 제약으로 어려움. 신고 UI는 단독으로 가치 있음(사용자가 즉시 신고+차단 가능, evidence가 DB에 누적). manual weekly review로 베타 trust&safety 최소 기준 충족. 베타 사용자 N=수십명 규모에서는 7일 SLA 수용 가능. |
+| 대안 | (A) 신고 UI도 deferred — 거부: 차단(blocks)은 가능한데 신고가 없으면 evidence 누적 0, 운영 패턴 발견 불가. (B) Slack/Discord webhook 임시 도입 — 거부: 운영팀이 카톡 중심 + 또 다른 채널 도입 학습비용 + Phase 1+2 외부 의존 추가. (C) 이메일 fallback — 거부: founder 이메일 폭주 risk + 알림 latency. manual weekly review가 단순함. |
+| 소유자 | Founder |
+| 결정일 | 2026-05-26 |
+| 의존 | S07 acceptance reframe. Sprint 0 #11 운영 카톡 채널 셋업이 prereq 해소되면 본 결정 supersede 후 D33 자동 통지 도입. |
+| 결과 영향 | (1) S07 acceptance 마지막 항목 split: "✅ 신고 UI + reports INSERT" + "⏸️ 운영팀 카톡 채널 통지 (D32 deferred — Sprint 0 #11 prereq)". (2) S07 close 가능 (신고 UI ship 후). (3) 운영 SOP 추가 필요: weekly reports review checklist (별도 운영 문서 또는 founder 캘린더 reminder). (4) 신고 UI는 즉시 reports INSERT + 즉시 차단 toggle을 한 flow에 묶어 사용자가 본인 안전 즉시 확보 (운영 응답 지연을 우회). |
+| Phase 3 전환 | 운영 카톡 채널 셋업 완료 + 자동 통지 Edge Function `notify_admin` 도입 시 D32 supersede. 신고 SLA 7일 → 24시간으로 단축. 신고 trend 자동 분석(weekly 운영 리포트) 추가 가능. |
+| 출처 | 본 세션 (2026-05-26) — S07 acceptance 5번째 항목 prereq 확인 중 founder가 운영 채널 셋업 어려움 표명 |
+
+---
+
 ## 향후 결정 추가 템플릿
 
 새 결정을 추가할 때 다음 형식을 복사:
