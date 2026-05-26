@@ -42,6 +42,35 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S03a — 에브리타임 OCR Edge Function 핵심 로직 + ground truth eval 인프라 (2026-05-26) — PARTIAL (S03 backend)
+- Depends: S00 (schedules table + source enum 'everytime' — migration 0001:315), S01 (auth.users JWT), [D2](DECISIONS.md#d2--phase-12-scope-reduction-다크-디테일만-reduce) (OCR keep), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc), [D15](DECISIONS.md#d15--schedulessource-enum--phase-12은-provider-구분-포기)
+- Done:
+  - **Edge Function `supabase/functions/ocr_everytime/`** — 두 단계 (action=preview / action=confirm)
+    - `parser.ts` (+95 lines) — Gemini Vision 응답 정규화 (markdown ```json 펜스 처리, day/time/end>start 검증)
+    - `rrule.ts` (+39 lines) — RFC 5545 RRULE 생성 (FREQ=WEEKLY + BYDAY 매핑 + UNTIL=학기말 KST→UTC)
+    - `schedule.ts` (+97 lines) — OcrCourse → schedules row 변환 (첫 occurrence 요일 계산, KST→UTC, expires_at=학기말, source='everytime')
+    - `index.ts` (+146 lines) — Deno.serve HTTP handler, JWT 인증, Gemini Vision REST 호출 (responseMimeType=application/json), service_role schedules INSERT, replaceExisting 옵션
+    - Deno 테스트 3종 TDD-first (+201 lines, 28 케이스): `parser_test.ts` (10) / `schedule_test.ts` (11) / `rrule_test.ts` (7) — Deno CLI 미설치로 실행 deferred (S05a/S07-backend 패턴 동일)
+  - **클라이언트 wrapper `src/lib/ocr/everytime.ts`** (+57 lines) — `previewEverytimeOcr` / `confirmEverytimeOcr` (supabase.functions.invoke 경유, Gemini key 클라이언트 expose 0)
+  - **Eval 인프라**: `src/lib/ocr/diffAccuracy.ts` (+47 lines, 정확도 산출 순수 함수) + `diffAccuracy.test.ts` (Jest 8 케이스 통과)
+  - **Ground truth 디렉토리**: `tests/ocr/README.md` (운영자 가이드 — 학교≥5곳/해상도/다크모드 권고), `tests/ocr/ground_truth/case_01.expected.json` (스펙 샘플), `tests/ocr/ocr_eval.test.ts` (PNG 없으면 skip, OCR_EVAL_ENABLED + GEMINI_API_KEY 환경 변수로 활성)
+- Remaining (S03b 또는 후속):
+  - **UI** — `src/screens/schedule/everytime/`: 카메라/갤러리 권한, 이미지 base64 변환, 학기 시작·종료일 모달, OCR 진입 + 미리보기·confirm step, 학기 종료 자동 숨김 (client query `WHERE expires_at IS NULL OR expires_at > NOW()`)
+  - **Ground truth 데이터 ~20장** — 협조 학생 모집 + 마스킹 + expected.json 작성 (운영 task)
+  - **Gemini API key Supabase secret 등록** (`GEMINI_API_KEY` env) + 한 번 실 호출 검증
+- Tests: Jest **93 passed (1 skipped — ocr_eval by design)** + diffAccuracy 8 신규, typecheck 0, lint 0, Deno 28 TDD-first 작성 (실행 deferred)
+- Next: S03b UI 또는 S05b (TimeGrid worklet drag — 회사 운명 60fps)
+- Notes:
+  - **외부 캘린더 push 차단 메커니즘**: `source='everytime'` enum 격리 ([D15](DECISIONS.md#d15--schedulessource-enum--phase-12은-provider-구분-포기) + ENG_REVIEW §9.4). calendar_push Edge Function이 WHERE source IN ('manual', 'google', 'apple_ios')로 filter할 책임 (S06)
+  - **두 단계 분리** (preview/confirm)는 acceptance "미리보기·confirm step" 충족 + Gemini 토큰 절약 (사용자가 confirm 안 하면 INSERT 안 함)
+  - **replaceExisting 기본 false** — 두 번째 import 시 기본 "추가". 덮어쓰기 옵션은 UI(S03b)에서 토글로 노출
+  - **`noUncheckedIndexedAccess` strict 모드 적응**: diffAccuracy의 `remaining[idx]`는 undefined 가능 → optional chaining + 명시적 분기로 수정
+  - **GEMINI_API_KEY 미설정 위험**: Edge Function 첫 호출 시 502 fail. 운영 배포 전 Supabase secret 등록 의무
+  - **Day enum 통일**: parser.ts·rrule.ts·schedule.ts·client lib 4곳에 같은 7값. 향후 enum 공유 모듈로 통합 후보
+  - SESSION_LOG 206줄 (200줄 임계 초과 +6) — 최고령 entry는 2026-05-22(4일 전), 30일+ 없어 archive 시점 미도래. 다음 ship에서 재확인
+
+---
+
 ## S07-backend — group_invitations blocking propagation + is_blocked RPC helper (2026-05-26) — DONE (PR 대기)
 - Branch: `worktree-agent-a39703870f6972b8c` (worktree 격리, main 머지는 PR 후)
 - Depends: S00 (`is_blocked` helper at 0001:94, group_invitations table), [D16](DECISIONS.md#d16--차단신고-일관성-helper-function--rls)
