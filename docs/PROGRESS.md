@@ -14,7 +14,7 @@
 | **Sprint 0** | W-1 (2026-05-22 ~ 2026-05-28) | 12 인프라 항목 + 디자인 자산 | Expo init + Supabase + EAS Build + 카카오 portal + Supabase Auth Kakao + 키해시 등록 완료 | ON_TRACK |
 | **Sprint 1** | W0 | S00, S11, S13 skeleton | S00 ✅, **S11 ✅ (백필 2026-05-26, 다크 검증 deferred)**, S13 eas.json (S01 portfolio) | DONE (S00·S11) |
 | **Sprint 2** | W1 | S01 + S10 + S14 병행 (★ Kakao 답변 review) | **S01 ✅** (D29), **S14 skeleton ✅ (백필)**, S10 BLOCKED (Q-A2), **UI-§17 ✅ 2026-05-26** | IN_PROGRESS (S10 BLOCKED) |
-| **Sprint 3** | W2 | S05 + S07 + S03 + S08 (baseline 시작) | **S05-UI ✅ + S05a ✅ (PR 대기)** = S05 partial / **S07-UI ✅ + S07-backend ✅ (PR 대기)** = S07 partial / S03·S08 미시작 | IN_PROGRESS |
+| **Sprint 3** | W2 | S05 + S07 + S03 + S08 (baseline 시작) | **S05-UI ✅ + S05a ✅ + S05b ✅ (PR 대기)** = S05 partial / **S07-UI ✅ + S07-backend ✅ (PR 대기)** = S07 partial / **S03 진행 중 (다른 세션, main)** / S08 미시작 | IN_PROGRESS |
 | **Sprint 4** | W3 | S04 + S06 + S12 + S15 (TestFlight) | 미시작 | — |
 | **W3.5** | W3.5 | S17 QA 종합 + 안암 invite-only launch | 미시작 | — |
 
@@ -26,12 +26,12 @@
 
 ```
 DONE 정식:  ██▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  2 / 17 (11.8%) — S00, S01
-Active:    ████████▒▒▒▒▒▒▒▒▒▒▒▒  7 / 17 (41%) — + S05 partial, S07 partial, S11 partial, S13 partial, S14 partial
+Active:    ████████▒▒▒▒▒▒▒▒▒▒▒▒  7 / 17 (41%) — + S05 partial (UI+a+b), S07 partial, S11 partial, S13 partial, S14 partial
 ```
 
 | Lane | TODO | IN_PROGRESS (partial) | DONE | BLOCKED |
 |---|---|---|---|---|
-| **A (Foundation·Auth·Time grid·OCR)** | 2 (S03, S04) | 2 (S05 = UI+a / S07 = UI+backend) | 2 (S00, S01) | 0 |
+| **A (Foundation·Auth·Time grid·OCR)** | 1 (S04) | 3 (S03 진행 / S05 = UI+a+b / S07 = UI+backend) | 2 (S00, S01) | 0 |
 | **B (Map·Click-through·지도-일정)** | 2 (S08, S15-mapmode) | 0 | 0 | 1 (S10) |
 | **C (Web guest)** | 1 (S15 deeplink) | 1 (S14 skeleton) | 0 | 0 |
 | **D (Cross-cutting)** | 3 (S06, S12, S17) | 2 (S11 tokens / S13 eas.json) | 0 | 1 (S16) |
@@ -127,7 +127,7 @@ Active:    ████████▒▒▒▒▒▒▒▒▒▒▒▒  7 / 17 
 | W-1 (Sprint 0) | S00 | 1 | 인프라 셋업 + Backend foundation |
 | W0 (Sprint 1) | S11 (백필 partial) | 2 | design system + Pretendard |
 | W1 (Sprint 2) | S01, S14-skel, S05-UI, S07-UI (백필), UI-§17, S05a + S07-backend (PR 대기) | ~8 (정식 DONE 1: S01) | ★ D29 OIDC 채택 + §17 신설 + worktree backend 2건 |
-| W2 (Sprint 3) | — | — | baseline 시작 (S05b 진행 예정) |
+| W2 (Sprint 3) | S05b (PR 대기, helpers + Realtime hook), S03 진행 중 | — | Q-B21 등록 (D11 payload day_index 차원) |
 | W3 (Sprint 4) | — | — | TestFlight |
 | W3.5 | — | — | Launch |
 
@@ -136,5 +136,5 @@ Active:    ████████▒▒▒▒▒▒▒▒▒▒▒▒  7 / 17 
 ## 📅 마지막 업데이트
 
 - **날짜**: 2026-05-26
-- **업데이트한 사람**: Portfolio 백필 + UI-§17 + S05a/S07-backend (PR 대기) 정리
+- **업데이트한 사람**: S05b ship (PR 대기) — pure 헬퍼 + Realtime hook + Q-B21 등록
 - **다음 update**: S05a/S07-backend PR 머지 후, 또는 S05b/S03 본격 진행 시

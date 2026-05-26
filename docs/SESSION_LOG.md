@@ -42,6 +42,40 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S05b — TimeGrid heatmap pure 헬퍼 + Realtime subscribe hook (2026-05-26) — DONE (PR 대기, S05 partial)
+- Branch: `worktree-s05b-worklet-drag` (worktree 격리, S03 OCR 다른 세션과 main 충돌 회피)
+- Depends: S00 (votes table, time_slots, Realtime), S05a (votes_aggregate Edge Function — PR 대기, D11 spec-driven 진행), [D10](DECISIONS.md#d10--히트맵-5단계-색-램프-heat-0--중립-그레이), [D11](DECISIONS.md#d11--realtime-히트맵--edge-function-합산-후-broadcast-옵션-b), [D12](DECISIONS.md#d12--60fps-시간-그리드-구현-spec), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc), [D14](DECISIONS.md#d14--시간-슬롯-단위-15분--db-check)
+- Changes:
+  - src/lib/heatmap/types.ts (+24 lines) — CellState/SlotKey 공유 타입
+  - src/lib/heatmap/classify.ts (+34 lines) — D10 5-stop ramp (count→heat-0~4), edge clamp
+  - src/lib/heatmap/classify.test.ts (+50 lines, 7 tests)
+  - src/lib/heatmap/applyPayload.ts (+94 lines) — payload→60×7 CellState[][] 변환. selfMarks override(D10). 범위 밖 슬롯 graceful 무시
+  - src/lib/heatmap/applyPayload.test.ts (+125 lines, 9 tests)
+  - src/lib/heatmap/sweep.ts (+45 lines) — slotKey/computeSweepKeys/toggleSlot (Gesture.Pan worklet에서 호출 가능한 pure 함수)
+  - src/lib/heatmap/sweep.test.ts (+72 lines, 7 tests)
+  - src/lib/heatmap/debounce.ts (+50 lines) — createDebouncer(cb, 100ms) — D12 본문 vote commit debounce
+  - src/lib/heatmap/debounce.test.ts (+62 lines, 5 tests jest fake timers)
+  - src/lib/heatmap/useHeatmapSubscription.ts (+90 lines) — supabase.channel(`group:${groupId}`).on('broadcast',{event:'heatmap_update'}) listen + applyHeatmapPayload + isConnected 추적 + unmount cleanup
+  - src/lib/heatmap/useHeatmapSubscription.test.ts (+220 lines, 8 tests, supabase channel mock)
+  - jest.config.js (+1 testPathIgnorePatterns, ±2 testMatch glob) — Windows worktree path normalization 깨짐 fix
+  - docs/NOW.md (S05b 활성 항목 promote 제거)
+  - docs/OPEN_QUESTIONS.md (+18 lines) — Q-B21 신규 (D11 payload day_index 차원 누락)
+- Tests: 122 passed (21 suite), 본 ship 신규 37 (5 suite). typecheck 0, lint 0 (S05b 영역)
+- Next:
+  - **S05 잔여 sub-task** (별도 ship): S05c TimeGrid Gesture.Pan worklet drag + useSharedValue 통합 (Reanimated mock 환경 격리 필요), S05d vote commit DB INSERT/DELETE (debounce + 인증), S05e 60fps 부하 테스트 (production binary, iPhone SE 2 / Galaxy A14)
+  - **Q-B21 closure 필요**: S05a Edge Function payload에 `day_index` 추가 (또는 `day_iso` / week-minute 인코딩 중 선택). 본 클라이언트 헬퍼는 (a) `day_index` 가정으로 임시 구현
+  - **머지 방법**: `gh pr create --base main --head worktree-s05b-worklet-drag ...`
+- Notes:
+  - **D11 spec extension** — 본문은 `start_minute`만 있으나 votes 테이블에 `day DATE` 컬럼이 있고 7일 grid 필수 → 본 헬퍼는 `{day_index, start_minute, count}` 확장 가정. S05a Edge Function patch + D11 본문 update 권고 (Q-B21)
+  - **D10 본인 슬롯 별도 시각** 정확히 구현 — payload ramp 위에 selfMarks가 override (state='self' + raw count 유지)
+  - **graceful 입력 검증** — payload의 start_minute<540 / ≥1440 / %15≠0 / day_index 범위 밖 모두 silent skip (서버 CHECK 책임이지만 클라 안전망)
+  - **jest.config glob fix** — Windows worktree path에서 `<rootDir>/src/**/*.test.{ts,tsx}` glob이 mixed forward/backslash로 broken. `**/src/**/*.test.{ts,tsx}` + `/web-guest/` ignore로 해결. main 영향 0 (web-guest는 자체 jest.config 보유)
+  - **Reanimated worklet 통합은 별도 sub-task** — useSharedValue + Gesture.Pan은 jest-expo mock 환경에서 통합 테스트 까다로움. 본 ship은 worklet에서 호출 가능한 pure 함수만 (classifyHeat, applyHeatmapPayload, computeSweepKeys, createDebouncer)
+  - **다른 세션이 main에서 S03 OCR 작업 중** — worktree 격리로 main 충돌 0건
+  - **TDD-first** — 모든 신규 코드 red → green 순
+
+---
+
 ## S07-backend — group_invitations blocking propagation + is_blocked RPC helper (2026-05-26) — DONE (PR 대기)
 - Branch: `worktree-agent-a39703870f6972b8c` (worktree 격리, main 머지는 PR 후)
 - Depends: S00 (`is_blocked` helper at 0001:94, group_invitations table), [D16](DECISIONS.md#d16--차단신고-일관성-helper-function--rls)
