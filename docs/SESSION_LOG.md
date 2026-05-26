@@ -42,6 +42,56 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S06-google-oauth — Google Calendar OAuth + events.insert 클라이언트 lib (2026-05-26) — DONE (S06 partial 진척)
+- Depends: S06-queue-foundation ship 2026-05-26 (`_lib/calendar_queue.ts` CalendarEventPayload shape), S06-worker-integration ship 2026-05-26 (worker stub은 본 ship에서 유지 — 다음 sub-task에서 교체), [D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시) (단방향 + token 만료 silent fail 금지), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc) (외부 캘린더 event timeZone='Asia/Seoul'), AuthProvider DI 패턴 mirror ([KakaoOIDCProvider](../src/lib/auth/KakaoOIDCProvider.ts) — native SDK·HTTP·storage 모두 의존성 주입)
+- Branch: `worktree-s06-google-oauth` (main 23cef5c 위에서 신규 진행, PR 후 main fast-forward 예정)
+- Changes:
+  - **클라이언트 lib TDD-first** (`src/lib/calendar/google.ts`, +330 lines):
+    - Shared shape: `CalendarEventPayload` (cross-runtime — Deno worker `_lib/calendar_queue.ts`와 dual 정의, 변경 시 동기 의무 주석 명시) + `GoogleCalendarEvent` (Google API events.insert body subset)
+    - Token state: `GoogleTokenState {accessToken, refreshToken, expiresAtMs, scope}` (SecureStore JSON 직렬화) + `GoogleOAuthGrant` (OAuth 발급 시점 응답)
+    - DI interface 3종: `GoogleOAuthClient` (authorize/refresh/revoke — production은 expo-auth-session 어댑터), `GoogleTokenStorage` (getItem/setItem/deleteItem — production은 expo-secure-store), `GoogleCalendarDeps` (oauth + storage + fetch + now)
+    - 순수 함수 3종:
+      - `isTokenExpired(state, nowMs, skewMs=60_000)` — 만료 임박 (skew window) 이내면 미리 refresh. Google 서버 시계 차이 + 네트워크 RTT 보호
+      - `buildGoogleEvent(payload)` — CalendarEventPayload → Google event format. timeZone='Asia/Seoul' 항상 명시(D13), locationName null 시 location 키 자체 생략 (Google API spec), 빈 title throw (invariant)
+      - `parseStoredToken(raw)` — null/malformed JSON/필수 필드 누락/타입 불일치 모두 null 반환 (방어적 파싱)
+    - `CalendarProviderError` 클래스: discriminated union detail (cancelled/unauthorized/token_expired/rate_limit/network/unknown) + 한국어 message ("캘린더 연결이 취소되었어요." / "캘린더 재인증이 필요해요. 다시 로그인해 주세요.")
+    - `GoogleCalendarProvider` (DI 패턴):
+      - `isAuthorized()` — storage valid token + refresh_token 살아있음 (access 만료 무관 — refresh로 갱신 가능)
+      - `authorize()` — oauth.authorize → storage save. cancel → CalendarProviderError({cancelled}), network 실패 → ({network})
+      - `insertEvent(payload)` — storage get → 만료면 oauth.refresh → 만료 비교 후 fetch POST events.insert. invalid_grant → storage 삭제 + token_expired, 401 → storage 삭제 + unauthorized, 429 → rate_limit (storage 유지), 5xx → unknown, fetch reject → network
+      - `signOut()` — revoke 호출 (best-effort, 실패해도 진행) + storage 삭제 (idempotent)
+  - **Jest tests** (`src/lib/calendar/google.test.ts`, +485 lines, 31 케이스):
+    - `isTokenExpired` 4: 만료 1h 남음 / 5분 전 만료 / 30초 남음 skew 안 / default skew 60초 (30s ≤ vs 120s >)
+    - `buildGoogleEvent` 3: 기본(summary/desc/location/start/end + timeZone Asia/Seoul) / locationName null → location 키 생략 / 빈 title throw
+    - `parseStoredToken` 4: valid JSON / null / malformed JSON / 필수 필드 누락 (3 case)
+    - `GoogleCalendarProvider.isAuthorized` 4: 빈 storage / valid token / 만료 access + 살아있는 refresh / malformed JSON
+    - `GoogleCalendarProvider.authorize` 3: happy (oauth + storage save 검증) / cancel (code='CANCELLED' 또는 message /cancel/) / network 실패
+    - `GoogleCalendarProvider.insertEvent` 8: fresh access POST / 만료 → refresh → POST (storage 갱신, refresh_token 보존) / refresh fails invalid_grant → token_expired + storage delete / 401 → unauthorized + storage delete / 429 → rate_limit (storage 유지) / fetch reject → network / no-token → unauthorized (authorize 미호출 검증) / 500 → unknown
+    - `GoogleCalendarProvider.signOut` 3: happy (revoke + delete) / no-token (revoke skip + delete만) / revoke 실패해도 delete
+    - `CalendarProviderError` 2: name=CalendarProviderError + detail 보존 / message 한국어 (cancelled 정규식 /취소/, token_expired 정규식 /재인증|로그인/)
+  - **운영 파일 변경 0**: `calendar_push_worker/index.ts` stub 유지. 다음 sub-task에서 교체 — 이유: stub 교체는 (1) migration 0011 (users.calendar_preference) + (2) 서버 측 token 저장 architecture 결정 (refresh_token이 클라 SecureStore에 있으면 worker가 접근 못함) 두 조건 모두 필요. 본 sub-task는 클라이언트 OAuth + events.insert wrapper 완성에 한정
+  - **expo-auth-session 미설치**: package.json 변경 0. DI 패턴이라 lib 자체는 native 모듈 의존 0. production wiring(`src/lib/calendar/setup.ts` 가칭) 시점에 lazy install — KakaoOIDCProvider/setup.ts와 동일 패턴 ([D25](DECISIONS.md#d25--cold-start-target--2초--lazy-loading) cold start 보호도 자연)
+- Tests: Jest **31 passed** (신규 — `src/lib/calendar/google.test.ts`). 전체 jest **340 passed + 1 skipped** (ocr_eval by design, 41/42 suites — 회귀 0, 사전 friends/index/requests 3 timeouts는 flaky/사전 issue로 main에서도 재현). typecheck 0 (worktree에 web-guest/node_modules junction 후 동일 환경). lint 0 errors + 0 warnings (prettier auto-fix 1회 적용). design-guard 위반 0 (bare `new Date()` 0 / hex 색 0 / 영문 라벨 0 / 금지 폰트 0)
+- Next:
+  - **S06-apple-expo-calendar** (다음 sub-task): `src/lib/calendar/apple.ts` `expo-calendar` lazy install + iOS 17+ write-only 권한 wrapper. Apple은 worker 직접 push 불가 → push notification trigger + client app이 expo-calendar.createEventAsync 호출 패턴 필요. **OPEN_QUESTIONS에 Q-{ID} 신규 추가 prereq** (Apple sync mechanism — push F-style 분기 설계)
+  - **migration 0011** (다음 sub-task 또는 통합): `users.calendar_preference TEXT CHECK IN ('google','apple_ios','both','none')` default NULL. 본 ship 클라 lib + 다음 sub-task 통합 시 worker SELECT에서 사용
+  - **worker stub 교체** (migration 0011 + 서버 측 token 저장 결정 후): worker가 어떤 mechanism으로 OAuth refresh_token에 접근하느냐(클라 → 서버 업로드 vs 별도 OAuth identity table). 본 ship의 `GoogleCalendarProvider`는 클라에서 직접 호출 가능 — 첫 모달 + 호스트 수동 push 등 클라 시점 사용 케이스에 즉시 활용
+  - **S06-ui-first-time-modal** (다음 세션): `src/components/calendar/FirstTimeModal.tsx` 모임 첫 확정 시 "어디 추가할까요" + GoogleCalendarProvider.authorize() 호출
+  - **S06-ui-reauth-modal** (다음 세션): 프로필 → 캘린더 연결 관리 + token_expired 에러 → 모달 (D19 silent fail 금지)
+- Notes:
+  - **DI 패턴 KakaoOIDCProvider mirror**: 네이티브 모듈(expo-auth-session·expo-secure-store)을 lib 자체가 import하지 않음. 모든 의존성은 `GoogleCalendarDeps` 통해 주입 → jest에서 fake 객체로 모킹. production wiring은 별도 setup.ts(미작성)에서 — Kakao와 동일 분리 패턴. lib 코드는 EAS Build native 모듈 미설치 상태에서도 typecheck/jest 모두 통과
+  - **CalendarEventPayload cross-runtime dual 정의의 의도**: Deno worker(`supabase/functions/_lib/calendar_queue.ts`)와 RN 클라이언트는 서로 import 불가(runtime 다름). 동일 schema를 양쪽에 정의 + 변경 시 동기 의무를 lib 헤더 주석 명시. 두 정의가 drift하면 worker에서 만든 payload를 클라가 변환 시 typecheck로 잡힘 (클라 worker 호출 path 도입 시점에 검증)
+  - **expiresAtMs 계산은 `deps.now() + expiresInSeconds * 1000`** — luxon 미사용. 이유: `expiresAtMs`는 wall-clock 비교용 unix ms만 필요하며 KST 표기 무관 (UI 표시 X). 본 lib는 외부 캘린더 event timeZone='Asia/Seoul' 명시(D13)에서만 KST 영향, 토큰 만료는 timezone-free
+  - **401 vs 429 분기의 의도**: 401(invalid credentials)은 token이 서버에서 revoke된 상태로 storage 삭제. 429(rate limit)는 token은 살아있고 일시 throttle이라 storage 유지 → 사용자가 잠시 후 재시도 가능. Google API 응답 표준 따름
+  - **invalid_grant detect 패턴**: oauth.refresh가 throw하는 Error의 code 또는 message에 'invalid_grant' 포함 시 token_expired로 분류. Google OAuth 표준 에러. 다른 모든 refresh 실패는 network 에러로 처리(retry 가능)
+  - **buildGoogleEvent의 location 키 생략**: Google API는 location 필드를 optional로 받지만 빈 문자열도 받지 않음. `location !== null && location !== undefined`로 가드 → null이면 키 자체를 생략(Object.prototype.hasOwnProperty.call 검증 test로 보장)
+  - **fetch DI의 가치**: production은 globalThis.fetch (RN built-in). 테스트는 jest.fn으로 Response 객체 반환 mock — 실제 HTTP server 띄울 필요 X, 401/429/500/network 등 모든 분기를 단위 테스트로 커버
+  - **worker stub 미교체 선택의 의도**: 본 sub-task가 클라이언트 lib에 집중 → 다음 sub-task가 서버 측 (migration 0011 + token 저장 + worker 통합)에 집중 → 단일 ship 단위 작아 reviewable. S06-queue-foundation/S06-worker-integration이 단계적 ship한 패턴 follow
+  - **사전 friends test 3 timeouts**: `tests/screens/friends/index.test.tsx`(2건) + `tests/screens/friends/requests.test.tsx`(1건)에서 `waitFor` 5초 타임아웃. main commit `23cef5c`에서도 재현됨(`npx jest tests/screens/friends/` 실행 시 3 failed). 본 sub-task 무관. flaky하게 통과/실패 (재실행 시 0 failed였음). 별도 안정성 sub-task 권고
+  - **worktree node_modules junction**: jest/tsc는 main의 `node_modules`를 junction(`mklink /J`)으로 재사용 — `npm install` 회피로 시간 단축. `web-guest/node_modules`도 별도 junction 필요 (main tsc는 web-guest 포함, main 빌드 시 OK). 본 patch는 worktree에만 해당, main 빌드 unaffected
+
+---
+
 ## S06-worker-integration — calendar_push_worker Edge Function + pg_cron schedule + 순수 함수 확장 (2026-05-26) — DONE (S06 partial 진척)
 - Depends: S06-queue-foundation ship 2026-05-26 (`_lib/calendar_queue.ts` 순수 함수 + 0009 migration), [D19](DECISIONS.md#d19--calendar-sync-단방향-부분-실패-명시) (partial fail 호스트 알림), [D20](DECISIONS.md#d20--calendar-push-fan-out--background-queue) (pg_cron + retry max 3), notify_f5 PartialFailEntry shape (`{user_id, reason, channel, occurred_at}` cross-channel JSONB)
 - Changes:
