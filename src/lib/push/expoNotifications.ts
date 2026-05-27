@@ -126,10 +126,11 @@ export async function registerForPushNotifications(
 // dynamicRequire 어댑터 (production wiring)
 // ---------------------------------------------------------------------------
 
-function dynamicRequire(packageName: string): unknown {
+// Metro 프로덕션 번들러는 require(변수)를 거부 → 호출부에서 `() => require('pkg')` thunk로 전달
+// (리터럴 문자열). require는 factory 호출 시에만 실행 → cold start(D25) 영향 없음.
+function loadOptionalModule<T = unknown>(load: () => T, packageName: string): T {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
-    return (require as (name: string) => unknown)(packageName);
+    return load();
   } catch {
     throw new Error(
       `${packageName} 패키지가 설치되지 않았어요. 다음 EAS Build 시점에 \`npx expo install ${packageName}\`을 실행해 주세요.`,
@@ -138,11 +139,14 @@ function dynamicRequire(packageName: string): unknown {
 }
 
 /**
- * expo-notifications 모듈을 dynamicRequire로 가져와 `ExpoNotificationsApi` shape으로 wrap.
- * Jest 환경에서 호출되면 module not found → 한국어 throw.
+ * expo-notifications 모듈을 lazy require로 가져와 `ExpoNotificationsApi` shape으로 wrap.
  */
 export function createExpoNotificationsApi(): ExpoNotificationsApi {
-  const mod = dynamicRequire('expo-notifications') as {
+  const mod = loadOptionalModule(
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
+    () => require('expo-notifications'),
+    'expo-notifications',
+  ) as {
     getPermissionsAsync: () => Promise<{ status: string; granted?: boolean }>;
     requestPermissionsAsync: () => Promise<{ status: string; granted?: boolean }>;
     getExpoPushTokenAsync: (opts: {
@@ -165,10 +169,14 @@ export function createExpoNotificationsApi(): ExpoNotificationsApi {
 }
 
 /**
- * react-native Platform을 dynamicRequire.
+ * react-native Platform을 lazy require.
  */
 export function createPlatformApi(): PlatformApi {
-  const mod = dynamicRequire('react-native') as {
+  const mod = loadOptionalModule(
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
+    () => require('react-native'),
+    'react-native',
+  ) as {
     Platform: { OS: PlatformApi['OS'] };
   };
   return { OS: mod.Platform.OS };

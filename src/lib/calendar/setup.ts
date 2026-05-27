@@ -37,13 +37,14 @@ const GOOGLE_PROVIDER = 'google_calendar';
 // ---------------------------------------------------------------------------
 
 /**
- * `require`를 type assertion으로 우회. TS는 반환을 `any`로 취급 → 패키지 미설치 시점에
- * typecheck pass + runtime은 module not found throw (한국어 wrap).
+ * 패키지를 lazy load — require 인자는 **리터럴 문자열**이어야 한다 (thunk로 전달).
+ * Metro 프로덕션 번들러는 `require(변수)`를 거부(Invalid call)하므로 호출부에서
+ * `() => require('pkg')` 형태로 넘긴다. 미설치 시 한국어 에러 wrap. require는 함수 내부
+ * (factory 호출 시)에만 실행 → cold start(D25) 영향 없음.
  */
-function dynamicRequire(packageName: string): unknown {
+function loadOptionalModule<T = unknown>(load: () => T, packageName: string): T {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
-    return (require as (name: string) => unknown)(packageName);
+    return load();
   } catch {
     throw new Error(
       `${packageName} 패키지가 설치되지 않았어요. 다음 EAS Build 시점에 \`npx expo install ${packageName}\`을 실행해 주세요.`,
@@ -69,8 +70,9 @@ function dynamicRequire(packageName: string): unknown {
  * (Google client id, redirect URI, scopes)와 함께 implement.
  */
 function createGoogleOAuthClient(_config: GoogleOAuthConfig): GoogleOAuthClient {
-  // 호출 시 패키지 require. 미설치 시 throw.
-  dynamicRequire('expo-auth-session');
+  // 호출 시 패키지 require (presence check). 미설치 시 throw.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
+  loadOptionalModule(() => require('expo-auth-session'), 'expo-auth-session');
 
   return {
     async authorize(_scopes): Promise<GoogleOAuthGrant> {
@@ -105,7 +107,11 @@ export interface GoogleOAuthConfig {
 // ---------------------------------------------------------------------------
 
 function createSecureStoreAdapter(): GoogleTokenStorage {
-  const mod = dynamicRequire('expo-secure-store') as {
+  const mod = loadOptionalModule(
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
+    () => require('expo-secure-store'),
+    'expo-secure-store',
+  ) as {
     getItemAsync: (key: string) => Promise<string | null>;
     setItemAsync: (key: string, value: string) => Promise<void>;
     deleteItemAsync: (key: string) => Promise<void>;
@@ -122,7 +128,11 @@ function createSecureStoreAdapter(): GoogleTokenStorage {
 // ---------------------------------------------------------------------------
 
 function createExpoCalendarApi(): AppleCalendarApi {
-  const mod = dynamicRequire('expo-calendar') as {
+  const mod = loadOptionalModule(
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
+    () => require('expo-calendar'),
+    'expo-calendar',
+  ) as {
     getCalendarPermissionsAsync: () => Promise<{ status: 'granted' | 'denied' | 'undetermined' }>;
     requestCalendarPermissionsAsync: () => Promise<{
       status: 'granted' | 'denied' | 'undetermined';
@@ -253,7 +263,11 @@ export async function deleteGoogleTokensFromServer(supabase: SupabaseClient): Pr
  */
 export function createAppStateAdapter(): import('./useApplePendingSync').AppStateAdapter {
   const RNAppState = (
-    dynamicRequire('react-native') as {
+    loadOptionalModule(
+      // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
+      () => require('react-native'),
+      'react-native',
+    ) as {
       AppState: {
         currentState: string;
         addEventListener: (
