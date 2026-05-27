@@ -346,7 +346,7 @@
   - ⏸️ Android keystore — 첫 `eas build`에서 EAS 자동 생성 (Play Console 불필요). runbook §1.2
   - ⏸️ TestFlight + Google Play Internal Testing 트랙 — TestFlight=`eas submit -p ios`(Apple ✅), Play track=Play Console 가입 후. runbook §3
   - ✅ EAS secret 관리 (Supabase URL, Kakao key, Naver key 등) — `.env.eas.example` manifest (A) EAS env + (B) Supabase Edge secret + (C) 자격증명. `.env.example` 보강(EAS_PROJECT_ID·NAVER 검색). 실제 `eas env:create`는 founder (runbook §1.1)
-  - ⏸️ Production binary cold start < 2초 측정 (D25) — 계측 코드 ✅ (`src/lib/perf/coldStart.ts` + `_layout.tsx` markInteractive + 19 Jest). 실측은 founder 실기기(Galaxy A14·iPhone SE 2, `adb logcat | grep cold-start`). runbook §4
+  - ✅/⏸️ Production binary cold start < 2초 측정 (D25) — **Android 측정 ✅**: preview release APK 실기기(Galaxy A10) JS-TTI **237ms** (<2000ms). 단 측정범위=JS 번들 eval→interactive(네이티브 prefix 미포함, runbook §4) → 전체 아이콘탭~사용가능 권위 숫자(`adb shell am start -W` TotalTime)는 deferred. iOS 측정도 잔여
 - **Files**: `eas.json` ✅, `app.config.ts`(기존 — app.json 대체), `.env.eas.example` ✅, `.env.example` ✅, `src/lib/perf/coldStart.ts(.test.ts)` ✅, `app/_layout.tsx` ✅, `docs/EAS_BUILD_RUNBOOK.md` ✅
 - **운영 트랙 (founder, runbook 따라)**: eas login → env:create → credentials(iOS) → build -p android --profile preview(APK) → 실기기 cold-start 측정 → assetlinks SHA256 + AASA TEAMID 교체(S15) → (Play 배포 시) Play Console 가입 + submit
 

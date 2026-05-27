@@ -42,6 +42,26 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S13-build-bringup — preview APK 실기기 빌드 성공 + cold-start 측정 (2026-05-28) — PARTIAL (Android 빌드·측정 ✅, iOS·TestFlight·Play 운영 트랙 잔여)
+- Depends: S13 skeleton (2026-05-27), [D25](DECISIONS.md#d25--cold-start-target--2초--lazy-loading) (cold start < 2초), Q-B20 부분 해소 (Apple Dev ✅ / Play 미가입이나 APK 사이드로드로 불필요)
+- Context: 사용자가 직접 `eas build -p android --profile preview`로 실기기(Galaxy A10) 빌드 진행. 3회 실패를 거치며 production 번들 차단 요인을 순차 해소 — 각 단계 로컬 `expo export`로 재현·검증해 클라우드 빌드 낭비 최소화. 최종 preview release APK 사이드로드 → cold-start 화면 배지로 측정 성공.
+- Changes (커밋 4건):
+  - **`497397d` expo-constants 빌드 prereq**: expo-doctor가 expo-router 필수 peer dep `expo-constants` 누락 감지(미설치 시 APK launch crash). install + SDK 56 patch 정렬(expo/expo-asset/expo-dev-client/expo-router). 21/21 green
+  - **`5f69cb9` EAS Update dynamic config 차단 해소**: eas.json `channel`이 EAS Update 요구 → `app.config.ts`(동적)라 EAS가 `updates.url`/`runtimeVersion` 자동 기입 불가 → 빌드 실패. 해당 키 직접 추가 + **`fallbackToCacheTimeout: 0`**(임베드 번들 즉시 실행, 업데이트 백그라운드 → cold start 측정 왜곡 방지). expo-updates ~56.0.17
+  - **`6fd8651` production 번들 차단 2건 (Metro/Hermes)**:
+    1. **dynamicRequire(변수) → Metro 거부**: `require(변수)`는 Metro 정적 분석 불가("Invalid call"). 3개 어댑터(`calendar/setup.ts`·`push/expoNotifications.ts`·`share/kakaoShare.ts`)의 `dynamicRequire(name)` 헬퍼를 `loadOptionalModule(() => require('리터럴'), name)` thunk 패턴으로 전환. require는 factory 호출 시에만 실행 → **lazy 유지(D25)**, 인자는 리터럴이라 Metro OK
+    2. **`@supabase/supabase-js` OTEL `import(변수)` → Hermes 컴파일 불가**: v2.106.1이 `const OTEL_PKG="@opentelemetry/api"; import(OTEL_PKG).catch(()=>null)` 박아둠(다른 번들러는 ignore 주석으로 skip하나 Hermes는 표현식 자체 컴파일 실패). **patch-package**로 `Promise.resolve(null)` 무력화(@opentelemetry/api 미설치라 RN 동작 동일) — `patches/@supabase+supabase-js+2.106.1.patch` + `postinstall: patch-package`(클라우드 `npm install` 재적용). index.mjs(import 조건) + index.cjs(require 조건) 양쪽
+  - **`4877a79` cold-start 화면 배지**(전 세션): preview/dev 프로파일 `EXPO_PUBLIC_PERF_OVERLAY=1`로 게이팅, adb 없이 화면 판독
+- **측정 결과**: **cold-start JS-TTI = 237ms** (Galaxy A10, preview release APK). D25 예산 2000ms 대비 12% — ✅ 매우 양호. **단 측정 범위 = "JS 번들 eval 시작 → 첫 화면 interactive"** (모듈 로드~splash hide). OS process spawn~JS 시작(네이티브 init/번들 로드) 앞부분은 본 계측 미포함 → 진짜 아이콘 탭~사용가능은 237ms + 네이티브 prefix. JS 구간이 이렇게 작아 전체도 2초 안쪽 추정이나 권위 숫자는 `adb shell am start -W` TotalTime 필요(사용자 선택 A — JS 신호로 기록, 전체 측정은 deferred)
+- Tests: Jest 585 + 1 skip, typecheck 0, lint 0 errors. 로컬 `expo export -p android` 성공(3742 modules, Hermes OK) — release 번들 사전 검증 루프 확보
+- Next:
+  - **S13 잔여 운영 트랙**: iOS 빌드(`eas build -p ios`, Apple Dev ✅) + TestFlight 제출 + (Play 배포 원할 때) Play Console 가입 + Internal track. 전체 cold start 권위 측정(adb am start -W, 원할 때)
+  - **번들 회귀 방지**: 새 동적 `require(변수)`/`import(변수)` 금지 — `loadOptionalModule` thunk 패턴 사용. supabase-js 업그레이드 시 patch 재생성 필요(`npx patch-package @supabase/supabase-js`)
+- Notes:
+  - **로컬 expo export = release 번들 사전 검증 루프**: 클라우드 "Bundle JavaScript" 단계와 동일한 Metro+Hermes를 로컬에서 1~2분에 재현. 클라우드 빌드(10~25분) 태우기 전 require/import 에러를 미리 잡음 — 본 세션 3회 실패를 이 루프로 압축
+  - **measured 정직성**: 237ms는 JS-TTI(통제 영역)지 full cold start 아님. PROGRESS KPI에 범위 명시. D25 "production binary cold start < 2초"는 JS 구간 ✅ + 전체는 강한 양호 신호(권위 숫자 deferred)로 기록 — 과대 주장 회피
+  - **patch-package 영속성**: postinstall로 클라우드/재설치 자동 재적용. patch 미적용 시 Hermes 빌드 재실패하므로 patches/ + postinstall 삭제 금지
+
 ## S13 — EAS Build + 인증서 + TestFlight (skeleton) (2026-05-27) — PARTIAL (설정·계측·manifest·runbook 완성, 계정/실기기 의존은 운영 트랙)
 - Depends: [Q-B20](OPEN_QUESTIONS.md#q-b20--apple-developer--google-play-console-가입-timing) **부분 해소** (Apple Developer ✅ 보유 / Google Play Console ❌ 미가입이나 베타엔 불필요 — APK 사이드로드), [D25](DECISIONS.md#d25--cold-start-target--2초--lazy-loading) (cold start < 2초), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc) (계측은 monotonic clock — elapsed time이라 KST 적용 대상 아님)
 - Context: 사용자 "S13 start" → Q-B20 블로커 설명 round-trip. 사용자가 (1) Apple Developer 이미 보유, (2) 안드로이드는 Play Console 없이 APK 사이드로드로 실기기 테스트 가능함을 확인 → "스켈레톤 전체" 범위 승인. 인증서·키스토어·TestFlight·실기기 cold-start 측정은 인터랙티브 `eas` CLI(2FA·클라우드 빌드·기기)라 AI 실행 불가 → config/계측 코드/manifest/runbook으로 분리. S06/S12/S15 "EAS Build 운영 prereq 별도 트랙" 패턴 mirror.
