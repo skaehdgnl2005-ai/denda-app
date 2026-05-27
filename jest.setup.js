@@ -1,3 +1,4 @@
+/* eslint-env jest */
 // Jest global setup — Expo + RN mocks.
 // jest-expo preset already handles most native module mocks; this file is for
 // project-specific globals (e.g., env vars defaulted to test values).

@@ -171,7 +171,10 @@ async function handler(req: Request): Promise<Response> {
     return errorResponse('인증이 만료되었어요. 다시 로그인해주세요.', 401);
   }
 
-  const clickedAtIso = nowKst().toUTC().toISO() ?? new Date().toISOString();
+  const clickedAtIso = nowKst().toUTC().toISO();
+  if (!clickedAtIso) {
+    return errorResponse('시간 변환에 실패했어요.', 500);
+  }
 
   const row = buildClickEventRow({
     eventId: parsed.eventId,
