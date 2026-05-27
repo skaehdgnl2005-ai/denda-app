@@ -42,6 +42,32 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S13 — EAS Build + 인증서 + TestFlight (skeleton) (2026-05-27) — PARTIAL (설정·계측·manifest·runbook 완성, 계정/실기기 의존은 운영 트랙)
+- Depends: [Q-B20](OPEN_QUESTIONS.md#q-b20--apple-developer--google-play-console-가입-timing) **부분 해소** (Apple Developer ✅ 보유 / Google Play Console ❌ 미가입이나 베타엔 불필요 — APK 사이드로드), [D25](DECISIONS.md#d25--cold-start-target--2초--lazy-loading) (cold start < 2초), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc) (계측은 monotonic clock — elapsed time이라 KST 적용 대상 아님)
+- Context: 사용자 "S13 start" → Q-B20 블로커 설명 round-trip. 사용자가 (1) Apple Developer 이미 보유, (2) 안드로이드는 Play Console 없이 APK 사이드로드로 실기기 테스트 가능함을 확인 → "스켈레톤 전체" 범위 승인. 인증서·키스토어·TestFlight·실기기 cold-start 측정은 인터랙티브 `eas` CLI(2FA·클라우드 빌드·기기)라 AI 실행 불가 → config/계측 코드/manifest/runbook으로 분리. S06/S12/S15 "EAS Build 운영 prereq 별도 트랙" 패턴 mirror.
+- Changes:
+  - **`src/lib/perf/coldStart.ts` (+~135 lines, 신규)** — D25 TTI 계측. `COLD_START_BUDGET_MS=2000` + pure `measureColdStart`(음수 0 clamp, <= 예산)/`classifyColdStart`/`formatColdStartLog`(adb logcat·Console.app 판독용) + `createColdStartTracker`(DI now/startMs/budgetMs/onMeasure, markInteractive idempotent) + 모듈 로드 시각 capture singleton `getAppColdStartTracker`/`_resetAppColdStartTracker`. monotonic clock(`performance.now()` → `Date.now()` fallback) — wall-clock 아님(D13은 달력 시각 규칙, elapsed엔 미적용)
+  - **`src/lib/perf/coldStart.test.ts` (+~175 lines, 19 tests TDD-first)** — budget 상수 / measure 5(delta·초과·정확히 예산·clock 역행 clamp·custom budget) / classify 3 / format 2(반올림·within≠over 마커) / tracker 5(주입 now·start default·idempotent·onMeasure 1회·isDone) / singleton 2 / defaultNow 1
+  - **`app/_layout.tsx` (+~5 lines)** — fonts 로드 + splash hide effect에서 `getAppColdStartTracker().markInteractive()` 호출 (interactive 시점). idempotent라 재실행 안전. untested glue
+  - **`eas.json` (강화)** — build profile 3종에 `environment`(EAS env 바인딩) + `resourceClass: medium`. development/preview = APK(사이드로드), production = app-bundle(스토어). submit.production.android `track: internal` + `releaseStatus: draft`
+  - **`.env.eas.example` (+~70 lines, 신규)** — EAS secret/env manifest 단일 진실. (A) EAS Environment Variables(EXPO_PUBLIC_* + visibility plaintext/sensitive 가이드 + `eas env:create` 예제) / (B) Supabase Edge secrets(NAVER_CLIENT_SECRET·GEMINI·HMAC·GOOGLE_* — rule 7 클라 expose 금지) / (C) 빌드 자격증명 prereq
+  - **`.env.example` (+~10 lines)** — 누락 보강: `EXPO_PUBLIC_EAS_PROJECT_ID`(S12 push) + `NAVER_CLIENT_ID/SECRET`(S16 지역검색, Edge only)
+  - **`docs/EAS_BUILD_RUNBOOK.md` (+~150 lines, 신규)** — founder 운영 절차: 계정 상태표 / eas login·env:create·credentials / 빌드(preview APK 사이드로드 추천) / 제출(TestFlight·Play internal) / **cold-start 측정(adb logcat·Console.app 판독 + Galaxy A14·iPhone SE 2 + production binary + 계측 범위 한계 정직 명시)** / assetlinks SHA256·AASA TEAMID(S15 연동) / 미해소 체크리스트
+  - **`docs/OPEN_QUESTIONS.md`** — Q-B20 상태 "미시작" → "부분 해소(Apple ✅ / Play deferred)"
+  - **`docs/NOW.md`** — S13 활성 항목 본 ship으로 promote(제거)
+- Tests: **Jest 577 passed + 1 skipped + 0 failed** (558 → +19: coldStart), **typecheck 0**, **eslint 0 errors** (9 warnings 모두 pre-existing — expoNotifications/PushRegistrationRoot, 본 turn 신규 파일은 0). Deno 변경 0 (Edge 미변경)
+- Next:
+  - **S13 운영 트랙 (founder, runbook 따라 실행)**: `eas credentials`(iOS cert/provisioning, Apple ✅) → `eas build -p android --profile preview`(APK 사이드로드, keystore 자동 생성) → 실기기 cold-start 측정(Galaxy A14·iPhone SE 2, `adb logcat | grep cold-start`) → 빌드 후 assetlinks SHA256 + AASA TEAMID 교체(S15) → (Play 배포 원할 때) Google Play Console 가입
+  - **남은 acceptance**: iOS 인증서/provisioning(eas credentials) / Android keystore(첫 build 자동) / TestFlight + Play Internal track / production binary cold-start 실측 — 전부 founder 인터랙티브 CLI
+  - **다음 가능 태스크**: S15-mapmode(S10 unblock 후) / S17 QA 종합
+- Notes:
+  - **PARTIAL 정직성**: S13 acceptance 6개 중 config(eas.json) ✅ + EAS secret 관리(manifest) ✅ + cold-start 계측 코드 ✅. 인증서·keystore·TestFlight/Play track·실기기 cold-start 실측 4개는 인터랙티브 eas CLI + 실기기라 AI 실행 불가 → 운영 트랙. TASK_BACKLOG Status IN_PROGRESS 유지(DONE 아님)
+  - **계측 범위 한계 정직 명시**: coldStart는 "JS 번들 평가 시작 → 첫 화면 interactive"만 측정. OS process spawn~JS 시작 구간은 native 계측(expo-application 등) 필요 — runbook §4에 명시. 베타는 JS 구간으로 회귀 추적, 정밀 측정은 별도 트랙
+  - **D13 비위반 근거**: design-guard가 `new Date()` 차단하나 coldStart는 `performance.now()`(monotonic) 사용 — duration 측정에 wall-clock 부적합. D13은 "달력 시각 표시·저장" 규칙이라 elapsed time엔 미적용. (주석에 `new Date()` 리터럴 쓰면 hook이 잡아서 문구 조정함)
+  - **Q-B20 재평가 = 사용자 지식 교정**: 초기엔 "Play Console 미가입 → Android 막힘"으로 봤으나, 사용자가 APK 사이드로드 가능성 지적 → EAS preview profile이 이미 `buildType: apk`라 Play Console 없이 실기기 테스트 가능 확인. Play Console은 Play 스토어 배포·Internal Testing **트랙**에만 필요 → deferred
+
+---
+
 ## S16-naver-fallback — 장소 검색 fallback = NaverSearchProvider eager (Q-A2 no-answer) (2026-05-27) — PARTIAL (map 검색 provider 레이어 완성, AppleAuthProvider Phase 3 deferred, S10 지도 화면 별도)
 - Depends: S00 ✅ (places·partnerships schema), [D1](DECISIONS.md#d1--kakao-oauth--local-api-정책-verify-track--lazy-backup) no-answer 액션 발동, [D18](DECISIONS.md#d18--좌표계-정규화-layer) (좌표 WGS84 정규화), [D36](DECISIONS.md#d36--s16-장소-검색-fallback--naversearchprovider-eager-q-a2-no-answer--edge-proxy) (본 turn 신규), [Q-A2](OPEN_QUESTIONS.md#q-a2--kakao-local-api-약관-외부-지도-sdk-위-표시) (답변 미수신 → fallback)
 - Context: 사용자 "Q-A2 답변 안 옴 → fallback 하고 싶음" 지시. 마감(2026-05-28) 하루 전이지만 `PlaceSearchProvider` 인터페이스 추상화로 추후 카카오 "허용" 답변 시 KakaoLocalProvider 교체가 cheap → 선제 진행 매몰 비용 0 판단. 시각 지도 화면(S10: Naver Maps SDK 렌더·뷰포트 debounce·클러스터링)은 native 모듈/EAS Build 의존이라 본 turn 범위 밖 — provider 레이어(검색·데이터)만 활성. 네이버 지역검색은 Client Secret 필요 → Edge proxy 경유(CLAUDE.md rule 7), 카카오(D26 server proxy 미도입)와 다름.

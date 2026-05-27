@@ -15,6 +15,7 @@ import { resolveAttribution } from '@/lib/branch/attributionApi';
 import { CalendarSyncRoot } from '@/lib/calendar/CalendarSyncRoot';
 import { fetchCalendarPreference } from '@/lib/calendar/preference';
 import { createAppStateAdapter, createAppleCalendarProvider } from '@/lib/calendar/setup';
+import { getAppColdStartTracker } from '@/lib/perf/coldStart';
 import { createExpoNotificationsApi, createPlatformApi } from '@/lib/push/expoNotifications';
 import { PushRegistrationRoot } from '@/lib/push/PushRegistrationRoot';
 import { supabase } from '@/lib/supabase/client';
@@ -38,6 +39,9 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (fontsLoaded || fontsError) {
+      // D25 cold start 측정 — 폰트 로드 + 첫 렌더 완료(splash hide) = interactive 시점.
+      // tracker는 idempotent라 재실행에도 첫 측정만 기록. production binary에서 console 판독.
+      getAppColdStartTracker().markInteractive();
       SplashScreen.hideAsync().catch(() => {
         /* Prevent unhandled promise rejection */
       });

@@ -10,8 +10,8 @@
 
 - **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** + **S14 sub-task 다수** + **fail-cleanup** (2026-05-26) + **S15-deeplink-schema** (2026-05-26) + **S12-backend-f1-f4 + S12-publishers-f4 + S12-client** (2026-05-26) + **S08-backend** (2026-05-26) + **S08-ui** (2026-05-27 — S08 정식 DONE) + **S15-deeplink 잔여 5 sub-task** (2026-05-27 — edge + web + rn-fallback + rn-conversion + deeplink. S15-deeplink 정식 DONE) + **Q-B22** + **D34** + **D35** 신규
 - **DONE**: 12 (S00, S01, S03, S04, S06, S07, S08, S11, S12, S14, S15-deeplink) + S05 acceptance 7/7 (S05e 운영 task)
-- **IN_PROGRESS**: 2 (S05 — S05e 60fps 부하 실기기 잔여 / S16 — map 검색 provider 레이어 완성 PARTIAL, AppleAuthProvider Phase 3 deferred)
-- **TODO**: 4 (S13, S15-mapmode, S17, S10 — 정책 블록 해소[D36], native Naver Maps SDK/EAS gating)
+- **IN_PROGRESS**: 3 (S05 — S05e 60fps 부하 실기기 잔여 / S16 — map 검색 provider 레이어 완성 PARTIAL, AppleAuthProvider Phase 3 deferred / S13 — EAS skeleton 완성[설정·계측·manifest·runbook], 인증서·실기기 측정 운영 트랙)
+- **TODO**: 3 (S15-mapmode, S17, S10 — 정책 블록 해소[D36], native Naver Maps SDK/EAS gating)
 - **BLOCKED**: 0 (S10·S16 D1 no-answer 액션 발동[D36]으로 정책 블록 해소)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
@@ -338,16 +338,17 @@
 
 ### S13 — EAS Build + 인증서 + TestFlight
 
-- **Status**: TODO | **Owner**: Founder + Mobile | **Sprint**: 1 + W3 | **Lane**: D
-- **Depends**: Apple Developer + Google Play Console 가입 (Q-B20)
+- **Status**: IN_PROGRESS (2026-05-27 — 설정·계측·manifest·runbook 스켈레톤 완성. 인증서·keystore·TestFlight/Play track·실기기 cold-start 실측은 운영 트랙, founder 인터랙티브 eas CLI) | **Owner**: Founder + Mobile | **Sprint**: 1 + W3 | **Lane**: D
+- **Depends**: ~~Apple Developer + Google Play Console 가입 (Q-B20)~~ **부분 해소** — Apple Developer ✅ 보유 / Google Play Console은 베타엔 불필요(APK 사이드로드), Play 배포 시점에만
 - **Acceptance**:
-  - EAS config (`eas.json`)
-  - iOS 인증서 + provisioning profile
-  - Android keystore
-  - TestFlight + Google Play Internal Testing 트랙
-  - EAS secret 관리 (Supabase URL, Kakao key, Naver key, Branch.io key 등)
-  - Production binary cold start < 2초 측정 (D25)
-- **Files**: `eas.json`, `app.json`, `.env.eas`
+  - ✅ EAS config (`eas.json`) — environment 바인딩(dev/preview/production) + resourceClass + APK(preview)/AAB(production) split + submit.production.android track=internal
+  - ⏸️ iOS 인증서 + provisioning profile — Apple Developer ✅ 보유, `eas credentials` (founder 인터랙티브). runbook §1.2
+  - ⏸️ Android keystore — 첫 `eas build`에서 EAS 자동 생성 (Play Console 불필요). runbook §1.2
+  - ⏸️ TestFlight + Google Play Internal Testing 트랙 — TestFlight=`eas submit -p ios`(Apple ✅), Play track=Play Console 가입 후. runbook §3
+  - ✅ EAS secret 관리 (Supabase URL, Kakao key, Naver key 등) — `.env.eas.example` manifest (A) EAS env + (B) Supabase Edge secret + (C) 자격증명. `.env.example` 보강(EAS_PROJECT_ID·NAVER 검색). 실제 `eas env:create`는 founder (runbook §1.1)
+  - ⏸️ Production binary cold start < 2초 측정 (D25) — 계측 코드 ✅ (`src/lib/perf/coldStart.ts` + `_layout.tsx` markInteractive + 19 Jest). 실측은 founder 실기기(Galaxy A14·iPhone SE 2, `adb logcat | grep cold-start`). runbook §4
+- **Files**: `eas.json` ✅, `app.config.ts`(기존 — app.json 대체), `.env.eas.example` ✅, `.env.example` ✅, `src/lib/perf/coldStart.ts(.test.ts)` ✅, `app/_layout.tsx` ✅, `docs/EAS_BUILD_RUNBOOK.md` ✅
+- **운영 트랙 (founder, runbook 따라)**: eas login → env:create → credentials(iOS) → build -p android --profile preview(APK) → 실기기 cold-start 측정 → assetlinks SHA256 + AASA TEAMID 교체(S15) → (Play 배포 시) Play Console 가입 + submit
 
 ### S16 — Backup Providers (D1 조건부 lazy)
 

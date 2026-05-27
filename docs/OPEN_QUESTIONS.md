@@ -211,7 +211,7 @@
 - **질문**: 가입 + 인증서 발급 + TestFlight/Internal Testing 셋업. Apple 심사 1주 + 거절 가능성 buffer
 - **소유자**: Founder
 - **마감**: W-2 (Sprint 0 전)
-- **상태**: 미시작
+- **상태**: **부분 해소 (2026-05-27, S13 turn)** — **Apple Developer ✅ 보유** (iOS 빌드·TestFlight·인증서 가능). **Google Play Console ❌ 미가입이나 지금 불필요** — 베타는 EAS `preview` APK 사이드로드로 실기기 테스트(Play Console 없이 됨). Play Console은 Play 스토어 배포·Internal Testing 트랙 원할 때만 가입. 인증서·키스토어·실기기 cold-start 측정 절차는 [EAS_BUILD_RUNBOOK.md](EAS_BUILD_RUNBOOK.md)로 정리
 
 ### Q-B22 — Apple Calendar sync mechanism (worker → client trigger 패턴) ✅ Closed by D34 (2026-05-26)
 - **출처**: S06-google-oauth ship 후 노출 (2026-05-26). Apple Calendar 외부 push API 부재로 worker가 직접 push 불가
