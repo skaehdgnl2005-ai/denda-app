@@ -7,6 +7,7 @@ import {
   defaultNow,
   formatColdStartLog,
   getAppColdStartTracker,
+  isPerfOverlayEnabled,
   measureColdStart,
   _resetAppColdStartTracker,
 } from './coldStart';
@@ -131,6 +132,31 @@ describe('createColdStartTracker', () => {
     expect(tracker.isDone()).toBe(false);
     tracker.markInteractive();
     expect(tracker.isDone()).toBe(true);
+  });
+
+  it('getMeasurement은 markInteractive 전 null, 후 측정값', () => {
+    const tracker = createColdStartTracker({ now: makeNow([0, 1300]) });
+    expect(tracker.getMeasurement()).toBeNull();
+    const m = tracker.markInteractive();
+    expect(tracker.getMeasurement()).toEqual(m);
+    expect(tracker.getMeasurement()?.durationMs).toBe(1300);
+  });
+});
+
+describe('isPerfOverlayEnabled', () => {
+  it('__DEV__이면 항상 true', () => {
+    expect(isPerfOverlayEnabled(true, undefined)).toBe(true);
+    expect(isPerfOverlayEnabled(true, '0')).toBe(true);
+  });
+
+  it('dev 아니어도 env flag "1"이면 true (preview/internal 빌드)', () => {
+    expect(isPerfOverlayEnabled(false, '1')).toBe(true);
+  });
+
+  it('dev 아니고 flag 없거나 "1" 아니면 false (production 안전)', () => {
+    expect(isPerfOverlayEnabled(false, undefined)).toBe(false);
+    expect(isPerfOverlayEnabled(false, '0')).toBe(false);
+    expect(isPerfOverlayEnabled(false, 'true')).toBe(false);
   });
 });
 

@@ -31,6 +31,8 @@ export interface ColdStartTracker {
   getStartMs(): number;
   /** markInteractive가 이미 호출됐는지. */
   isDone(): boolean;
+  /** 측정 완료된 값 (markInteractive 전이면 null). 화면 배지 등 reader용. */
+  getMeasurement(): ColdStartMeasurement | null;
 }
 
 export interface ColdStartTrackerOptions {
@@ -95,7 +97,17 @@ export function createColdStartTracker(options: ColdStartTrackerOptions = {}): C
     },
     getStartMs: () => startMs,
     isDone: () => measurement !== null,
+    getMeasurement: () => measurement,
   };
+}
+
+/**
+ * cold-start 화면 배지 노출 여부 (pure).
+ * dev 빌드는 항상, release 빌드는 EXPO_PUBLIC_PERF_OVERLAY === '1'일 때만.
+ * production 프로파일은 env를 안 주입하므로 자연히 false → UX 영향 0.
+ */
+export function isPerfOverlayEnabled(isDev: boolean, envFlag: string | undefined): boolean {
+  return isDev || envFlag === '1';
 }
 
 // --- 앱 전역 singleton ---

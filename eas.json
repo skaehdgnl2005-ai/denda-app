@@ -9,6 +9,9 @@
       "distribution": "internal",
       "channel": "development",
       "environment": "development",
+      "env": {
+        "EXPO_PUBLIC_PERF_OVERLAY": "1"
+      },
       "android": {
         "buildType": "apk",
         "resourceClass": "medium"
@@ -22,6 +25,9 @@
       "distribution": "internal",
       "channel": "preview",
       "environment": "preview",
+      "env": {
+        "EXPO_PUBLIC_PERF_OVERLAY": "1"
+      },
       "android": {
         "buildType": "apk",
         "resourceClass": "medium"

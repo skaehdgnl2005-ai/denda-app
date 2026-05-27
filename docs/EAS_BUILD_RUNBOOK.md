@@ -112,14 +112,21 @@ eas submit --platform android --profile production
 
 계측 코드는 이미 레포에 있음: [src/lib/perf/coldStart.ts](../src/lib/perf/coldStart.ts) →
 `app/_layout.tsx`가 폰트 로드 + 첫 렌더(splash hide) 시점에 `markInteractive()` 호출.
-앱 시작 시 콘솔에 한 줄 찍힘:
 
+### 판독 방법 ① 화면 배지 (기본 — adb 불필요)
+[src/components/perf/ColdStartBadge.tsx](../src/components/perf/ColdStartBadge.tsx)가 앱 첫 화면 상단에
+pill을 띄움: `✅ 콜드스타트 1480ms / 2000ms` (예산 초과 시 `⚠️`).
+
+- **게이팅**: `development`·`preview` 빌드 프로파일에 `env.EXPO_PUBLIC_PERF_OVERLAY="1"`이 박혀 있어 자동 노출.
+  **`production` 프로파일엔 없음 → 배지 안 뜸** (UX 영향 0). dev 서버(`expo start`)에선 `__DEV__`로 항상 노출.
+- 즉 `eas build --profile preview`로 빌드한 APK를 폰에 깔면 **그냥 화면에 숫자가 보임.** adb 불필요.
+
+### 판독 방법 ② adb logcat / Console.app (배지 없이)
+앱 시작 시 콘솔에도 동일 측정이 찍힘:
 ```
 [cold-start] 1480ms / 2000ms ✅ 예산 내 (D25)
 [cold-start] 2310ms / 2000ms ⚠️ 예산 초과 (D25)
 ```
-
-### 판독 방법 (release 빌드, 실기기)
 ```bash
 # Android — 폰 USB 연결 후
 adb logcat | grep cold-start

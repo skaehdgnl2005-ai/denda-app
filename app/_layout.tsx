@@ -15,6 +15,7 @@ import { resolveAttribution } from '@/lib/branch/attributionApi';
 import { CalendarSyncRoot } from '@/lib/calendar/CalendarSyncRoot';
 import { fetchCalendarPreference } from '@/lib/calendar/preference';
 import { createAppStateAdapter, createAppleCalendarProvider } from '@/lib/calendar/setup';
+import { ColdStartBadge } from '@/components/perf/ColdStartBadge';
 import { getAppColdStartTracker } from '@/lib/perf/coldStart';
 import { createExpoNotificationsApi, createPlatformApi } from '@/lib/push/expoNotifications';
 import { PushRegistrationRoot } from '@/lib/push/PushRegistrationRoot';
@@ -59,6 +60,7 @@ export default function RootLayout() {
         <CalendarSyncRootConnected />
         <PushRegistrationConnected />
         <AttributionRootConnected />
+        <ColdStartBadge />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="(auth)" />
