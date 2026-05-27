@@ -42,6 +42,46 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S16-naver-fallback — 장소 검색 fallback = NaverSearchProvider eager (Q-A2 no-answer) (2026-05-27) — PARTIAL (map 검색 provider 레이어 완성, AppleAuthProvider Phase 3 deferred, S10 지도 화면 별도)
+- Depends: S00 ✅ (places·partnerships schema), [D1](DECISIONS.md#d1--kakao-oauth--local-api-정책-verify-track--lazy-backup) no-answer 액션 발동, [D18](DECISIONS.md#d18--좌표계-정규화-layer) (좌표 WGS84 정규화), [D36](DECISIONS.md#d36--s16-장소-검색-fallback--naversearchprovider-eager-q-a2-no-answer--edge-proxy) (본 turn 신규), [Q-A2](OPEN_QUESTIONS.md#q-a2--kakao-local-api-약관-외부-지도-sdk-위-표시) (답변 미수신 → fallback)
+- Context: 사용자 "Q-A2 답변 안 옴 → fallback 하고 싶음" 지시. 마감(2026-05-28) 하루 전이지만 `PlaceSearchProvider` 인터페이스 추상화로 추후 카카오 "허용" 답변 시 KakaoLocalProvider 교체가 cheap → 선제 진행 매몰 비용 0 판단. 시각 지도 화면(S10: Naver Maps SDK 렌더·뷰포트 debounce·클러스터링)은 native 모듈/EAS Build 의존이라 본 turn 범위 밖 — provider 레이어(검색·데이터)만 활성. 네이버 지역검색은 Client Secret 필요 → Edge proxy 경유(CLAUDE.md rule 7), 카카오(D26 server proxy 미도입)와 다름.
+- Changes:
+  - **`supabase/functions/_lib/naver_local.ts` (+~210 lines, 신규)**: 순수 helper —
+    - `stripHtmlTags` (네이버 title `<b>` 강조 태그 + `&amp;`/`&lt;`/`&gt;`/`&quot;`/`&#39;` 엔티티 디코드)
+    - `normalizeNaverCoord(mapx, mapy)` — WGS84×10^7 정수 문자열 ÷10^7 → 도(degree). 비숫자 throw (D18 좌표 정규화)
+    - `isPlausibleKoreaWgs84(lat, lng)` — 한국 bbox(lat 32.5~39.0, lng 124.0~132.5) range 체크. **좌표계 format mismatch 조기 감지 안전망** (live API가 구형 TM128 반환 시 ÷10^7 결과가 0.0x → bbox 밖 → 마커 제외)
+    - `naverCategoryLeaf` ("음식점>한식>육류,고기" → "육류,고기"), `parseNaverLocalResponse` (필수 title/mapx/mapy 통과 item만), `buildPlaceSearchResults` (→ PlaceSearchResult[], bbox 밖 제외 + roadAddress 우선 + deterministic providerPlaceId 합성)
+    - `fetchNaverLocal` (fetch DI, openapi.naver.com/v1/search/local.json, X-Naver-Client-Id/Secret 헤더, display 1~5 clamp) + `NaverLocalError` (rate_limit/unauthorized/network/bad_response)
+  - **`supabase/functions/_lib/naver_local_test.ts` (+~270 lines, 28 Deno tests TDD-first)**
+  - **`supabase/functions/naver_local_search/index.ts` (+~150 lines, 신규)** — Edge handler:
+    - `parseSearchRequest(body)` (query 필수 trim + display 옵션 기본 5) + `naverErrorToHttp` (rate_limit→429 "잠시 후 다시", 그 외 외부 오류→502, 일반→500)
+    - HTTP: POST only → parse → Authorization 필수 → `auth.getUser()` (anon key public이므로 인증 사용자만 = quota 보호) → NAVER_CLIENT_ID/SECRET env (미설정 503) → fetchNaverLocal → buildPlaceSearchResults → `{ok, results}`
+  - **`supabase/functions/naver_local_search/_test.ts` (+~95 lines, 13 Deno tests TDD-first)** — parseSearchRequest 8 + naverErrorToHttp 5
+  - **`src/lib/places/PlaceSearchProvider.ts` (+~55 lines, 신규)** — S16 Phase a 인터페이스(항상): `PlaceSearchResult`(providerPlaceId/name/category/address/lat/lng/phone/source, Edge shape mirror) + `PlaceSearchQuery` + `PlaceSearchProvider`(source + search)
+  - **`src/lib/places/NaverSearchProvider.ts` (+~55 lines, 신규)** — `implements PlaceSearchProvider`. 빈 검색어 client guard throw → `supabase.functions.invoke('naver_local_search', {body:{query, display?}})` → error/data null 시 한국어 "장소를 불러오지 못했어요. 잠시 후 다시 시도해주세요." → `data.results ?? []`
+  - **`src/lib/places/NaverSearchProvider.test.ts` (+~95 lines, 8 Jest tests TDD-first)**
+  - **`docs/DECISIONS.md`**: D36 신규. **`docs/OPEN_QUESTIONS.md`**: Q-A2 "fallback 선제 활성(D36)"로 상태 갱신 (닫힘 아님 — 답변 수신 시 KakaoLocalProvider 평가). **`docs/NOW.md`**: 활성 항목 promote 제거
+- Tests:
+  - **Deno 283 passed + 0 failed** (242 → +41: naver_local 28 + naver_local_search 13)
+  - **Jest 558 passed + 1 skipped + 0 failed** (550 → +8: NaverSearchProvider)
+  - **typecheck 0 errors**
+  - **eslint 0 errors + 0 warnings** (신규 RN 파일, prettier --fix 후). Edge 파일 `no-import-prefix` deno lint는 기존 파일(fingerprint/click_log) 포함 프로젝트 전반 https-import 컨벤션 — CI 게이트(deno test)와 무관
+- Next:
+  - **S10 (지도 화면)** — 본 provider를 소비. unblock 시: Naver Maps SDK(`@mj-studio/react-native-naver-map`) 렌더 + viewport 300-500ms debounce + 5분 격자 캐싱(D26) + `NaverSearchProvider.search()` wire-up + 제휴 마커 PNG + 마커 onPress → S08 PlaceActionSheet route(`/group/[id]/place`). native 모듈/EAS Build 트랙
+  - **S16 잔여**: AppleAuthProvider (auth fallback) — D29 Kakao OIDC로 auth 정책 block은 해소, AppleAuthProvider는 Apple App Store 심사(Phase 3 guideline 4.8) 대비라 Phase 3 deferred. 인터페이스(AuthProvider)는 S01에서 이미 추상화
+- 운영 prereq (별도 트랙):
+  - **NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 등록** (네이버 개발자센터 — 검색 Open API. Naver Maps SDK key와 별개 제품) + Supabase Edge env set
+  - **좌표 format live 검증**: WGS84×10^7 가정이 맞는지 실 응답으로 확인. 틀리면(TM128 반환) `normalizeNaverCoord`만 교체 — `isPlausibleKoreaWgs84`가 mismatch 시 전 마커 제외로 즉시 가시화
+  - 네이버 지역검색 display 최대 5 한계 (뷰포트당 5개) — 데이터 quality 열화 수용 (D1 명시). 카테고리 필터/반경은 S10에서 query 조합
+- Notes:
+  - **선제 활성 무위험 근거**: `PlaceSearchProvider` 인터페이스(Phase a "항상") + 좌표 정규화 + Edge proxy는 카카오 "허용" 답변 시에도 재사용. 답변 오면 `KakaoLocalProvider implements PlaceSearchProvider` 추가 + provider 주입만 교체(caller=지도 화면 무변경). NaverSearchProvider는 S16 영구 fallback provider. 버려지는 작업 0
+  - **Edge proxy 필수 정직성**: 네이버 지역검색은 X-Naver-Client-Secret 헤더 필요 → 클라 expose 절대 금지(rule 7). 카카오 Local(D26 "server proxy 미도입")과 달리 proxy 불가피. getUser() round-trip은 D26 client-side 5분 캐싱으로 실 Edge 호출 빈도 낮춰 완화
+  - **좌표 안전망 = 정직한 불확실성 처리**: 네이버 지역검색 mapx/mapy format(WGS84×10^7 vs 구형 TM128/KATECH)은 live 검증 전까지 가정. `isPlausibleKoreaWgs84` bbox 체크로 가정 오류 시 마커가 바다/해외에 찍히는 대신 제외 → 조기 발견. live 등록 후 `normalizeNaverCoord` 1곳만 수정하면 됨 (D18 단일 진입점 의도)
+  - **providerPlaceId 합성 근거**: 네이버 지역검색은 안정 place ID 미제공(link는 홈페이지 URL, 자주 빈값). name+mapx+mapy deterministic 합성으로 마커 React key·dedup. places 테이블 영속화(현재 kakao_place_id 컬럼만)는 별도 — 본 provider는 검색 결과 ephemeral 반환만
+  - **PARTIAL 정직성**: S16 acceptance 중 PlaceSearchProvider 인터페이스(Phase a) + NaverSearchProvider(Phase b map) close. AppleAuthProvider(Phase b auth)는 Phase 3 deferred. S10 지도 화면은 본 provider 소비 별도 태스크. TASK_BACKLOG Status IN_PROGRESS 유지
+
+---
+
 ## S08 — "예약하기" Click-through 측정 (Gate #2 single source of truth) (2026-05-27) — DONE 정식
 - Depends: S08-backend ✅ (2026-05-26 commit ce8a5a2 — click_events table + click_log Edge + analytics lib), S00 ✅ (places·groups schema), [G2](DECISIONS.md#g2--gate-2-장소-확정--예약하기-click-through--가장-critical), DESIGN §10.3 (예약 바텀시트), §17 (anti-AI-feel)
 - Context: 사용자 "S08의 서브 task 모두 여기서 완수" 요청. S10(지도) BLOCKED 상태에서도 acceptance 6/6 모두 close 가능한 구조 채택 — PlaceActionSheet은 standalone component(visible/onClose/place/groupName/onReservationPress/onSharePress props만 받음), 마커 trigger는 caller(S10 unblock 후 마커 onPress → router.push)에 위임. 본 turn에 S08-ui 4 sub-task(kakaoShare lib + PlaceActionSheet + places.queries + place screen + screen test) 누적 완성 → S08 acceptance 6/6 close → 정식 DONE 마킹

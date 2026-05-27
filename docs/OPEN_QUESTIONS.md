@@ -21,7 +21,7 @@
 - **소유자**: Founder
 - **마감**: 2026-05-28 (D1 W1 deadline)
 - **해결 시**: D1 확정 / 미수신 시 → Naver Search API eager fallback (S16) + 데이터 quality 열화 수용
-- **상태**: 진행 중
+- **상태**: Fallback 선제 활성 (2026-05-27, [D36](DECISIONS.md#d36--s16-장소-검색-fallback--naversearchprovider-eager-q-a2-no-answer--edge-proxy)) — NaverSearchProvider eager 구축 완료. 답변이 "허용"으로 수신되면 `KakaoLocalProvider`를 같은 `PlaceSearchProvider` 인터페이스로 추가 평가(데이터 quality 우위 시 primary 교체). 답변 무관하게 인터페이스·Edge proxy·좌표 정규화는 재사용 — Q-A2는 "닫힘"이 아니라 "fallback으로 비차단화"
 
 ### Q-A3 — 1주 cold read prototype 병렬 실행 여부
 - **출처**: OFFICE_HOURS §10-16, §14-1

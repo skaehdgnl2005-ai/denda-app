@@ -10,9 +10,9 @@
 
 - **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** + **S14 sub-task 다수** + **fail-cleanup** (2026-05-26) + **S15-deeplink-schema** (2026-05-26) + **S12-backend-f1-f4 + S12-publishers-f4 + S12-client** (2026-05-26) + **S08-backend** (2026-05-26) + **S08-ui** (2026-05-27 — S08 정식 DONE) + **S15-deeplink 잔여 5 sub-task** (2026-05-27 — edge + web + rn-fallback + rn-conversion + deeplink. S15-deeplink 정식 DONE) + **Q-B22** + **D34** + **D35** 신규
 - **DONE**: 12 (S00, S01, S03, S04, S06, S07, S08, S11, S12, S14, S15-deeplink) + S05 acceptance 7/7 (S05e 운영 task)
-- **IN_PROGRESS**: 1 (S05 — S05e 60fps 부하 실기기 잔여)
-- **TODO**: 3 (S13, S15-mapmode, S17)
-- **BLOCKED**: 1 (S10 — D1 지도 부분 답변 대기), 1 (S16 — D1 답변 대기)
+- **IN_PROGRESS**: 2 (S05 — S05e 60fps 부하 실기기 잔여 / S16 — map 검색 provider 레이어 완성 PARTIAL, AppleAuthProvider Phase 3 deferred)
+- **TODO**: 4 (S13, S15-mapmode, S17, S10 — 정책 블록 해소[D36], native Naver Maps SDK/EAS gating)
+- **BLOCKED**: 0 (S10·S16 D1 no-answer 액션 발동[D36]으로 정책 블록 해소)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
 
@@ -165,8 +165,8 @@
 
 ### S10 — 지도 + 카카오 Local API
 
-- **Status**: BLOCKED (Q-A2) | **Owner**: Mobile + Backend | **Sprint**: 2 | **Lane**: B
-- **Depends**: S00 (places, partnerships), D1 W1 deadline, D18 (좌표 정규화), D26 (debounce + cache)
+- **Status**: TODO (2026-05-27 정책 블록 해소 — [D36](DECISIONS.md#d36--s16-장소-검색-fallback--naversearchprovider-eager-q-a2-no-answer--edge-proxy) NaverSearchProvider 활성. native Naver Maps SDK + EAS Build gating만 잔여) | **Owner**: Mobile + Backend | **Sprint**: 2 | **Lane**: B
+- **Depends**: S00 (places, partnerships), ~~D1 W1 deadline~~ (D36으로 해소), D18 (좌표 정규화), D26 (debounce + cache), **S16 NaverSearchProvider ✅** (장소 검색 데이터 소스 ready — `src/lib/places/NaverSearchProvider.ts` + Edge `naver_local_search`), S13 (Naver Maps SDK native 모듈은 EAS Build)
 - **Acceptance**:
   - `@mj-studio/react-native-naver-map` 통합
   - 카카오 Local API client (`coords/normalize.ts` 통과, WGS84 명시)
@@ -351,16 +351,16 @@
 
 ### S16 — Backup Providers (D1 조건부 lazy)
 
-- **Status**: BLOCKED (D1 답변 대기) | **Owner**: Backend + Mobile | **Sprint**: 2 (interface) + 3 (impl) | **Lane**: D
-- **Depends**: D1 W1 deadline review
+- **Status**: IN_PROGRESS (2026-05-27 — map 검색 fallback 완성: `PlaceSearchProvider` 인터페이스[Phase a] + `NaverSearchProvider` + Edge `naver_local_search`[D36]. AppleAuthProvider[auth Phase b]는 Apple 심사 Phase 3 deferred) | **Owner**: Backend + Mobile | **Sprint**: 2 (interface) + 3 (impl) | **Lane**: D
+- **Depends**: ~~D1 W1 deadline review~~ (no-answer 액션 발동 D36)
 - **Acceptance — Phase a (interface, 항상)**:
-  - `AuthProvider` interface (`KakaoSyntheticAuthProvider` + `AppleAuthProvider` 두 구현 plug-in 가능)
-  - `PlaceSearchProvider` interface (`KakaoLocalProvider` + `NaverSearchProvider` 두 구현 plug-in 가능)
-- **Acceptance — Phase b (impl, D1 답변 미수신 시만)**:
-  - `AppleAuthProvider`: Apple ID OAuth + email 입력 + 약관 모달
-  - `NaverSearchProvider`: 네이버 검색 API + 카테고리 데이터 한계 수용
-  - W1 deadline 결과에 따라 split lane 가능 (auth만 fallback, map은 keep 등)
-- **Files**: `src/lib/auth/AppleAuthProvider.ts`, `src/lib/places/NaverSearchProvider.ts`
+  - `AuthProvider` interface (`KakaoSyntheticAuthProvider` + `AppleAuthProvider` 두 구현 plug-in 가능) — S01에서 추상화
+  - ✅ `PlaceSearchProvider` interface (`KakaoLocalProvider` + `NaverSearchProvider` 두 구현 plug-in 가능) — `src/lib/places/PlaceSearchProvider.ts` (2026-05-27)
+- **Acceptance — Phase b (impl)**:
+  - ⏸️ `AppleAuthProvider`: Apple ID OAuth + email 입력 + 약관 모달 — Apple App Store 심사(Phase 3 guideline 4.8) 대비, Phase 3 deferred (D29 Kakao OIDC로 auth 정책 block 해소)
+  - ✅ `NaverSearchProvider`: 네이버 지역검색 API(Edge proxy) + 카테고리 데이터 한계 수용 — `src/lib/places/NaverSearchProvider.ts` + Edge `naver_local_search` (2026-05-27, D36 no-answer 활성). 좌표 WGS84×10^7 정규화 + bbox 안전망
+  - Split lane 결과: **auth는 keep(D29) + map은 Naver fallback eager(D36)**
+- **Files**: ✅ `src/lib/places/PlaceSearchProvider.ts`, ✅ `src/lib/places/NaverSearchProvider.ts(.test.ts)`, ✅ `supabase/functions/_lib/naver_local.ts(_test.ts)`, ✅ `supabase/functions/naver_local_search/{index,_test}.ts` / ⏸️ `src/lib/auth/AppleAuthProvider.ts` (Phase 3)
 
 ### S17 — QA + Regression Test Set
 

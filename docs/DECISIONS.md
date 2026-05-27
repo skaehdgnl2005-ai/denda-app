@@ -853,6 +853,21 @@ const BranchAttribution = lazy(() => import('@/lib/branch/attribution'));
 
 ---
 
+## D36 — S16 장소 검색 fallback = NaverSearchProvider eager (Q-A2 no-answer) + Edge proxy
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | [D1](#d1--kakao-oauth--local-api-정책-verify-track--lazy-backup)의 no-answer 액션을 발동: Q-A2(카카오 Local API on Naver Maps 약관) 답변 미수신 상태에서 장소 검색 데이터 소스를 **네이버 지역검색 Open API**로 eager 활성. `PlaceSearchProvider` 인터페이스(Phase a, 항상) 뒤에 `NaverSearchProvider`(Phase b)를 plug-in. 네이버 지역검색은 **Client Secret 필요 → Edge Function `naver_local_search` proxy 경유**(CLAUDE.md rule 7), 클라이언트는 `supabase.functions.invoke`만. 좌표는 Edge에서 WGS84 정규화([D18](#d18--좌표계-정규화-layer)) 후 반환. |
+| 근거 | (1) 마감(2026-05-28) 하루 전이지만 founder가 선제 활성 결정(2026-05-27) — 인터페이스 추상화로 추후 카카오 "허용" 답변 시 `KakaoLocalProvider`를 같은 인터페이스로 추가 + provider 주입만 교체(caller 무변경)하면 되어 선제 진행의 매몰 비용 0. (2) `PlaceSearchProvider` 인터페이스 + 좌표 정규화는 카카오 채택 시에도 그대로 재사용(Phase a "항상"). (3) Naver secret은 client expose 절대 금지(rule 7) → Kakao(D26 "server proxy 미도입")와 달리 proxy 필수. (4) 시각 지도 화면(S10: Naver Maps SDK 렌더·뷰포트 debounce·클러스터링)은 native 모듈/EAS Build 의존이라 본 결정 범위 밖 — provider 레이어(검색·데이터)만 활성. |
+| 대안 | (a) 마감(2026-05-28)까지 대기 후 활성 — 거부: 인터페이스 추상화로 선제 진행이 무위험 + 일정 여유 확보. (b) 카카오 REST key 클라이언트 expose하여 Kakao Local 강행 — 거부: 약관 미확인 + rule 7. (c) 클라이언트가 네이버 직접 호출 — 거부: Client Secret expose(rule 7). |
+| 소유자 | Founder (활성 결정) + Backend (proxy 아키텍처) |
+| 결정일 | 2026-05-27 |
+| 의존 | [D1](#d1--kakao-oauth--local-api-정책-verify-track--lazy-backup) (no-answer 액션 명시), [D18](#d18--좌표계-정규화-layer) (좌표 WGS84 정규화 — Naver는 Edge 측 mapx/mapy 변환), [Q-A2](OPEN_QUESTIONS.md#q-a2--kakao-local-api-약관-외부-지도-sdk-위-표시) (답변 미수신 → 본 fallback. 답변 수신 시 KakaoLocalProvider 추가 평가) |
+| 결과 영향 | (1) `supabase/functions/_lib/naver_local.ts` 신규: stripHtmlTags + normalizeNaverCoord(WGS84×10^7 가정) + isPlausibleKoreaWgs84(좌표 format mismatch 안전망) + parseNaverLocalResponse + buildPlaceSearchResults + fetchNaverLocal(fetch DI). (2) `supabase/functions/naver_local_search/index.ts` Edge: POST {query, display?} → auth.getUser(quota 보호) → NAVER_CLIENT_ID/SECRET env → fetch → PlaceSearchResult[]. rate_limit→429("잠시 후 다시"), 그 외 외부 오류→502. (3) `src/lib/places/PlaceSearchProvider.ts` 인터페이스 + `NaverSearchProvider.ts` 클라이언트(invoke). (4) **운영 prereq(별도 트랙)**: NAVER_CLIENT_ID/SECRET 등록 + Edge env set + live API로 좌표 format(WGS84×10^7 vs TM128) 검증(isPlausibleKoreaWgs84가 mismatch 시 마커 제외로 조기 감지) + 지역검색 display 최대 5 한계 수용. (5) S10(지도 화면)이 본 provider를 소비 — S10 unblock 시 viewport debounce/캐싱(D26) + Naver Maps SDK 렌더 wire-up. |
+| 출처 | 본 세션 (2026-05-27) — 사용자 "답변 안 옴 → fallback" 지시. D1 no-answer 액션 실행 |
+
+---
+
 ## 향후 결정 추가 템플릿
 
 새 결정을 추가할 때 다음 형식을 복사:
