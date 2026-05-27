@@ -8,9 +8,9 @@
 
 ## 진행 현황 요약
 
-- **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** + **S14 sub-task 다수** + **fail-cleanup** (2026-05-26) + **S15-deeplink-schema** (2026-05-26) + **S12-backend-f1-f4 + S12-publishers-f4 + S12-client** (2026-05-26) + **S08-backend** (2026-05-26) + **S08-ui** (2026-05-27 — S08 정식 DONE) + **Q-B22** + **D34** + **D35** 신규
-- **DONE**: 11 (S00, S01, S03, S04, S06, S07, S08, S11, S12, S14) + S05 acceptance 7/7 (S05e 운영 task)
-- **IN_PROGRESS**: 2 (S05 — S05e 60fps 부하 실기기 잔여; S15-deeplink — 1/6 sub-task)
+- **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** + **S14 sub-task 다수** + **fail-cleanup** (2026-05-26) + **S15-deeplink-schema** (2026-05-26) + **S12-backend-f1-f4 + S12-publishers-f4 + S12-client** (2026-05-26) + **S08-backend** (2026-05-26) + **S08-ui** (2026-05-27 — S08 정식 DONE) + **S15-deeplink 잔여 5 sub-task** (2026-05-27 — edge + web + rn-fallback + rn-conversion + deeplink. S15-deeplink 정식 DONE) + **Q-B22** + **D34** + **D35** 신규
+- **DONE**: 12 (S00, S01, S03, S04, S06, S07, S08, S11, S12, S14, S15-deeplink) + S05 acceptance 7/7 (S05e 운영 task)
+- **IN_PROGRESS**: 1 (S05 — S05e 60fps 부하 실기기 잔여)
 - **TODO**: 3 (S13, S15-mapmode, S17)
 - **BLOCKED**: 1 (S10 — D1 지도 부분 답변 대기), 1 (S16 — D1 답변 대기)
 
@@ -240,29 +240,40 @@
 
 ### S15 — 자체 deferred deep link (게스트→회원 전환) — D28
 
-- **Status**: IN_PROGRESS (1/6 sub-task: S15-deeplink-schema ✅ 2026-05-26. 잔여 5: edge function + web INSERT + RN fallback 모달 + RN conversion + Universal Links/App Links) | **Owner**: Backend + Mobile + Web | **Sprint**: 4 | **Lane**: C → A 합류
+- **Status**: DONE (2026-05-27 — 6/6 sub-task 완료. EAS Build + TestFlight 운영 prereq는 별도 트랙) | **Owner**: Backend + Mobile + Web | **Sprint**: 4 | **Lane**: C → A 합류
 - **Depends**: S01 (auth complete) ✅, S14 (guest page complete + Vercel hosting) ✅, Q-A6 (자체 구축 정확도 PoC — fallback 의무 활성 가정으로 진행), [D28](DECISIONS.md#d28--자체-deferred-deep-link-구축-attribution-saas-회피-도메인-구매-회피)
 - **Acceptance**:
-  - 단축 URL host = `denda.vercel.app/g/<short_token>` (Vercel default subdomain) — ⏳ S15-deeplink-web
-  - **iOS Universal Links**: app.json `associatedDomains: ["applinks:denda.vercel.app"]` + AASA 파일 Vercel hosting (`public/.well-known/apple-app-site-association`) — ⏳ S15-deeplink-deeplink
-  - **Android App Links**: app.json intent filters (scheme=https, host=denda.vercel.app, pathPattern=/g/.*) + assetlinks.json Vercel hosting (`public/.well-known/assetlinks.json`) — ⏳ S15-deeplink-deeplink
-  - **Fingerprint 매칭 Edge Function**: 단축 URL 클릭 시 ip_hash + ua_hash + clicked_at 기록 → 앱 첫 실행 시 매칭 query — ⏳ S15-deeplink-edge (Edge Function) + S15-deeplink-web (INSERT 통합)
-  - **4자리 invite_code fallback**: ✅ schema 완료(0016 — groups.invite_code CHAR(4) UNIQUE + generate_invite_code SQL function + BEFORE INSERT trigger). 게스트 카톡 메시지 표시 + 앱 첫 화면 "초대받은 모임 코드 입력" 모달은 ⏳ S15-deeplink-rn-fallback
-  - **ATT 모달** (iOS 14+) + 한국 PIPA 처리방침 명시 — ⏳ S15-deeplink-rn-fallback
-  - **`branch_attributions` 확장**: ✅ ip_hash, ua_hash, clicked_at 컬럼 추가 + 2 partial indexes 완료 (0016. table 이름 유지)
-  - `group_guests.converted_user_id` 설정 (또는 group_members 마이그레이션) — ⏳ S15-deeplink-rn-conversion
-  - 모임 자동 합류 + 모임 list에 표시 — ⏳ S15-deeplink-rn-conversion
-  - Q-A6 PoC 결과 정확도 측정 — <70% 시 fallback 의무 활성 default ON. 본 schema는 fallback 의무 활성 가정으로 진행 (D28 risk #1 수용)
-- **TS helper (ship됨)**: `src/lib/branch/inviteCode.ts` (formatInviteCode + parseInviteCode + isValidInviteCode 4자리 numeric) + Jest 21 tests
-- **Files**: `src/lib/branch/inviteCode.ts(.test).ts`, `supabase/migrations/0016_deeplink_schema.sql` (ship됨); `src/lib/attribution/`, `supabase/functions/attribution_match/`, `web-guest/app/g/[token]/`, `web-guest/public/.well-known/apple-app-site-association`, `web-guest/public/.well-known/assetlinks.json` (잔여)
+  - ✅ 단축 URL host = `denda.vercel.app/g/<short_token>` (S14에서 이미 web-guest /g/[token] route 호스팅. S15-deeplink-web에서 click_log 통합)
+  - ✅ **iOS Universal Links**: `app.config.ts::ios.associatedDomains=['applinks:denda.vercel.app']` + AASA 파일 `web-guest/public/.well-known/apple-app-site-association` (TEAMID placeholder + /g/* paths) + `next.config.ts` headers (application/json + no-cache). **TestFlight 실기기 검증 + Apple 캐시 24-48h은 EAS Build 운영 prereq**
+  - ✅ **Android App Links**: `app.config.ts::android.intentFilters` (scheme=https, host=denda.vercel.app, pathPattern=/g/.*, autoVerify=true) + assetlinks.json (`com.denda.app` + sha256 placeholder). **sha256 fingerprint keystore 추출 + `adb shell pm verify-app-links`는 EAS Build 운영 prereq**
+  - ✅ **Fingerprint 매칭 Edge Function**: `_lib/fingerprint.ts` (extractClientIp + extractUserAgent + computeFingerprintHashes via HMAC-SHA256) + `attribution_click_log` (web 호출 UPSERT) + `attribution_resolve` (RN 호출 fingerprint 모드). 매칭 window 24h, server 측 ip/ua 추출 — client 위변조 불가
+  - ✅ **4자리 invite_code fallback**: schema(S15-deeplink-schema)에 이미 0016 ship됨. `InviteCodeModal.tsx` (4자리 numeric TextInput + sanitize + 확인/건너뛰기 Alert + DESIGN §17 anti-AI-feel + brand-500 CTA + tabular-nums) + `attribution_resolve` mode='invite_code' 분기로 매칭 완료
+  - ⏸️ **ATT 모달** (iOS 14+) + 한국 PIPA 처리방침 명시 — 본 task 범위 외 (expo-tracking-transparency 미설치 + EAS Build prereq). D28 risk #1로 명시
+  - ✅ **`branch_attributions` 확장**: ip_hash, ua_hash, clicked_at 컬럼 추가 + 2 partial indexes (0016)
+  - ✅ `group_guests.converted_user_id` 설정 (`attribution_resolve` 내부에서 fingerprint mode일 때 UPDATE)
+  - ✅ 모임 자동 합류 (`attribution_resolve`가 group_members upsert + onMatched Alert로 안내). 모임 list refresh + navigation은 후속 sub-task (별도 backlog)
+  - Q-A6 PoC 결과 정확도 측정 — production 후 수집(별도 운영 트랙). 본 구현은 fallback 의무 활성 가정
+- **TS helper (ship됨)**: `src/lib/branch/inviteCode.ts(.test).ts` (formatInviteCode + parseInviteCode + isValidInviteCode 4자리 numeric — Jest 21), `src/lib/branch/attributionApi.ts(.test).ts` (resolveAttribution wrapper — Jest 7), `src/lib/branch/AttributionRoot.tsx(.test).tsx` (전역 wire-up — Jest 6)
+- **UI 컴포넌트**: `src/components/attribution/InviteCodeModal.tsx(.test).tsx` (Jest 11)
+- **Edge Function**: `supabase/functions/_lib/fingerprint.ts(_test).ts` (Deno 15), `supabase/functions/_lib/attribution.ts(_test).ts` (Deno 18), `supabase/functions/attribution_click_log/index.ts`, `supabase/functions/attribution_resolve/index.ts`
+- **web-guest**: `web-guest/lib/attribution.ts(.test).ts` (Jest 6), `web-guest/app/g/[token]/ClientPage.tsx` (click_log 통합), `web-guest/app/g/[token]/page.tsx` (token prop), `web-guest/next.config.ts` (AASA headers), `web-guest/public/.well-known/{apple-app-site-association, assetlinks.json}`
+- **Native config**: `app.config.ts` (ios.associatedDomains + android.intentFilters), `app/_layout.tsx::AttributionRootConnected` mount
 - **Sub-task 분해**:
   - ✅ S15-deeplink-schema (2026-05-26): migration 0016 + inviteCode TS helper
-  - ⏳ S15-deeplink-edge: `attribution_match` Edge Function + ip_hash/ua_hash hash helper (Deno test TDD)
-  - ⏳ S15-deeplink-web: web-guest `/g/[token]` route에서 branch_attributions INSERT (ip+ua hash + clicked_at)
-  - ⏳ S15-deeplink-rn-fallback: RN 4자리 invite_code 입력 모달 (앱 첫 화면 — 비로그인 OR 멤버 아닌 경우) + ATT 모달
-  - ⏳ S15-deeplink-rn-conversion: 앱 첫 실행 시 attribution_match 호출 + group_guests → group_members 마이그레이션
-  - ⏳ S15-deeplink-deeplink: app.json associatedDomains + intentFilters + AASA + assetlinks.json (TestFlight 검증)
-- **Notes**: ARCHITECTURE.md §3.5 자체 구축 spec 참조. Sprint 4 일정 1-2주 추가 가능성 — S05 (회사 운명 60fps) critical path 보호 priority. table·column "branch_" prefix는 의미적으로 generic. Phase 3 광고 launch 시 SKAdNetwork 미지원으로 SaaS 추가 도입 필요 (D28 명시 risk)
+  - ✅ S15-deeplink-edge (2026-05-27): fingerprint + attribution helpers (Deno 33 tests) + attribution_click_log + attribution_resolve Edge
+  - ✅ S15-deeplink-web (2026-05-27): web-guest attribution.ts + ClientPage 통합
+  - ✅ S15-deeplink-rn-fallback (2026-05-27): InviteCodeModal + attributionApi wrapper
+  - ✅ S15-deeplink-rn-conversion (2026-05-27): AttributionRoot + _layout.tsx wire-up
+  - ✅ S15-deeplink-deeplink (2026-05-27): app.config.ts + AASA + assetlinks.json + next.config.ts headers
+- **EAS Build / 운영 prereq (별도 트랙)**:
+  - AASA의 TEAMID placeholder를 Apple Developer Team ID로 교체
+  - assetlinks.json sha256_cert_fingerprint placeholder를 keystore 실제 SHA256으로 교체
+  - TestFlight 빌드 + 실기기 Universal Links 검증 (Apple 캐시 24-48h 대기)
+  - Android `adb shell pm verify-app-links com.denda.app` 검증
+  - ATT(App Tracking Transparency) 모달 — expo-tracking-transparency 설치 + 첫 launch wire
+  - 한국 PIPA 개인정보처리방침 명시 ("IP 해시 + User-Agent 해시 수집 — 모임 자동 합류 목적")
+  - Q-A6 PoC — production 후 한국 NAT 환경 정확도 측정 (<70% 시 4자리 코드 default ON)
+- **Notes**: ARCHITECTURE.md §3.5 자체 구축 spec 참조. table·column "branch_" prefix는 의미적으로 generic. Phase 3 광고 launch 시 SKAdNetwork 미지원으로 SaaS 추가 도입 필요 (D28 명시 risk). bare `new Date()` 사용 차단(design-guard.sh D13). Edge에서 `DateTime.utc().toISO()` 사용
 
 ---
 

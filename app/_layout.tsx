@@ -4,18 +4,18 @@
 
 import { Stack, SplashScreen } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
+import { Alert } from 'react-native';
 import { useFonts } from 'expo-font';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { authStore, useAuth } from '@/lib/auth/setup';
+import { AttributionRoot } from '@/lib/branch/AttributionRoot';
+import { resolveAttribution } from '@/lib/branch/attributionApi';
 import { CalendarSyncRoot } from '@/lib/calendar/CalendarSyncRoot';
 import { fetchCalendarPreference } from '@/lib/calendar/preference';
 import { createAppStateAdapter, createAppleCalendarProvider } from '@/lib/calendar/setup';
-import {
-  createExpoNotificationsApi,
-  createPlatformApi,
-} from '@/lib/push/expoNotifications';
+import { createExpoNotificationsApi, createPlatformApi } from '@/lib/push/expoNotifications';
 import { PushRegistrationRoot } from '@/lib/push/PushRegistrationRoot';
 import { supabase } from '@/lib/supabase/client';
 import { ThemeProvider } from '@/design/theme';
@@ -54,6 +54,7 @@ export default function RootLayout() {
         <StatusBar style="auto" />
         <CalendarSyncRootConnected />
         <PushRegistrationConnected />
+        <AttributionRootConnected />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="(auth)" />
@@ -116,4 +117,27 @@ function PushRegistrationConnected(): React.JSX.Element | null {
       projectId={process.env.EXPO_PUBLIC_EAS_PROJECT_ID ?? ''}
     />
   );
+}
+
+/**
+ * production wiring for AttributionRoot — useAuth로 userId 받고 supabase client로
+ * attribution_resolve Edge Function 호출. matched 시 한국어 Alert로 자동 합류 안내.
+ * 본 wrapper는 _layout.tsx와 함께 untested glue. AttributionRoot 자체는 Jest tested.
+ */
+function AttributionRootConnected(): React.JSX.Element {
+  const userId = useAuth((s) => s.session?.user.id);
+  const resolve = useCallback(
+    (args: Parameters<typeof resolveAttribution>[1]) => resolveAttribution(supabase, args),
+    [],
+  );
+  const onMatched = useCallback((groupId: string) => {
+    Alert.alert(
+      '모임에 합류했어요!',
+      '초대받은 모임에 자동으로 합류했어요. 모임 탭에서 확인하세요.',
+      [{ text: '확인' }],
+    );
+    // 모임 list refresh 또는 navigation은 후속 sub-task. 베타 한정 Alert만으로 충분.
+    void groupId;
+  }, []);
+  return <AttributionRoot userId={userId} resolve={resolve} onMatched={onMatched} />;
 }

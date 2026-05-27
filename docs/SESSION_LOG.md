@@ -332,6 +332,46 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S15-deeplink — 자체 deferred deep link 잔여 5 sub-task 일괄 완성 (2026-05-27) — DONE
+- Depends: S15-deeplink-schema ✅ (2026-05-26 — migration 0016 + inviteCode helper), [D28](DECISIONS.md#d28--자체-deferred-deep-link-구축-attribution-saas-회피-도메인-구매-회피), S01 ✅, S14 ✅
+- Context: 사용자 "S15 잔여작업 여기서 전부 마무리" 요청. 5 sub-task TDD-first 순차 ship:
+  - **S15-deeplink-edge** (Deno helpers + 2 Edge Function): `_lib/fingerprint.ts` (extractClientIp + extractUserAgent + computeFingerprintHashes via HMAC-SHA256) 15 tests, `_lib/attribution.ts` (parseClickLogRequest + parseResolveRequest + fingerprintMatchSince + buildMatchFilters) 18 tests, `attribution_click_log/` Edge (web-guest 호출용 UPSERT branch_attributions), `attribution_resolve/` Edge (RN 회원 전환 — fingerprint 또는 invite_code 모드, group_members INSERT + group_guests UPDATE까지 처리). HMAC_SECRET 재사용(D29로 D21 폐기 후 fingerprint salt 용도).
+  - **S15-deeplink-web** (web-guest 통합): `web-guest/lib/attribution.ts` + 6 Jest tests (logAttributionClick fetch wrapper — silent fail UX 보호), `ClientPage.tsx::handleNicknameComplete` Edge Function 호출 통합, `page.tsx` token prop 추가, E2E 환경에서 skip.
+  - **S15-deeplink-rn-fallback** (UI 모달): `src/lib/branch/attributionApi.ts` + 7 Jest tests (resolveAttribution wrapper — supabase.functions.invoke 패턴, 한국어 에러 wrapper), `src/components/attribution/InviteCodeModal.tsx` + 11 Jest tests (4자리 numeric TextInput + sanitize/truncate + 확인/건너뛰기 Alert + matched=false 에러 메시지 + DESIGN §17 anti-AI-feel + brand-500 CTA + tabular-nums).
+  - **S15-deeplink-rn-conversion** (전역 wire-up): `src/lib/branch/AttributionRoot.tsx` + 6 Jest tests (userId 변경 시 1회 resolve(fingerprint) 시도 + matched=true → onMatched + miss/throw → InviteCodeModal silent fallback + in-memory dedup), `app/_layout.tsx::AttributionRootConnected` (useAuth + supabase wire + Alert 한국어 안내).
+  - **S15-deeplink-deeplink** (네이티브 + 호스팅 config): `app.config.ts` ios.associatedDomains=['applinks:denda.vercel.app'] + android.intentFilters (scheme=https, host=denda.vercel.app, pathPattern=/g/.*, autoVerify=true), `web-guest/public/.well-known/apple-app-site-association` (TEAMID + /g/* paths), `web-guest/public/.well-known/assetlinks.json` (com.denda.app + sha256 placeholder), `next.config.ts` headers (AASA application/json no-cache + assetlinks 1h cache).
+- Changes:
+  - **Deno helpers + Edge** (242 deno tests, 0 fail):
+    - `supabase/functions/_lib/fingerprint.ts(_test.ts)` (+57/+128) — 15 tests
+    - `supabase/functions/_lib/attribution.ts(_test.ts)` (+95/+170) — 18 tests
+    - `supabase/functions/attribution_click_log/index.ts` (+85) — UPSERT branch_attributions
+    - `supabase/functions/attribution_resolve/index.ts` (+225) — fingerprint + invite_code 분기 + group_members upsert
+  - **web-guest 통합** (90 jest tests):
+    - `web-guest/lib/attribution.ts(.test.ts)` (+52/+105) — 6 tests
+    - `web-guest/app/g/[token]/ClientPage.tsx` (handleNicknameComplete에 click_log 호출, token prop 수신)
+    - `web-guest/app/g/[token]/page.tsx` (token prop 전달)
+    - `web-guest/next.config.ts` (AASA + assetlinks.json Content-Type headers)
+    - `web-guest/public/.well-known/apple-app-site-association` (+18)
+    - `web-guest/public/.well-known/assetlinks.json` (+13)
+  - **RN lib + UI + wire-up** (550 jest tests + 1 skip):
+    - `src/lib/branch/attributionApi.ts(.test.ts)` (+58/+118) — 7 tests
+    - `src/components/attribution/InviteCodeModal.tsx(.test.tsx)` (+228/+133) — 11 tests
+    - `src/lib/branch/AttributionRoot.tsx(.test.tsx)` (+85/+95) — 6 tests
+    - `app/_layout.tsx` (+25, AttributionRootConnected mount)
+  - **네이티브 config**:
+    - `app.config.ts` (+25, ios.associatedDomains + android.intentFilters)
+- Tests: 550 RN passed + 1 skipped (이전 467 → +83), web-guest 90 passed (+6), Deno 242 passed (이전 143 → +33 attribution/fingerprint + 다른 sub-task 누적), typecheck 0, S15 lint 0 errors (warnings prettier --fix 적용)
+- Next: TestFlight 빌드 + 실기기 검증 (Universal Links Apple 캐시 24-48h, Android `adb shell pm verify-app-links com.denda.app`). EAS Build prereq: AASA TEAMID 교체 + assetlinks sha256 keystore에서 추출. Q-A6 PoC (한국 NAT 환경 정확도 측정) — production 후 수집.
+- Notes:
+  - **D28 risk 명시 수용**: G2 게이트 측정 노이즈(정확도 50% 이하 가능) + viral funnel UX 마찰(4자리 코드 강제 입력) + Phase 3 광고 launch 시 SKAdNetwork SaaS 추가 도입.
+  - Edge Function 본체에 대한 unit test는 helper level에서 (Deno) — service_role + JWT 의존 부분은 deploy 후 e2e 검증(별도 운영 트랙).
+  - ATT(App Tracking Transparency) 모달은 본 turn 범위 외 — expo-tracking-transparency 미설치 + EAS Build 시점 prereq. D28 risk #1 명시.
+  - AttributionRoot dedup은 in-memory ref (mount lifetime). 영구 persistence(AsyncStorage)는 follow-up — 베타 한정 in-memory로 충분(사용자가 앱 재시작하면 다시 시도).
+  - onMatched 후속 처리는 Alert "모임 합류했어요!"만 — 모임 list refresh + navigation은 별도 sub-task.
+  - bare `new Date()` 사용 차단(design-guard.sh D13). Edge에서 `DateTime.utc().toISO()` 사용.
+
+---
+
 ## S15-deeplink-schema — 자체 deferred deep link DB schema 확장 (2026-05-26) — DONE
 - Depends: S01 ✅, S14 ✅, [D28](DECISIONS.md#d28--자체-deferred-deep-link-구축-attribution-saas-회피-도메인-구매-회피) (자체 구축 deep link). S15-mapmode는 S10 BLOCKED로 시작 불가 → S15-deeplink 분기 진입
 - Context: S15 전체(deeplink + mapmode)는 두 분기로 분리되어 있고, mapmode는 S10(지도) BLOCKED로 시작 불가. deeplink는 S01·S14 DONE + D28 결정 완료로 진입 가능. Scope이 매우 크므로 sub-task로 분해 — 본 turn = DB schema 확장 + TS invite_code helper만. Edge Function `attribution_match` + web-guest INSERT + RN fallback 모달 + iOS Universal Links/Android App Links는 별도 sub-task로 분리.

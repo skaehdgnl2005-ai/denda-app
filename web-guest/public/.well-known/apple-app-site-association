@@ -1,0 +1,18 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["TEAMID.com.denda.app"],
+        "components": [
+          {
+            "/": "/g/*",
+            "comment": "S15-deeplink (D28) — 게스트 단축 URL Universal Links. TEAMID는 EAS Build 시점 Apple Developer Team ID로 교체 필수."
+          }
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": ["TEAMID.com.denda.app"]
+  }
+}

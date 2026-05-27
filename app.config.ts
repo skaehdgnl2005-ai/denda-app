@@ -31,6 +31,10 @@ export default ({ config: _ }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: false,
     bundleIdentifier: 'com.denda.app',
+    // S15-deeplink — D28 자체 deferred deep link Universal Links.
+    // AASA 파일은 web-guest/public/.well-known/apple-app-site-association에서 호스팅.
+    // Apple 캐시 24-48h — TestFlight build로 실제 device 검증 의무.
+    associatedDomains: ['applinks:denda.vercel.app'],
   },
   android: {
     package: 'com.denda.app',
@@ -41,6 +45,24 @@ export default ({ config: _ }: ConfigContext): ExpoConfig => ({
       monochromeImage: './assets/android-icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
+    // S15-deeplink — D28 자체 deferred deep link Android App Links.
+    // assetlinks.json은 web-guest/public/.well-known/assetlinks.json에서 호스팅.
+    // sha256 cert fingerprint는 EAS Build 시점 keystore에서 추출하여 assetlinks.json에 추가.
+    // 검증: adb shell pm verify-app-links com.denda.app
+    intentFilters: [
+      {
+        action: 'VIEW',
+        autoVerify: true,
+        data: [
+          {
+            scheme: 'https',
+            host: 'denda.vercel.app',
+            pathPattern: '/g/.*',
+          },
+        ],
+        category: ['BROWSABLE', 'DEFAULT'],
+      },
+    ],
   },
   web: {
     bundler: 'metro',

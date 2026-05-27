@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { logAttributionClick } from '../../../lib/attribution';
 import NicknameForm from '../../../components/NicknameForm';
 import GuestTimeGrid from '../../../components/GuestTimeGrid';
 
@@ -10,6 +11,7 @@ interface ClientPageProps {
   groupName: string;
   dates: string[];
   hostNickname: string;
+  token: string;
 }
 
 interface Vote {
@@ -26,7 +28,13 @@ interface Participant {
   hasVoted: boolean;
 }
 
-export default function ClientPage({ groupId, groupName, dates, hostNickname }: ClientPageProps) {
+export default function ClientPage({
+  groupId,
+  groupName,
+  dates,
+  hostNickname,
+  token,
+}: ClientPageProps) {
   const [guestToken, setGuestToken] = useState<string | null>(null);
   const [, setGuestNickname] = useState<string | null>(null);
   const [votes, setVotes] = useState<Vote[]>([]);
@@ -118,9 +126,17 @@ export default function ClientPage({ groupId, groupName, dates, hostNickname }: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId]);
 
-  const handleNicknameComplete = (token: string, nickname: string) => {
-    setGuestToken(token);
+  const handleNicknameComplete = (guestTokenValue: string, nickname: string) => {
+    setGuestToken(guestTokenValue);
     setGuestNickname(nickname);
+    // D28 attribution click_log — silent (실패해도 투표 진행)
+    if (process.env.NEXT_PUBLIC_IS_E2E !== 'true') {
+      void logAttributionClick({
+        branchLinkId: token,
+        groupId,
+        guestToken: guestTokenValue,
+      });
+    }
     fetchData(); // Refresh list to include self
   };
 
