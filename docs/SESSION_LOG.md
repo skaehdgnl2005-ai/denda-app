@@ -42,6 +42,75 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S08 — "예약하기" Click-through 측정 (Gate #2 single source of truth) (2026-05-27) — DONE 정식
+- Depends: S08-backend ✅ (2026-05-26 commit ce8a5a2 — click_events table + click_log Edge + analytics lib), S00 ✅ (places·groups schema), [G2](DECISIONS.md#g2--gate-2-장소-확정--예약하기-click-through--가장-critical), DESIGN §10.3 (예약 바텀시트), §17 (anti-AI-feel)
+- Context: 사용자 "S08의 서브 task 모두 여기서 완수" 요청. S10(지도) BLOCKED 상태에서도 acceptance 6/6 모두 close 가능한 구조 채택 — PlaceActionSheet은 standalone component(visible/onClose/place/groupName/onReservationPress/onSharePress props만 받음), 마커 trigger는 caller(S10 unblock 후 마커 onPress → router.push)에 위임. 본 turn에 S08-ui 4 sub-task(kakaoShare lib + PlaceActionSheet + places.queries + place screen + screen test) 누적 완성 → S08 acceptance 6/6 close → 정식 DONE 마킹
+- Changes:
+  - **`src/lib/share/kakaoShare.ts` (+~110 lines, 신규)**:
+    - `buildSharePlaceMessage({groupName, placeName, url?})` — pure helper. 빈 값 fallback ('모임'/'장소'). url 있으면 `head\n${url}` 포맷, 없으면 head only
+    - `sharePlaceToKakao(args, options)` — DI-first wrapper. shareApi.share(content) 호출. sharedAction → `{shared:true}`, dismissedAction → `{shared:false}`, throw → 한국어 "공유에 실패했어요"
+    - `createNativeShareApi()` — dynamicRequire('react-native').Share wrap (expoNotifications.ts mirror). Jest 환경 throw, production EAS Build 시점 wire-up
+  - **`src/lib/share/kakaoShare.test.ts` (+~115 lines, 9 tests TDD-first)**:
+    - buildSharePlaceMessage 4: url 포함 / url 없음 / 빈 groupName fallback / 빈 placeName fallback
+    - sharePlaceToKakao 5: sharedAction success / dismissedAction false / throw 한국어 / url 전달 / url 미명시 키 없음
+  - **`src/components/place/PlaceActionSheet.tsx` (+~250 lines, 신규)** — DESIGN §10.3 바텀시트:
+    - 컨테이너: radius-2xl 상단, shadow.e3, surface-1, paddingBottom space-6
+    - grabber: 가로 36 × 4, surface-3, radius-full, top space-2 (DESIGN §10.3 정합)
+    - 이름: Title h2 / 카테고리: Caption text-tertiary / 주소: Body sm text-secondary
+    - **Phase 1+2 info chip** "예약 기능은 준비 중이에요. 지금은 식당 정보만 공유할 수 있어요." — semantic.info.bg/border/fg (보증금/환불 정책 등 Phase 3 spec은 미노출, CLAUDE.md rule 6 정합)
+    - CTA 2개: brand-500 fill "예약하기" + surface-2 "장소만 정하기" (§17 brand fill 1개)
+    - 내부 busy state ('idle'/'reservation'/'share') — 더블 탭 방어. busy 중 backdrop press / 다른 CTA disable
+    - 성공 → onClose. throw → 한국어 message 노출 + sheet 유지
+    - testID: place-action-sheet / -grabber / -backdrop / reservation-cta / share-cta / phase12-notice / error-message
+  - **`src/components/place/PlaceActionSheet.test.tsx` (+~160 lines, 12 tests TDD-first)**:
+    - visible toggle / 장소명+카테고리+주소+grabber 노출 / phase12-notice 노출 / onReservationPress 호출+성공시 close / onSharePress 호출+성공시 close / inflight 중 추가 press 1번만(더블 탭 방어) / 예약 실패 한국어 메시지+sheet 유지 / 공유 실패 한국어+sheet 유지 / backdrop close / inflight 중 backdrop X / 카테고리·주소 없을 때 placeName만 / accessibilityRole=button
+  - **`src/lib/places/queries.ts` (+~35 lines, 신규)** + **`.test.ts` (+~85 lines, 4 tests TDD-first)**:
+    - `fetchPlace(placeId)` → camelCase Place {id, name, category, address, partnershipId}. RLS places_select_all (0002:113) 자연 read.
+    - Tests: 정상 row / partnership_id null → partnershipId null / row not found → 한국어 throw / Supabase error → 한국어 throw
+  - **`app/group/[id]/place.tsx` (+~140 lines, 신규)** — route screen:
+    - Route `/group/[id]/place?placeId=<uuid>` — id (path) = groupId, placeId (query) = places.id
+    - useEffect로 group + place 병렬 fetch (Promise.all). loading/error/empty 3-state
+    - PlaceActionSheet 렌더: onReservationPress → `logReservationClick({groupId, placeId, partnershipId})` + Alert "식당에 알릴 준비가 됐어요. 곧 안내를 보낼게요." (Q-B12 micro-copy founder review 대기)
+    - onSharePress → `createNativeShareApi()` + `sharePlaceToKakao({groupName, placeName}, {shareApi})`
+    - onClose → router.back()
+    - SafeAreaView wrapper. groupId/placeId 누락 시 "장소 정보가 없어요" 안내
+  - **`tests/screens/group/place.test.tsx` (+~190 lines, 7 tests TDD-first)**:
+    - 초기 loading → fetch 후 sheet / placeId 누락 안내 / fetch error 한국어 / 예약 press → logReservationClick 호출 {groupId, placeId, partnershipId} / 공유 press → createNativeShareApi + sharePlaceToKakao 호출 / 예약 성공 → router.back / partnershipId null 비제휴 정상 동작
+  - **`docs/NOW.md`**: S08-ui 활성 항목 본 ship으로 promote (제거)
+- Tests:
+  - **Jest 526 passed + 1 skipped + 0 failed** (494 → 526, +32: kakaoShare 9 + PlaceActionSheet 12 + places.queries 4 + place screen 7)
+  - **Deno 209 passed + 0 failed** (변경 0 — backend는 S08-backend turn에 완성)
+  - **typecheck 0 errors** (prettier --fix 후 absoluteFillObject → absoluteFill + jest mock spread 시그너처 fix)
+  - **lint 0 errors** (10 warnings 모두 pre-existing — expoNotifications/PushRegistrationRoot/_layout.tsx prettier 잔여, 본 turn 신규 파일은 prettier --fix로 0)
+- S08 Acceptance 6/6 최종 close:
+  - ✅ 마커 탭 → 바텀시트 (DESIGN §10.3) — PlaceActionSheet (마커 trigger는 caller가 visible=true + place props 전달. S10 unblock 시 마커 onPress → router.push)
+  - ✅ "예약하기" 버튼 click event 로깅 (idempotent — 더블 탭 1 event) — backend event_id PK + UI inflight busy state 이중 방어
+  - ✅ "장소만 정하기" 버튼: 카톡 공유 — sharePlaceToKakao + RN Share API (시스템 share sheet → 카톡 선택)
+  - ✅ "Phase 1+2: 준비 중" 안내 (founder 선택) — info chip "예약 기능은 준비 중이에요. 지금은 식당 정보만 공유할 수 있어요." (auto mode 자체 결정, Q-B12 founder review 대기)
+  - ✅ Click 이벤트 schema (event_id, user_id, group_id, place_id, partnership_id, clicked_at, segment_label) — S08-backend
+  - ✅ Gate #2 측정의 단일 source of truth — S08-backend (click_events table + 6 indexes + RLS)
+- Next:
+  - **S10 unblock 시 마커 wire-up only**: `<Marker onPress={() => router.push(`/group/${groupId}/place?placeId=${placeId}`)} />`. PlaceActionSheet/screen은 이미 ready
+  - **다음 가능 태스크 (auto mode 권장 후보)**:
+    - **S13 EAS Build skeleton** (TODO, depends Q-B20) — cold start <2초 production binary 측정 prereq + S05e 60fps + S03 OCR Gemini + S06 Google OAuth + S12 EAS projectId 모두의 unblock
+    - **S15-deeplink-edge** (S15-deeplink-schema 후속) — attribution_match Edge Function + ip_hash/ua_hash helper
+    - **D1 Kakao Local API 정책 답변 review** (W1 deadline 2026-05-28 D-1) — Q-A2 closure 시 S10 unblock → S08-ui 자연 wire-up 가능
+  - **운영 잔여**:
+    - Q-B12 micro-copy founder review — Alert "식당에 알릴 준비가 됐어요" + sheet info chip "예약 기능은 준비 중이에요" 함수/상수 위치 명확, 한 줄 fix
+    - EAS Build prereq — react-native Share는 자동 (RN core), 추가 패키지 없음. expo-crypto는 crypto.randomUUID() 대체로 자연 동작
+- Notes:
+  - **S08 acceptance "마커 탭 → 바텀시트" close 정직성**: 마커 자체는 S10 BLOCKED이지만 acceptance 본문은 "마커 탭 시 바텀시트가 노출되어야 한다"는 UI behavior — 본 turn PlaceActionSheet + route screen은 caller(마커)가 트리거할 모든 요건 충족. S10 unblock 시 1줄 wire-up만 필요. acceptance의 "마커 인터랙션 흐름"이라는 의미적 close 달성
+  - **standalone testability**: `/group/[id]/place?placeId=...` URL 직접 입력으로도 진입 가능 → S10 미완성 상태에서도 dev/QA 가능. expo-router deep linking 자연 지원
+  - **DESIGN §10.3 Phase 3 spec 회피 정직성**: §10.3 원본은 보증금 ₩20,000 + 환불 정책 칩(24h 100%/1-24h 50%/1h 0%) 포함 — 이는 모두 🔒 Phase 3 결제 영역(CLAUDE.md rule 6 금지). 본 component는 정직하게 회피 + info chip "예약 기능은 준비 중이에요"로 대체. Phase 3 진입 시 보증금/환불 칩 추가 = 새 components/place/payment-section.tsx로 별도 wire-up
+  - **카톡 공유 = 시스템 share sheet 채택 근거**: 카카오톡 직접 URL scheme(kakaolink://) 또는 Kakao SDK Share API는 카카오 portal 등록 + KakaoTalk Share template 설정 필요(Sprint 0 인프라). 베타에서는 RN core Share.share()로 시스템 share sheet 노출 → 사용자가 카톡 선택. 메시지 + URL이 카톡 채팅에 자동 채워짐. Phase 3에서 Kakao Share template 도입 시 sharePlaceToKakao 시그너처 유지 + 내부 구현만 교체 안전
+  - **double-tap 2-layer 정직성**: backend event_id PK + ON CONFLICT DO NOTHING이 1차 방어. UI inflight busy state가 2차 방어 (같은 sheet 인스턴스 내 같은 press가 promise 진행 중일 때 추가 호출 차단). 네트워크 retry는 same event_id 재사용 시 idempotent — 본 screen은 매 press마다 새 logReservationClick 호출 (eventId 미명시 → default crypto.randomUUID 발급). 같은 sheet의 빠른 두 번째 press만 inflight busy로 차단. 다른 sheet open/close 후 재 press는 별개 event(예상 동작)
+  - **createNativeShareApi() 호출 위치**: useCallback 안에서 매 호출 시 dynamicRequire → expo-notifications/setup pattern mirror. Jest test는 mock으로 createNativeShareApi 자체를 jest.fn()으로 대체 → dynamicRequire path 안전. EAS Build production binary에서 RN core이라 require 즉시 성공
+  - **partnership_id snapshot 일관성**: S08-backend turn의 click_events.partnership_id가 places.partnership_id snapshot 의미였음 — 본 screen에서도 fetchPlace 시점의 partnership_id를 logReservationClick에 그대로 전달 → click 시점의 제휴 여부 정확 기록. 추후 places.partnership_id 변경되어도 click event는 본 snapshot 유지
+  - **S10 unblock 후 wire-up 1줄 정확 spec**: 마커 컴포넌트의 onPress = `() => router.push({pathname: '/group/[id]/place', params: {id: groupId, placeId: place.id}})` 또는 URL string `/group/${groupId}/place?placeId=${place.id}`. expo-router 둘 다 지원
+  - **본 turn ship 정직성**: S08 acceptance 6/6 모두 close + 정식 DONE 마킹. 잔여(EAS Build prereq, Q-B12 founder review)는 prereq + 운영 영역으로 명시. 이전 fail-cleanup turn의 "정식 DONE 마킹 회피 무한 deferred 회피" 원칙 정합
+
+---
+
 ## S08-backend — "예약하기" Click-through 측정 backend (Gate #2 single source of truth) (2026-05-26) — PARTIAL (S08-backend 완성, UI는 S10 BLOCKED로 S08-ui sub-task로 분리)
 - Depends: S00 ✅ (users·groups·places·partnerships 모두 schema 완성), [G2](DECISIONS.md#g2--gate-2-장소-확정--예약하기-click-through--가장-critical) (Phase 3 commit 단일 게이트), Q-A4 (baseline 측정 design — segment_label nullable로 schema 확보 후 closure 시 채움)
 - Context: S08 전체 acceptance 중 UI(마커 바텀시트 + "장소만 정하기" 카톡 공유 + "준비 중" 안내)는 S10(지도) BLOCKED(Q-A2 답변 대기)로 시작 불가. 그러나 backend infrastructure(click_events table + click_log Edge Function + analytics lib)는 S10 의존 없음 → S12 패턴(backend-f1-f4 먼저 ship 후 publishers/client/mount 차례) mirror로 S08-backend sub-task 우선 ship. Gate #2 측정 instrument 조기 확보 — UI 작업 시점 backend 안정성 검증 완료 상태로 진입 가능.
