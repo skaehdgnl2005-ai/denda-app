@@ -28,6 +28,16 @@ export default ({ config: _ }: ConfigContext): ExpoConfig => ({
   icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
   // newArchEnabled는 SDK 53+에서 default — 명시 불필요
+  // EAS Update (OTA) — eas.json build profile의 channel과 연결. expo-updates 설정.
+  // fallbackToCacheTimeout: 0 → 임베드된 번들로 즉시 실행 + 업데이트는 백그라운드 확인
+  // (launch 지연 0 → D25 cold start 측정 왜곡 방지).
+  updates: {
+    url: 'https://u.expo.dev/8bea6af1-7bec-4df3-a60d-74a548b43cb6',
+    fallbackToCacheTimeout: 0,
+  },
+  runtimeVersion: {
+    policy: 'appVersion',
+  },
   ios: {
     supportsTablet: false,
     bundleIdentifier: 'com.denda.app',
