@@ -9,9 +9,9 @@
 ## 진행 현황 요약
 
 - **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** + **S14 sub-task 다수** + **fail-cleanup** (2026-05-26) + **S15-deeplink-schema** (2026-05-26) + **S12-backend-f1-f4 + S12-publishers-f4 + S12-client** (2026-05-26) + **S08-backend** (2026-05-26) + **S08-ui** (2026-05-27 — S08 정식 DONE) + **S15-deeplink 잔여 5 sub-task** (2026-05-27 — edge + web + rn-fallback + rn-conversion + deeplink. S15-deeplink 정식 DONE) + **Q-B22** + **D34** + **D35** 신규
-- **DONE**: 12 + **Lane E S18·S19** (S00, S01, S03, S04, S06, S07, S08, S11, S12, S14, S15-deeplink, **S18 2026-05-28**, **S19 2026-05-28**) + S05 acceptance 7/7 (S05e 운영 task)
+- **DONE**: 12 + **Lane E S18·S19·S20** (S00, S01, S03, S04, S06, S07, S08, S11, S12, S14, S15-deeplink, **S18 2026-05-28**, **S19 2026-05-28**, **S20 2026-05-28**) + S05 acceptance 7/7 (S05e 운영 task)
 - **IN_PROGRESS**: 4 (S05 — S05e 60fps 부하 실기기 잔여 / S16 — map 검색 provider 레이어 완성 PARTIAL, AppleAuthProvider Phase 3 deferred / S13 — EAS skeleton 완성[설정·계측·manifest·runbook], 인증서·실기기 측정 운영 트랙 / S10 — 데이터·로직 레이어 완성[coords·cache·filter·clustering·hook·scaffold 2026-05-28], native Naver Maps SDK 렌더·마커 PNG는 EAS 운영 트랙)
-- **TODO**: 7 (S15-mapmode, S17 + **Lane E** S20~S24 — 여정 척추, [spec](superpowers/specs/2026-05-28-journey-spine-roadmap-design.md) 2026-05-28. **S18·S19 DONE** — 첫 walkable 경로 생성→리스트→그리드 확보. S20[★게이트 임계경로]·S21[병렬 후보]이 다음)
+- **TODO**: 6 (S15-mapmode, S17 + **Lane E** S21~S24 — 여정 척추, [spec](superpowers/specs/2026-05-28-journey-spine-roadmap-design.md) 2026-05-28. **S18·S19·S20 DONE** — 트랙 1 종착(생성→리스트→**장소 확정+Gate #1·#2 측정**) S10 native 없이 게이트 성립. 트랙 2 S21[친구 실DB]·S22·S23 또는 S24가 다음)
 - **BLOCKED**: 0 (S10·S16 D1 no-answer 액션 발동[D36]으로 정책 블록 해소)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
@@ -411,7 +411,7 @@
 
 ### S20 — 지도 없는 장소 검색·선택 (★게이트, S10 디커플)
 
-- **Status**: TODO | **Owner**: Mobile + Backend | **Sprint**: post-MVP | **Lane**: E
+- **Status**: DONE (2026-05-28) | **Owner**: Mobile + Backend | **Sprint**: post-MVP | **Lane**: E
 - **Depends**: S16 ✅ (NaverSearchProvider + Edge `naver_local_search`), S08 ✅ (PlaceActionSheet + place.tsx + click_log), S04/S05, [G1](DECISIONS.md), [G2](DECISIONS.md#g2--gate-2-장소-확정--예약하기-click-through--가장-critical)
 - **Acceptance**:
   - `app/group/[id]/place-search.tsx` (신규 라우트) — 텍스트 검색 → NaverSearchProvider → 결과 리스트 → 선택

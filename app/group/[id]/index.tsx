@@ -62,7 +62,7 @@ export default function GroupConfirmScreen(): React.JSX.Element {
   const params = useLocalSearchParams<{ id: string }>();
   const groupId = params.id ?? '';
   const router = useRouter();
-  const { colors, space } = useTheme();
+  const { colors, space, radius } = useTheme();
   const userId = useAuth((s) => s.session?.user.id);
 
   const [group, setGroup] = useState<GroupForConfirm | null>(null);
@@ -312,6 +312,54 @@ export default function GroupConfirmScreen(): React.JSX.Element {
             endAtUtc={group.confirmedEndAt}
             testID="confirmed-time-card"
           />
+        </View>
+      ) : null}
+
+      {/* S20: 장소 정하기 / 보기 — 시간 확정 이후 노출. host 만 pick 가능. */}
+      {isConfirmed && group.confirmedPlaceId !== null ? (
+        <View style={{ paddingHorizontal: space[4], paddingBottom: space[3] }}>
+          <Pressable
+            onPress={() => router.push(`/group/${groupId}/place?placeId=${group.confirmedPlaceId}`)}
+            accessibilityRole="button"
+            accessibilityLabel="정해진 장소 보기"
+            testID="place-view-button"
+            style={({ pressed }) => ({
+              backgroundColor: colors.surface[1],
+              borderRadius: radius.md,
+              padding: space[4],
+              flexDirection: 'row',
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: colors.border.subtle,
+              opacity: pressed ? 0.85 : 1,
+            })}
+          >
+            <Icon name="장소" color={colors.text.tertiary} size={20} />
+            <Body color={colors.text.primary} style={{ flex: 1, marginLeft: space[2] }}>
+              정해진 장소 보기
+            </Body>
+            <Icon name="화살표" color={colors.text.tertiary} size={20} />
+          </Pressable>
+        </View>
+      ) : isConfirmed && isHost ? (
+        <View style={{ paddingHorizontal: space[4], paddingBottom: space[3] }}>
+          <Pressable
+            onPress={() => router.push(`/group/${groupId}/place-search`)}
+            accessibilityRole="button"
+            accessibilityLabel="장소 정하기"
+            testID="place-pick-button"
+            style={({ pressed }) => ({
+              backgroundColor: colors.brand[500],
+              borderRadius: radius.md,
+              padding: space[4],
+              alignItems: 'center',
+              opacity: pressed ? 0.92 : 1,
+            })}
+          >
+            <Body variant="bold" color={colors.text['on-brand']}>
+              장소 정하기
+            </Body>
+          </Pressable>
         </View>
       ) : null}
 

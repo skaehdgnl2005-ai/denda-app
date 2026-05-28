@@ -45,7 +45,7 @@ interface MockUpsertResult {
 }
 
 function makeMockSupabase(upsertResult: MockUpsertResult = { error: null }) {
-  const calls: Array<{ table: string; rows: unknown; onConflict?: string }> = [];
+  const calls: { table: string; rows: unknown; onConflict?: string }[] = [];
   const supabase = {
     from(table: string) {
       return {
@@ -154,9 +154,7 @@ describe('registerForPushNotifications', () => {
     });
 
     const [first] = calls;
-    expect((first?.rows as { platform: string } | undefined)?.platform).toBe(
-      'android',
-    );
+    expect((first?.rows as { platform: string } | undefined)?.platform).toBe('android');
   });
 
   it('platform=web → 본 베타에서 미지원 → granted=false silent', async () => {
@@ -226,8 +224,7 @@ describe('registerForPushNotifications', () => {
         requestCalled = true;
         return Promise.resolve({ granted: true });
       },
-      getExpoPushTokenAsync: () =>
-        Promise.resolve({ data: 'ExponentPushToken[cached]' }),
+      getExpoPushTokenAsync: () => Promise.resolve({ data: 'ExponentPushToken[cached]' }),
       setNotificationHandler: () => {},
     };
 

@@ -77,9 +77,7 @@ export interface RegisterResult {
  * - granted=false → upsert skip + result.token=null
  * - upsert ON CONFLICT user_id,token → 동일 디바이스 재등록 안전
  */
-export async function registerForPushNotifications(
-  args: RegisterArgs,
-): Promise<RegisterResult> {
+export async function registerForPushNotifications(args: RegisterArgs): Promise<RegisterResult> {
   if (!args.userId.trim()) {
     throw new Error('userId가 필요해요.');
   }
@@ -149,9 +147,7 @@ export function createExpoNotificationsApi(): ExpoNotificationsApi {
   ) as {
     getPermissionsAsync: () => Promise<{ status: string; granted?: boolean }>;
     requestPermissionsAsync: () => Promise<{ status: string; granted?: boolean }>;
-    getExpoPushTokenAsync: (opts: {
-      projectId: string;
-    }) => Promise<{ data: string }>;
+    getExpoPushTokenAsync: (opts: { projectId: string }) => Promise<{ data: string }>;
     setNotificationHandler: (handler: unknown) => void;
   };
   const isGranted = (r: { status: string; granted?: boolean }) =>

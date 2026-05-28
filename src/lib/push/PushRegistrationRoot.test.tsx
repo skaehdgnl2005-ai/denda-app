@@ -5,17 +5,13 @@
 
 import { render, act } from '@testing-library/react-native';
 
-import {
-  PushRegistrationRoot,
-  type PushRegistrationRootProps,
-} from './PushRegistrationRoot';
+import { PushRegistrationRoot, type PushRegistrationRootProps } from './PushRegistrationRoot';
 import type { ExpoNotificationsApi, PlatformApi } from './expoNotifications';
 
 const mockNotifications: ExpoNotificationsApi = {
   getPermissionsAsync: () => Promise.resolve({ granted: true }),
   requestPermissionsAsync: () => Promise.resolve({ granted: true }),
-  getExpoPushTokenAsync: () =>
-    Promise.resolve({ data: 'ExponentPushToken[stub]' }),
+  getExpoPushTokenAsync: () => Promise.resolve({ data: 'ExponentPushToken[stub]' }),
   setNotificationHandler: () => {},
 };
 
@@ -23,10 +19,10 @@ const mockPlatform: PlatformApi = { OS: 'ios' };
 
 function makeProps(overrides: Partial<PushRegistrationRootProps> = {}): {
   props: PushRegistrationRootProps;
-  registerCalls: Array<{ userId: string }>;
+  registerCalls: { userId: string }[];
   handlerSetCount: { count: number };
 } {
-  const registerCalls: Array<{ userId: string }> = [];
+  const registerCalls: { userId: string }[] = [];
   const handlerSetCount = { count: 0 };
 
   const props: PushRegistrationRootProps = {

@@ -10,9 +10,11 @@ const NON_HOST_ID = '99999999-8888-7777-6666-555555555555';
 const VALID_GROUP_ID = '11111111-2222-3333-4444-555555555555';
 
 const mockBack = jest.fn();
+const mockPush = jest.fn();
+const mockRouterReplace = jest.fn();
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: '11111111-2222-3333-4444-555555555555' }),
-  useRouter: () => ({ back: mockBack, push: jest.fn(), replace: jest.fn() }),
+  useRouter: () => ({ back: mockBack, push: mockPush, replace: mockRouterReplace }),
 }));
 
 let mockUserId: string | null = HOST_ID;
@@ -171,6 +173,77 @@ describe('GroupConfirmScreen', () => {
     fireEvent.press(btn);
     expect(alertSpy).toHaveBeenCalledWith(expect.any(String), expect.stringContaining('시간'));
     alertSpy.mockRestore();
+  });
+
+  test('S20: 호스트 + 확정 + 장소 미정 → "장소 정하기" 버튼 → place-search push', async () => {
+    mockFetchGroup.mockResolvedValue({
+      id: VALID_GROUP_ID,
+      hostId: HOST_ID,
+      name: '확정된 모임',
+      dates: ['2026-06-01'],
+      memberCount: 2,
+      confirmedAt: '2026-05-30T10:00:00.000Z',
+      confirmedStartAt: '2026-06-01T10:00:00.000Z',
+      confirmedEndAt: '2026-06-01T12:00:00.000Z',
+      confirmedPlaceId: null,
+    });
+    const { findByTestId } = render(<GroupConfirmScreen />, { wrapper });
+    const btn = await findByTestId('place-pick-button');
+    fireEvent.press(btn);
+    expect(mockPush).toHaveBeenCalledWith(`/group/${VALID_GROUP_ID}/place-search`);
+  });
+
+  test('S20: 비호스트 + 확정 + 장소 미정 → "장소 정하기" 버튼 미노출', async () => {
+    mockUserId = NON_HOST_ID;
+    mockFetchGroup.mockResolvedValue({
+      id: VALID_GROUP_ID,
+      hostId: HOST_ID,
+      name: '확정된 모임',
+      dates: ['2026-06-01'],
+      memberCount: 2,
+      confirmedAt: '2026-05-30T10:00:00.000Z',
+      confirmedStartAt: '2026-06-01T10:00:00.000Z',
+      confirmedEndAt: '2026-06-01T12:00:00.000Z',
+      confirmedPlaceId: null,
+    });
+    const { queryByTestId, findByText } = render(<GroupConfirmScreen />, { wrapper });
+    await findByText('확정된 모임');
+    expect(queryByTestId('place-pick-button')).toBeNull();
+  });
+
+  test('S20: 미확정 → "장소 정하기" 버튼 미노출 (시간 확정 먼저)', async () => {
+    mockFetchGroup.mockResolvedValue({
+      id: VALID_GROUP_ID,
+      hostId: HOST_ID,
+      name: '미확정',
+      dates: ['2026-06-01'],
+      memberCount: 1,
+      confirmedAt: null,
+      confirmedStartAt: null,
+      confirmedEndAt: null,
+      confirmedPlaceId: null,
+    });
+    const { queryByTestId, findByText } = render(<GroupConfirmScreen />, { wrapper });
+    await findByText('미확정');
+    expect(queryByTestId('place-pick-button')).toBeNull();
+  });
+
+  test('S20: 확정 + 장소 정해짐 → "장소 보기" 버튼 → place 라우트 push', async () => {
+    mockFetchGroup.mockResolvedValue({
+      id: VALID_GROUP_ID,
+      hostId: HOST_ID,
+      name: '확정된 모임',
+      dates: ['2026-06-01'],
+      memberCount: 2,
+      confirmedAt: '2026-05-30T10:00:00.000Z',
+      confirmedStartAt: '2026-06-01T10:00:00.000Z',
+      confirmedEndAt: '2026-06-01T12:00:00.000Z',
+      confirmedPlaceId: 'place-uuid-x',
+    });
+    const { findByTestId } = render(<GroupConfirmScreen />, { wrapper });
+    const btn = await findByTestId('place-view-button');
+    fireEvent.press(btn);
+    expect(mockPush).toHaveBeenCalledWith(`/group/${VALID_GROUP_ID}/place?placeId=place-uuid-x`);
   });
 
   test('back-button → router.back 호출', async () => {

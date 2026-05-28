@@ -42,6 +42,24 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S20 — 지도 없는 장소 검색·선택 (★게이트 임계경로, S10 디커플) (2026-05-28) — DONE
+- Depends: S16 ✅ (NaverSearchProvider + Edge `naver_local_search`), S08 ✅ (PlaceActionSheet + place.tsx + click_log), S04 ✅ + S05 acceptance 7/7 ✅, [G1](DECISIONS.md)·[G2](DECISIONS.md#g2--gate-2-장소-확정--예약하기-click-through--가장-critical), [D18](DECISIONS.md#d18--좌표계-정규화) 좌표. 모두 충족.
+- Sub-decisions closed (spec 진입 closure):
+  - ① 장소 확정 시점 = **확인 단계 거쳐 확정** (`Alert.alert` "○○으로 정할까요?" → [취소/확정] → 확정 탭에서만 `confirmed_place_id` UPDATE = **Gate #1 이벤트**) — 오탭 방지 + 측정 품질
+  - ② places 영속화 = **migration 보강** (0019: `kakao_place_id` nullable + `source` ('kakao'|'naver') + `provider_place_id` + `(source, provider_place_id)` UNIQUE + upsert dedup) — 카카오/네이버 공존, 같은 식당 1행 수렴
+- Changes:
+  - `supabase/migrations/0019_places_provider.sql` (+43, places multi-provider 보강 + 백필 + UNIQUE index)
+  - `src/lib/places/persist.ts` (+41, `persistPlace` — upsert onConflict='source,provider_place_id' + 한국어 에러) + `.test.ts` (+78, Jest 5)
+  - `src/lib/groups/setConfirmedPlace.ts` (+38, `setConfirmedPlace` — UPDATE+`.select()` 0 rows → "호스트만 장소를 정할 수 있어요." surface (RLS `groups_update_host` silent deny 패턴, D17 idempotency 미러)) + `.test.ts` (+50, Jest 5)
+  - `app/group/[id]/place-search.tsx` (+198, NEW 화면 — 텍스트 검색 → `useMapSearch` 재사용(NaverSearchProvider+debounce 400ms+5분 캐시) → 결과 카드 → Alert 확인 → `persistPlace` → `setConfirmedPlace` → `router.replace('/group/[id]/place?placeId=...')` (S08 PlaceActionSheet 합류, Gate #2). DESIGN 토큰·한국어·§17(brand-500 fill CTA 0개, 카드 tap=action))
+  - `tests/screens/group/place-search.test.tsx` (+193, Jest 9 — 검색·결과·Alert 확정/취소·persist 실패·로딩·에러·빈 상태·뒤로)
+  - `app/group/[id]/index.tsx` (+50/-2): 호스트 "장소 정하기" 버튼(확정 + 장소 미정 시만 노출 → `/group/[id]/place-search`) + everyone "장소 보기" 버튼(장소 정해진 후 → `/place?placeId=X`, Gate #2 재진입 경로). `radius.md` 토큰
+  - `tests/screens/group/confirm.test.tsx` (+75/-1, Jest +4 — 호스트 pick 버튼/비호스트 미노출/미확정 미노출/장소 정해진 후 view 버튼)
+  - prettier 자동수정 사이드: `src/lib/push/{expoNotifications.ts, expoNotifications.test.ts, PushRegistrationRoot.test.tsx}` 3건 라인 collapse (논리 무변)
+- Tests: Jest 699 passed + 1 skip (676→**+23**), typecheck 0, lint 0 errors. @reviewer Critical 4 CLEARED (RLS·KST·secret·DESIGN 토큰 모두 통과 — 권고 `borderRadius: 8` 리터럴 2건은 본 turn 내 `radius.md`로 교체 완료).
+- Next: **S21 친구 시스템 실DB 전환** (트랙 2, Lane E — S07 mock→supabase 전면 교체, 시그너처 유지 → 친구탭/검색 UI 무변경, [D16](DECISIONS.md#d16--차단신고-일관성-helper-function--rls) `is_blocked` 통과 의무). Depends 모두 충족 → unblocked. 또는 트랙 3 S24·EAS Build prereq.
+- Notes: **Lane E 트랙 1 종착** — S18(생성) → S19(리스트) → **S20(장소 확정 + Gate #1·#2 측정 경로)** = 게이트 측정이 **S10 네이티브 맵 unblock 없이 성립**. 베타 멀티유저 루프는 웹게스트 링크(S14 ✅) + 딥링크(S15-deeplink ✅)로 사회적 루프 대체 가능. NaverSearchProvider/useMapSearch 재사용으로 S10 지도탭·places/* 무접촉 → S10 native 랜딩 시 마커→`place.tsx` 두 번째 진입 경로와 공존 (둘 다 `click_log`로 수렴). 0019 migration은 백필 단계 — 베타 시점 places 행 사실상 0건(S10 native 미랜딩)이라 영향 미미. S20의 `place-view-button` 추가는 spec 본문 외 보강이나 Gate #2 재진입(host 외 멤버도 사후 예약 클릭 가능)을 위한 +1.
+
 ## S19 — 내 모임 리스트 (2026-05-28) — DONE
 - Depends: S00 ✅ (groups RLS `groups_select_member_or_host` — host ∨ group_members), S18 ✅ (모임 생성 진입로), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc) (KST). 모두 충족.
 - Changes:
