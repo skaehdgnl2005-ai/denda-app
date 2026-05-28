@@ -9,9 +9,9 @@
 ## 진행 현황 요약
 
 - **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** + **S14 sub-task 다수** + **fail-cleanup** (2026-05-26) + **S15-deeplink-schema** (2026-05-26) + **S12-backend-f1-f4 + S12-publishers-f4 + S12-client** (2026-05-26) + **S08-backend** (2026-05-26) + **S08-ui** (2026-05-27 — S08 정식 DONE) + **S15-deeplink 잔여 5 sub-task** (2026-05-27 — edge + web + rn-fallback + rn-conversion + deeplink. S15-deeplink 정식 DONE) + **Q-B22** + **D34** + **D35** 신규
-- **DONE**: 12 + **Lane E S18·S19·S20·S21·S22·S23** (S00, S01, S03, S04, S06, S07, S08, S11, S12, S14, S15-deeplink, **S18·S19·S20·S21·S22·S23 2026-05-28**) + S05 acceptance 7/7 (S05e 운영 task)
+- **DONE**: 12 + **Lane E S18·S19·S20·S21·S22·S23·S24** (S00, S01, S03, S04, S06, S07, S08, S11, S12, S14, S15-deeplink, **S18·S19·S20·S21·S22·S23·S24 2026-05-28** = 여정 척추 7/7 완성) + S05 acceptance 7/7 (S05e 운영 task)
 - **IN_PROGRESS**: 4 (S05 — S05e 60fps 부하 실기기 잔여 / S16 — map 검색 provider 레이어 완성 PARTIAL, AppleAuthProvider Phase 3 deferred / S13 — EAS skeleton 완성[설정·계측·manifest·runbook], 인증서·실기기 측정 운영 트랙 / S10 — 데이터·로직 레이어 완성[coords·cache·filter·clustering·hook·scaffold 2026-05-28], native Naver Maps SDK 렌더·마커 PNG는 EAS 운영 트랙)
-- **TODO**: 3 (S15-mapmode, S17 + **Lane E** S24 — 여정 척추, [spec](superpowers/specs/2026-05-28-journey-spine-roadmap-design.md) 2026-05-28. **S18·S19·S20 DONE** = 트랙 1 종착(생성→리스트→**장소 확정+Gate #1·#2 측정**) S10 native 없이 게이트 성립. **S21·S22·S23 DONE** = 트랙 2 친구 실DB + 인앱 초대/합류 + F1/F2/F3 publisher 종착, S12 ⏸️ F1/F2/F3 publisher prereq 전부 해소)
+- **TODO**: 2 (S15-mapmode, S17. **Lane E** **S18·S19·S20·S21·S22·S23·S24 모두 DONE 2026-05-28** = 여정 척추 7/7 완성. 트랙 1(생성→리스트→장소 확정+Gate #1·#2 측정) + 트랙 2(친구 실DB→인앱 초대/합류→F1/F2/F3 publisher) + 트랙 3(부차 dead-end 정리). S10 native 없이 게이트 성립)
 - **BLOCKED**: 0 (S10·S16 D1 no-answer 액션 발동[D36]으로 정책 블록 해소)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
@@ -466,12 +466,15 @@
 
 ### S24 — 부차적 dead-end 정리
 
-- **Status**: TODO | **Owner**: Mobile | **Sprint**: post-MVP | **Lane**: E
+- **Status**: DONE (2026-05-28) | **Owner**: Mobile | **Sprint**: post-MVP | **Lane**: E
 - **Depends**: 없음 (독립)
-- **Acceptance**: 프로필 설정행 3개(알림설정/신고차단관리/화면모드)·홈 알림 버튼·친구탭 카톡초대(가짜 Alert) 실연결 or 베타 비활성 명시. 게이트 무관, 일부 P1(차기) 이연 가능
-- **Files**: `app/(tabs)/profile.tsx`, `app/(tabs)/index.tsx`, `app/(tabs)/friends/index.tsx`
+- **Acceptance**:
+  - ✅ 친구탭 카톡초대 실연결 — `src/lib/share/inviteShare.ts` + RN core Share API (S08 `sharePlaceToKakao` 패턴 mirror). 가짜 Alert 제거
+  - ✅ 프로필 설정행 3개(알림 설정·신고·차단 관리·화면 모드) onPress 안내 Alert — 화면 모드는 D6 시스템 자동 안내, 나머지 2개는 "준비 중" + 신고·차단은 친구 카드 대체 path 명시
+  - ✅ 홈 알림 버튼 onPress 안내 Alert — "준비 중"
+- **Files**: `src/lib/share/inviteShare.{ts,test.ts}` ✅(신규), `tests/screens/tabs/profile.test.tsx` ✅(신규), `app/(tabs)/profile.tsx` ✅, `app/(tabs)/index.tsx` ✅, `app/(tabs)/friends/{index.tsx,index.test.tsx}` ✅, `tests/screens/home.test.tsx` ✅
 - **Worktree 분기**: 가능
-- **Notes**: 최하 우선. 게이트 KPI 무관
+- **Notes**: 최하 우선. 게이트 KPI 무관. 사용자 결정 — 혼합안(실연결 1 + 베타 비활성 안내 4). 정식 출시 시 알림함·신고차단관리는 정식 화면 신설(P1 차기), 화면 모드는 메뉴 자체 제거 vs `Linking.openSettings()` 딥링크 결정 필요
 
 ---
 

@@ -2,7 +2,7 @@
 
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/Icon';
@@ -106,9 +106,29 @@ export default function ProfileScreen() {
           onPress={() => router.push('/schedule/everytime')}
           testID="everytime-import-link"
         />
-        <SettingRow icon="알림 켜짐" label="알림 설정" />
-        <SettingRow icon="신고" label="신고·차단 관리" />
-        <SettingRow icon="다크/라이트" label="화면 모드" />
+        <SettingRow
+          icon="알림 켜짐"
+          label="알림 설정"
+          onPress={() => Alert.alert('알림 설정', '준비 중이에요. 정식 출시 때 만나요.')}
+          testID="notifications-row"
+        />
+        <SettingRow
+          icon="신고"
+          label="신고·차단 관리"
+          onPress={() =>
+            Alert.alert(
+              '신고·차단 관리',
+              '준비 중이에요. 지금은 친구 카드에서 신고·차단할 수 있어요.',
+            )
+          }
+          testID="reports-row"
+        />
+        <SettingRow
+          icon="다크/라이트"
+          label="화면 모드"
+          onPress={() => Alert.alert('화면 모드', '기기 설정의 다크 모드를 따라요.')}
+          testID="theme-row"
+        />
       </View>
 
       <View style={{ flex: 1 }} />

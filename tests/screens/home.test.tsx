@@ -1,4 +1,5 @@
 import React from 'react';
+import { Alert } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 
 import HomeScreen from '../../app/(tabs)/index';
@@ -47,5 +48,19 @@ describe('HomeScreen', () => {
     mockFetchMyGroups.mockResolvedValue([]);
     const { findByText } = render(<HomeScreen />, { wrapper });
     expect(await findByText('잡힌 모임이 아직 없어요')).toBeTruthy();
+  });
+
+  // S24: 알림 버튼 → "준비 중" Alert (실연결은 P1 차기).
+  test('알림 버튼 → "준비 중" Alert', async () => {
+    mockFetchMyGroups.mockResolvedValue([]);
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const { getByTestId } = render(<HomeScreen />, { wrapper });
+    await act(async () => {});
+    fireEvent.press(getByTestId('notifications-button'));
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    const [title, body] = alertSpy.mock.calls[0]!;
+    expect(title).toBe('알림함');
+    expect(body).toMatch(/준비 중/);
+    alertSpy.mockRestore();
   });
 });

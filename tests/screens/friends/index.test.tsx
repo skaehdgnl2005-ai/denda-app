@@ -22,6 +22,15 @@ jest.mock('@/lib/supabase/client', () => ({
   supabase: { from: jest.fn(), rpc: jest.fn() },
 }));
 
+// S24: native Share API 회피 + shareInviteToKakao 호출 검증.
+jest.mock('@/lib/share/kakaoShare', () => ({
+  createNativeShareApi: jest.fn(() => ({ share: jest.fn() })),
+}));
+const mockShareInvite = jest.fn().mockResolvedValue({ shared: true });
+jest.mock('@/lib/share/inviteShare', () => ({
+  shareInviteToKakao: (...args: unknown[]) => mockShareInvite(...args),
+}));
+
 // S21: friendsApi가 supabase로 전면 교체됨 — mock data는 spy로 명시.
 const DEFAULT_FRIENDS = [
   { id: 'user-2', nickname: '홍길동' },
@@ -108,6 +117,26 @@ describe('FriendsIndexScreen Screen', () => {
       expect(getByTestId('empty-state')).toBeTruthy();
       expect(queryByTestId('friend-card')).toBeNull();
     });
+  });
+
+  // S24: 카톡 초대 버튼 → shareInviteToKakao 호출 (가짜 Alert 아님).
+  test('빈 상태 카톡 초대 버튼 → shareInviteToKakao 호출', async () => {
+    (friendsApi.list as jest.Mock).mockResolvedValueOnce([]);
+    (friendsApi.listIncomingRequests as jest.Mock).mockResolvedValueOnce([]);
+
+    const { getByTestId } = render(<FriendsIndexScreen />, { wrapper });
+
+    await waitFor(() => {
+      const btn = getByTestId('kakao-invite-button');
+      fireEvent.press(btn);
+    });
+
+    await waitFor(() => {
+      expect(mockShareInvite).toHaveBeenCalledTimes(1);
+    });
+    const [args, options] = mockShareInvite.mock.calls[0]!;
+    expect(args).toEqual(expect.objectContaining({ inviterNickname: expect.any(String) }));
+    expect(options).toEqual(expect.objectContaining({ shareApi: expect.anything() }));
   });
 
   // S18: 모임 만들기 CTA → 모임 생성 화면 진입 (이전 Alert stub 대체).

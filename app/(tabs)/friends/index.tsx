@@ -11,11 +11,14 @@ import { FriendUser, friendsApi } from '@/lib/friends/api';
 import { submitReport } from '@/lib/reports/api';
 import { type ReportReasonKey } from '@/lib/reports/reasons';
 import { useAuth } from '@/lib/auth/setup';
+import { createNativeShareApi } from '@/lib/share/kakaoShare';
+import { shareInviteToKakao } from '@/lib/share/inviteShare';
 
 export default function FriendsIndexScreen() {
   const { colors, space } = useTheme();
   const router = useRouter();
   const reporterId = useAuth((s) => s.session?.user.id ?? null);
+  const myNickname = useAuth((s) => s.session?.user.nickname ?? '');
 
   const [friends, setFriends] = useState<FriendUser[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -90,8 +93,17 @@ export default function FriendsIndexScreen() {
     }
   };
 
-  const handleKakaoInvite = () => {
-    Alert.alert('카톡으로 초대', '카카오톡 공유 링크가 복사되었습니다.');
+  // S24: RN core Share API → 시스템 share sheet (사용자가 카톡 선택). 더 이상 가짜 Alert 아님.
+  const handleKakaoInvite = async () => {
+    try {
+      await shareInviteToKakao(
+        { inviterNickname: myNickname },
+        { shareApi: createNativeShareApi() },
+      );
+    } catch (e) {
+      const message = e instanceof Error ? e.message : '공유에 실패했어요.';
+      Alert.alert('오류', message);
+    }
   };
 
   const renderEmptyState = () => (
@@ -109,6 +121,7 @@ export default function FriendsIndexScreen() {
         onPress={handleKakaoInvite}
         accessibilityRole="button"
         accessibilityLabel="카카오톡으로 초대"
+        testID="kakao-invite-button"
         style={({ pressed }) => [
           styles.inviteButton,
           {

@@ -3,7 +3,7 @@
 // 보라는 메인 CTA 하나만, 빈 상태 아이콘은 회색.
 
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -54,6 +54,7 @@ export default function HomeScreen() {
         >
           <BrandMark size="sm" />
           <Pressable
+            onPress={() => Alert.alert('알림함', '준비 중이에요. 정식 출시 때 만나요.')}
             accessibilityRole="button"
             accessibilityLabel="알림"
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}

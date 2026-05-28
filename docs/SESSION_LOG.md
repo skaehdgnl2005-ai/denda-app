@@ -25,6 +25,33 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S24 — 부차적 dead-end 정리 (2026-05-28) — DONE
+- Depends: 없음 (독립 task). 사용자 결정 — 혼합안 (실연결 1 + 베타 비활성 안내 4)
+- Context: 사용자 "/start-task S24". Lane E(여정 척추) 트랙 3 — 게이트 KPI 무관 부차적 dead-end 5종 정리. AskUserQuestion으로 처리 방향 확정(혼합: 친구탭 카톡초대만 실연결, 나머지 4종은 "준비 중" 안내). 친구탭 카톡초대는 S08의 sharePlaceToKakao 패턴(RN core Share API + DI shareApi + dynamicRequire `createNativeShareApi()`) 그대로 mirror. 프로필 3행·홈 알림 버튼은 `Alert.alert` 안내. 정식 출시 시점에 P1으로 이연 명시.
+- Changes (신규 3 파일 + 수정 5 파일):
+  - **`src/lib/share/inviteShare.ts` (+65 신규)** — 친구 초대 share 라이브러리. `buildInviteMessage({inviterNickname?, url?})` 순수 함수 — inviterNickname truthy(trim) 시 "○○님이 된다에서 함께하자고 해요." 머리말 / 빈 값 시 "친구를 된다에 초대해요." 일반 머리말 + 본문 "시간 · 장소 · 예약을 한 번에 잡아봐요." + 옵션 url 줄바꿈 append. `shareInviteToKakao(args, options)` — `ShareApi` DI 필수(미주입 시 한국어 throw), kakaoShare.ts `ShareApi` 인터페이스 재사용으로 createNativeShareApi() production 공유. share API result.action === 'sharedAction' → `{shared:true}`, dismissedAction → false, throw → "공유에 실패했어요" 한국어 wrap
+  - **`src/lib/share/inviteShare.test.ts` (+67 신규, 9 Jest TDD-first)** — buildInviteMessage 4(닉네임 포함 머리말 / 미명시 일반 머리말 / 공백 trim → 일반 머리말 / 앱 이름 "된다" 포함) + shareInviteToKakao 5(sharedAction → shared=true + share API 호출 args 검증 / dismissedAction → false / throw → 한국어 / shareApi 미주입 → 한국어 / 닉네임 미명시 일반 동작)
+  - **`tests/screens/tabs/profile.test.tsx` (+84 신규, 4 Jest)** — 프로필 mock 인프라(expo-router/useAuth/calendar.reauth/calendar.setup/supabase) + Alert spy로 3 행 onPress 동작 검증 + 에브리타임 행 회귀 방지(Alert 호출 0 + router.push 정상 동작 — 신규 안내는 다른 행만 영향). `notifications-row` "준비 중" / `reports-row` "친구 카드에서 신고·차단" / `theme-row` "기기 설정" (D6 시스템 자동 안내)
+  - **`app/(tabs)/friends/index.tsx` (+17/-2)** — handleKakaoInvite를 가짜 `Alert.alert('카톡으로 초대', '카카오톡 공유 링크가 복사되었습니다.')`에서 `shareInviteToKakao({inviterNickname: myNickname}, {shareApi: createNativeShareApi()})` 실연결로 교체. useAuth에서 `myNickname` 추가 추출. Pressable에 `testID="kakao-invite-button"` 추가
+  - **`tests/screens/friends/index.test.tsx` (+29 신규)** — `@/lib/share/kakaoShare` createNativeShareApi mock + `@/lib/share/inviteShare` shareInviteToKakao mock + 빈 상태에서 카톡 초대 버튼 press → shareInviteToKakao 호출 검증(args.inviterNickname / options.shareApi)
+  - **`app/(tabs)/profile.tsx` (+28/-4)** — SettingRow 3개에 onPress + testID 추가. 알림 설정 → `Alert.alert('알림 설정', '준비 중이에요. 정식 출시 때 만나요.')` / 신고·차단 관리 → "준비 중이에요. 지금은 친구 카드에서 신고·차단할 수 있어요." (replacement path 명시) / 화면 모드 → "기기 설정의 다크 모드를 따라요." (D6 시스템 자동 안내). `import { Alert }` 추가
+  - **`app/(tabs)/index.tsx` (+3/-1)** — 홈 알림 버튼 onPress 추가 → `Alert.alert('알림함', '준비 중이에요. 정식 출시 때 만나요.')`. `import { Alert }` 추가
+  - **`tests/screens/home.test.tsx` (+15 신규, Jest +1)** — Alert spy로 알림 버튼 press → "알림함" + "준비 중" 메시지 검증
+  - **`docs/NOW.md`** — S24 활성 항목 add(/start-task) → remove(/ship-task)
+- Tests: **Jest 794 passed + 1 skip** (779 → +15: inviteShare 9 + friends index +1 + profile 4 + home +1), **typecheck 0**, **lint 0 errors** (prettier --fix로 정리 완료). design-guard CRITICAL 4(DESIGN 토큰·RLS·KST·secret) CLEAR — 시각 결정 hex 0건(profile.tsx 신규 코드 모두 tokens 의존, Alert는 시스템 native) / RLS 변경 0(스키마 무변경) / `new Date()` 신규 0건 / secret 클라 expose 0(RN core Share API는 시스템 share sheet, 외부 키 의존 없음)
+- Next: **EAS Build 운영 트랙** (Google OAuth dev key + AASA TEAMID + assetlinks sha256 + ATT 모달 + TestFlight Universal Links 실기기 검증) 또는 **S15-mapmode** (S10 native 트랙 후 지도-일정 mode) 또는 **S17 QA 종합** + 안암 invite-only 베타
+- Notes:
+  - **혼합안 사용자 결정 근거**: 친구탭 카톡초대는 S08 sharePlaceToKakao 패턴 그대로 mirror하면 5분 작업 + 베타에서도 실제 share intent로 자연스럽게 동작. 나머지 4종(프로필 3행 + 홈 알림 버튼)은 정식 화면 신설 = 추가 라우트 3-4개 + 백엔드 wiring 필요 → 베타 가치 ↓. P1 차기 이연이 코스트 우월
+  - **버튼 자체는 hide하지 않은 이유**: 버튼이 시각적으로 존재하면 사용자 멘탈 모델은 "기능이 있다"임. onPress 비활성보다 "준비 중" Alert가 정직(disable처럼 보이지 않음). 화면 구조가 정식 출시 후 그대로 유지될 가능성도 ↑
+  - **S08 `ShareApi` 인터페이스 재사용**: kakaoShare.ts의 `ShareApi` type을 inviteShare.ts에서 import — DI 패턴 단일화. createNativeShareApi()도 공유 → production wiring 단일 entry point
+  - **`buildInviteMessage` 베타 URL 미포함**: EAS Build 운영 prereq 전엔 앱 다운로드 URL 없음. URL 인자는 future-proof 인터페이스(테스트 검증)지만 호출부는 미주입. EAS Build 후 1줄 추가로 활성화 가능
+  - **inviterNickname `   ` 공백만일 때**: trim 후 빈 문자열 처리 → 일반 머리말. test로 "   님" 같은 망친 출력 방지 검증
+  - **profile.tsx SettingRow 시그너처 무변경**: 기존 onPress optional + testID optional 모두 그대로. 4 행 다 동일 인터페이스로 정렬. 회귀 위험 0
+  - **D6 "화면 모드" 행은 정식 출시에서도 hide 후보**: 시스템 자동 → 화면 모드 행 자체 의미 ↓. 정식 출시 시점에 메뉴 자체 제거 vs "기기 설정으로 가기" 딥링크(`Linking.openSettings()`)인지는 P1 결정
+  - **fail-cleanup turn 인프라 활용**: 본 task가 추가한 신규 라이브러리는 inviteShare 1개뿐 + 모두 기존 패턴 mirror — 추가 dependency·새 hook·새 backend wire 0
+
+---
+
 ## S23 — 푸시 F1/F2/F3 publisher wire-up (2026-05-28) — DONE
 - Depends: S21 ✅ (친구 API 실 DB), S22 ✅ (invitations 실 DB), S12 ✅ (notify_f1/f2/f3 handler), [D33](DECISIONS.md#d33--모임-확정-fan-out--단일-dispatcher-q-b5-close) (단일 dispatcher pattern). 모두 충족.
 - Context: 사용자 "/start-task S23". Lane E(여정 척추) 트랙 2 종착 — S12 ⏸️ "F1/F2/F3 publisher prereq (friends/invitations API supabase 전환 시)" 항목 close. S21·S22로 친구/초대 클라 API가 실 DB로 전환됐고, 본 task에서 이벤트 발생 지점(sendRequest / acceptRequest / createInvitation) → notify_f{1,2,3} 라우팅을 D33 단일 dispatcher 패턴으로 결선. publisher는 신규 Edge `notify_publish` 1개로 통합(votes_aggregate→notify_f4 mirror) — type=friend_requested/friend_accepted/group_invited 분기 + module load 시 register notify_f{1,2,3} handler(idempotent flag). 클라 측은 `src/lib/push/dispatch.ts` thin wrapper로 silent best-effort(`supabase.functions.invoke` throw·error response 모두 swallow) — push 실패가 요청·수락·초대 UX 차단 X.
