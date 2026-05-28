@@ -5,8 +5,11 @@
 //   - SELECT(0005 group_invitations_select_involving_self): auth.uid()=inviter_id OR =invitee_id + 차단 hide(D16)
 //   - UPDATE(0002 group_invitations_update_invitee): auth.uid()=invitee_id
 // acceptInvitation은 0020 accept_group_invitation RPC로 atomic 처리 (status UPDATE + group_members INSERT).
+//
+// S23 — createInvitation 성공 후 dispatch(group_invited) 호출 (D33 단일 dispatcher → F3).
 
 import { supabase } from '@/lib/supabase/client';
+import { dispatch } from '@/lib/push/dispatch';
 
 export interface InvitationGroup {
   id: string;
@@ -106,6 +109,14 @@ export const invitationsApi = {
       }
       throw new Error('초대를 보내지 못했어요. 잠시 후 다시 시도해주세요.');
     }
+
+    // S23 — F3 publish (silent best-effort)
+    await dispatch({
+      type: 'group_invited',
+      groupId: gid,
+      inviterId: me,
+      inviteeId: target,
+    });
   },
 
   listMyInvitations: async (): Promise<GroupInvitation[]> => {

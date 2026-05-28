@@ -2,9 +2,13 @@
 // RLS: friendships/friend_requests/users 모두 is_blocked(D16) 통과 (0001/0002/0007)
 // acceptRequest는 RPC accept_friend_request (0019) — 양방향 friendships INSERT를 SECURITY DEFINER로 위임
 // blockUser는 blocks/api::blockUser (0008 block_user RPC) 그대로 위임
+//
+// S23 — sendRequest/acceptRequest 성공 후 dispatch(F1/F2) 호출 (D33 단일 dispatcher)
+//   acceptRequest는 fromUserId optional — UI(requests.tsx)가 listIncoming 데이터의 sender_id 전달.
 
 import { supabase } from '@/lib/supabase/client';
 import { blockUser as supabaseBlockUser } from '@/lib/blocks/api';
+import { dispatch } from '@/lib/push/dispatch';
 
 export interface FriendUser {
   id: string;
@@ -126,6 +130,9 @@ export const friendsApi = {
       }
       throw new Error('요청을 보내지 못했어요. 잠시 후 다시 시도해주세요.');
     }
+
+    // S23 — F1 publish (silent best-effort; push 실패가 요청 UX 차단 X)
+    await dispatch({ type: 'friend_requested', fromUserId: me, toUserId: target });
   },
 
   listIncomingRequests: async (): Promise<FriendRequest[]> => {
@@ -178,7 +185,7 @@ export const friendsApi = {
     }));
   },
 
-  acceptRequest: async (requestId: string): Promise<void> => {
+  acceptRequest: async (requestId: string, fromUserId?: string): Promise<void> => {
     const id = requestId.trim();
     if (!id) {
       throw new Error('요청을 선택해주세요.');
@@ -198,6 +205,17 @@ export const friendsApi = {
         throw new Error('수락하지 못했어요. 잠시 후 다시 시도해주세요.');
       }
       throw new Error('수락하지 못했어요. 잠시 후 다시 시도해주세요.');
+    }
+
+    // S23 — F2 publish: recipient=fromUserId(원래 요청 보낸 사람), accepter=me.
+    //   fromUserId가 없으면 dispatch skip (legacy 호출자 호환).
+    if (fromUserId && fromUserId.trim()) {
+      const me = await requireUserId();
+      await dispatch({
+        type: 'friend_accepted',
+        fromUserId: fromUserId.trim(),
+        toUserId: me,
+      });
     }
   },
 

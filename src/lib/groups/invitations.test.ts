@@ -4,6 +4,7 @@
 
 import { invitationsApi } from './invitations';
 import { supabase } from '@/lib/supabase/client';
+import { dispatch as pushDispatch } from '@/lib/push/dispatch';
 
 jest.mock('@/lib/supabase/client', () => ({
   supabase: {
@@ -12,10 +13,14 @@ jest.mock('@/lib/supabase/client', () => ({
     auth: { getUser: jest.fn() },
   },
 }));
+jest.mock('@/lib/push/dispatch', () => ({
+  dispatch: jest.fn().mockResolvedValue(undefined),
+}));
 
 const mockFrom = supabase.from as jest.Mock;
 const mockRpc = supabase.rpc as jest.Mock;
 const mockGetUser = supabase.auth.getUser as jest.Mock;
+const mockPushDispatch = pushDispatch as jest.Mock;
 
 const ME = '00000000-0000-0000-0000-000000000001';
 
@@ -23,7 +28,9 @@ beforeEach(() => {
   mockFrom.mockReset();
   mockRpc.mockReset();
   mockGetUser.mockReset();
+  mockPushDispatch.mockReset();
   mockGetUser.mockResolvedValue({ data: { user: { id: ME } }, error: null });
+  mockPushDispatch.mockResolvedValue(undefined);
 });
 
 describe('invitationsApi.createInvitation', () => {
@@ -75,6 +82,32 @@ describe('invitationsApi.createInvitation', () => {
       invitationsApi.createInvitation({ groupId: 'g1', inviteeId: 'u2' }),
     ).rejects.toThrow(/로그인/);
     expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  // S23 — F3 publish wire-up
+  test('S23: INSERT 성공 → dispatch(group_invited) silent best-effort', async () => {
+    const insert = jest.fn().mockResolvedValue({ data: null, error: null });
+    mockFrom.mockReturnValue({ insert });
+
+    await invitationsApi.createInvitation({ groupId: 'g1', inviteeId: 'u2' });
+
+    expect(mockPushDispatch).toHaveBeenCalledTimes(1);
+    expect(mockPushDispatch).toHaveBeenCalledWith({
+      type: 'group_invited',
+      groupId: 'g1',
+      inviterId: ME,
+      inviteeId: 'u2',
+    });
+  });
+
+  test('S23: INSERT 에러 → dispatch 호출 안 됨', async () => {
+    const insert = jest.fn().mockResolvedValue({ data: null, error: { message: 'rls' } });
+    mockFrom.mockReturnValue({ insert });
+
+    await expect(
+      invitationsApi.createInvitation({ groupId: 'g1', inviteeId: 'u2' }),
+    ).rejects.toThrow();
+    expect(mockPushDispatch).not.toHaveBeenCalled();
   });
 });
 

@@ -54,7 +54,8 @@ export default function FriendsRequestsScreen() {
 
   const handleAccept = async (req: FriendRequest) => {
     try {
-      await friendsApi.acceptRequest(req.id);
+      // S23: sender_id 전달 → F2 push 대상 식별 (수락된 사실을 원래 요청 보낸 사람에게 알림)
+      await friendsApi.acceptRequest(req.id, req.sender_id);
       Alert.alert('알림', '친구 요청을 수락했습니다.');
       fetchData();
     } catch (e) {

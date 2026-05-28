@@ -9,9 +9,9 @@
 ## 진행 현황 요약
 
 - **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** + **S14 sub-task 다수** + **fail-cleanup** (2026-05-26) + **S15-deeplink-schema** (2026-05-26) + **S12-backend-f1-f4 + S12-publishers-f4 + S12-client** (2026-05-26) + **S08-backend** (2026-05-26) + **S08-ui** (2026-05-27 — S08 정식 DONE) + **S15-deeplink 잔여 5 sub-task** (2026-05-27 — edge + web + rn-fallback + rn-conversion + deeplink. S15-deeplink 정식 DONE) + **Q-B22** + **D34** + **D35** 신규
-- **DONE**: 12 + **Lane E S18·S19·S20·S21·S22** (S00, S01, S03, S04, S06, S07, S08, S11, S12, S14, S15-deeplink, **S18·S19·S20·S21·S22 2026-05-28**) + S05 acceptance 7/7 (S05e 운영 task)
+- **DONE**: 12 + **Lane E S18·S19·S20·S21·S22·S23** (S00, S01, S03, S04, S06, S07, S08, S11, S12, S14, S15-deeplink, **S18·S19·S20·S21·S22·S23 2026-05-28**) + S05 acceptance 7/7 (S05e 운영 task)
 - **IN_PROGRESS**: 4 (S05 — S05e 60fps 부하 실기기 잔여 / S16 — map 검색 provider 레이어 완성 PARTIAL, AppleAuthProvider Phase 3 deferred / S13 — EAS skeleton 완성[설정·계측·manifest·runbook], 인증서·실기기 측정 운영 트랙 / S10 — 데이터·로직 레이어 완성[coords·cache·filter·clustering·hook·scaffold 2026-05-28], native Naver Maps SDK 렌더·마커 PNG는 EAS 운영 트랙)
-- **TODO**: 4 (S15-mapmode, S17 + **Lane E** S23·S24 — 여정 척추, [spec](superpowers/specs/2026-05-28-journey-spine-roadmap-design.md) 2026-05-28. **S18·S19·S20 DONE** = 트랙 1 종착(생성→리스트→**장소 확정+Gate #1·#2 측정**) S10 native 없이 게이트 성립. **S21·S22 DONE** = 트랙 2 친구 실DB + 인앱 초대/합류 종착, S12 ⏸️ F1/F2/F3 publisher prereq 모두 해소. 다음 S23[F1/F2/F3 publisher wire-up])
+- **TODO**: 3 (S15-mapmode, S17 + **Lane E** S24 — 여정 척추, [spec](superpowers/specs/2026-05-28-journey-spine-roadmap-design.md) 2026-05-28. **S18·S19·S20 DONE** = 트랙 1 종착(생성→리스트→**장소 확정+Gate #1·#2 측정**) S10 native 없이 게이트 성립. **S21·S22·S23 DONE** = 트랙 2 친구 실DB + 인앱 초대/합류 + F1/F2/F3 publisher 종착, S12 ⏸️ F1/F2/F3 publisher prereq 전부 해소)
 - **BLOCKED**: 0 (S10·S16 D1 no-answer 액션 발동[D36]으로 정책 블록 해소)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
@@ -453,12 +453,16 @@
 
 ### S23 — 푸시 F1/F2/F3 publisher wire-up
 
-- **Status**: TODO | **Owner**: Backend + Mobile | **Sprint**: post-MVP | **Lane**: E
-- **Depends**: S21, S22, S12 ✅ (notify_f1/f2/f3 handler + dispatcher), [D33](DECISIONS.md#d33--모임-확정-fan-out--단일-dispatcher-q-b5-close)
-- **Acceptance**: friends sendRequest→dispatch(F1), accept→dispatch(F2), invitations createInvitation→dispatch(F3) + 각 notify_f{1,2,3} handler register
-- **Files**: `src/lib/friends/api.ts`, `src/lib/groups/invitations.ts` (dispatch 추가), Edge handler register
-- **Worktree 분기**: S21·S22 후속이라 합류 시점 조율
-- **Notes**: S12 line 333-334의 ⏸️ 잔여 항목 close
+- **Status**: DONE (2026-05-28) | **Owner**: Backend + Mobile | **Sprint**: post-MVP | **Lane**: E
+- **Depends**: S21 ✅, S22 ✅, S12 ✅ (notify_f1/f2/f3 handler + dispatcher), [D33](DECISIONS.md#d33--모임-확정-fan-out--단일-dispatcher-q-b5-close). 모두 충족.
+- **Acceptance**:
+  - ✅ friends sendRequest→`dispatch(friend_requested)` (F1), acceptRequest→`dispatch(friend_accepted)` (F2). UI(requests.tsx)에서 sender_id 전달
+  - ✅ invitations createInvitation→`dispatch(group_invited)` (F3)
+  - ✅ 각 notify_f{1,2,3} handler register — `supabase/functions/notify_publish/` 단일 publisher Edge(votes_aggregate→notify_f4 mirror), module load 시 idempotent register, HTTP POST type별 dispatch.dispatch
+  - ✅ client thin wrapper `src/lib/push/dispatch.ts` — silent best-effort(`supabase.functions.invoke('notify_publish')` try/catch swallow). push 실패가 UX 차단 X
+- **Files**: `supabase/functions/notify_publish/{index,_test}.ts` ✅, `src/lib/push/dispatch.ts(.test).ts` ✅, `src/lib/friends/api.ts` ✅(dispatch 추가 + acceptRequest 시그너처 `(id, fromUserId?)` 확장), `src/lib/groups/invitations.ts` ✅(dispatch 추가), `app/(tabs)/friends/requests.tsx` ✅(handleAccept에 sender_id 전달), 4 test 파일 갱신
+- **Worktree 분기**: 가능 (notify_publish 신규 + friends/invitations api dispatch 1줄 추가)
+- **Notes**: S12 line 333-334 ⏸️ 잔여 항목 close. D33 단일 dispatcher pattern 충실 — 1:1 매핑이지만 publisher Edge + dispatcher routing 통과로 미래 확장 보호 + Promise.allSettled 격리
 
 ### S24 — 부차적 dead-end 정리
 

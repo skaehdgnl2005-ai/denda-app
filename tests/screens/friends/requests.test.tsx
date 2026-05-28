@@ -128,7 +128,8 @@ describe('FriendsRequestsScreen Screen', () => {
       fireEvent.press(acceptButtons[0]!);
     });
 
-    expect(acceptSpy).toHaveBeenCalledWith('req-1');
+    // S23: sender_id 전달 → F2 push 대상 식별 (수락 사실을 원 sender에게 알림)
+    expect(acceptSpy).toHaveBeenCalledWith('req-1', 'user-5');
     expect(alertSpy).toHaveBeenCalledWith('알림', '친구 요청을 수락했습니다.');
   });
 

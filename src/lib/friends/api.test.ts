@@ -6,6 +6,7 @@
 import { friendsApi } from './api';
 import { supabase } from '@/lib/supabase/client';
 import { blockUser as supabaseBlockUser } from '@/lib/blocks/api';
+import { dispatch as pushDispatch } from '@/lib/push/dispatch';
 
 jest.mock('@/lib/supabase/client', () => ({
   supabase: {
@@ -17,11 +18,15 @@ jest.mock('@/lib/supabase/client', () => ({
 jest.mock('@/lib/blocks/api', () => ({
   blockUser: jest.fn(),
 }));
+jest.mock('@/lib/push/dispatch', () => ({
+  dispatch: jest.fn().mockResolvedValue(undefined),
+}));
 
 const mockFrom = supabase.from as jest.Mock;
 const mockRpc = supabase.rpc as jest.Mock;
 const mockGetUser = supabase.auth.getUser as jest.Mock;
 const mockSupabaseBlockUser = supabaseBlockUser as jest.Mock;
+const mockPushDispatch = pushDispatch as jest.Mock;
 
 const ME = '00000000-0000-0000-0000-000000000001';
 
@@ -30,7 +35,9 @@ beforeEach(() => {
   mockRpc.mockReset();
   mockGetUser.mockReset();
   mockSupabaseBlockUser.mockReset();
+  mockPushDispatch.mockReset();
   mockGetUser.mockResolvedValue({ data: { user: { id: ME } }, error: null });
+  mockPushDispatch.mockResolvedValue(undefined);
 });
 
 describe('friendsApi.list', () => {
@@ -168,6 +175,28 @@ describe('friendsApi.sendRequest', () => {
     });
     await expect(friendsApi.sendRequest('u10')).rejects.toThrow(/요청을 보내지 못했어요/);
   });
+
+  // S23 — F1 publish wire-up
+  test('S23: INSERT 성공 → dispatch(friend_requested) silent best-effort', async () => {
+    mockFrom.mockReturnValue({
+      insert: jest.fn().mockResolvedValue({ data: null, error: null }),
+    });
+    await friendsApi.sendRequest('u10');
+    expect(mockPushDispatch).toHaveBeenCalledTimes(1);
+    expect(mockPushDispatch).toHaveBeenCalledWith({
+      type: 'friend_requested',
+      fromUserId: ME,
+      toUserId: 'u10',
+    });
+  });
+
+  test('S23: INSERT 에러 → dispatch 호출 안 됨', async () => {
+    mockFrom.mockReturnValue({
+      insert: jest.fn().mockResolvedValue({ data: null, error: { message: 'rls' } }),
+    });
+    await expect(friendsApi.sendRequest('u10')).rejects.toThrow();
+    expect(mockPushDispatch).not.toHaveBeenCalled();
+  });
 });
 
 describe('friendsApi.listIncomingRequests', () => {
@@ -288,6 +317,38 @@ describe('friendsApi.acceptRequest', () => {
   test('RPC 일반 error → 한국어', async () => {
     mockRpc.mockResolvedValue({ data: null, error: { message: 'rls' } });
     await expect(friendsApi.acceptRequest('req-x')).rejects.toThrow(/수락하지 못했어요/);
+  });
+
+  // S23 — F2 publish wire-up (fromUserId 전달 시)
+  test('S23: RPC 성공 + fromUserId 전달 → dispatch(friend_accepted)', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null });
+
+    await friendsApi.acceptRequest('req-1', 'u-from');
+
+    expect(mockPushDispatch).toHaveBeenCalledTimes(1);
+    expect(mockPushDispatch).toHaveBeenCalledWith({
+      type: 'friend_accepted',
+      fromUserId: 'u-from',
+      toUserId: ME,
+    });
+  });
+
+  test('S23: fromUserId 없으면 dispatch skip (legacy 호출자 호환)', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null });
+    await friendsApi.acceptRequest('req-1');
+    expect(mockPushDispatch).not.toHaveBeenCalled();
+  });
+
+  test('S23: 빈 fromUserId(공백) → dispatch skip', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null });
+    await friendsApi.acceptRequest('req-1', '   ');
+    expect(mockPushDispatch).not.toHaveBeenCalled();
+  });
+
+  test('S23: RPC 에러 → dispatch 호출 안 됨', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'request_not_pending' } });
+    await expect(friendsApi.acceptRequest('req-1', 'u-from')).rejects.toThrow();
+    expect(mockPushDispatch).not.toHaveBeenCalled();
   });
 });
 
