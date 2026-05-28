@@ -291,7 +291,19 @@ export default function GroupConfirmScreen(): React.JSX.Element {
         <Title level="h2" color={colors.text.primary} numberOfLines={1} style={styles.titleFlex}>
           {group.name}
         </Title>
-        <View style={styles.iconButton} />
+        {isHost ? (
+          <Pressable
+            onPress={() => router.push(`/group/${groupId}/invite`)}
+            accessibilityRole="button"
+            accessibilityLabel="친구 초대"
+            testID="invite-button"
+            style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.6 : 1 }]}
+          >
+            <Icon name="추가" color={colors.text.primary} size={24} />
+          </Pressable>
+        ) : (
+          <View style={styles.iconButton} />
+        )}
       </View>
 
       <View

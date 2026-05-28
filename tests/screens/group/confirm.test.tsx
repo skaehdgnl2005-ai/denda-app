@@ -246,6 +246,41 @@ describe('GroupConfirmScreen', () => {
     expect(mockPush).toHaveBeenCalledWith(`/group/${VALID_GROUP_ID}/place?placeId=place-uuid-x`);
   });
 
+  test('S22: 호스트 → 헤더 "친구 초대" 버튼 → /group/[id]/invite push', async () => {
+    mockFetchGroup.mockResolvedValue({
+      id: VALID_GROUP_ID,
+      hostId: HOST_ID,
+      name: 'x',
+      dates: ['2026-06-01'],
+      memberCount: 1,
+      confirmedAt: null,
+      confirmedStartAt: null,
+      confirmedEndAt: null,
+      confirmedPlaceId: null,
+    });
+    const { findByTestId } = render(<GroupConfirmScreen />, { wrapper });
+    fireEvent.press(await findByTestId('invite-button'));
+    expect(mockPush).toHaveBeenCalledWith(`/group/${VALID_GROUP_ID}/invite`);
+  });
+
+  test('S22: 비호스트 → 헤더 "친구 초대" 버튼 미노출', async () => {
+    mockUserId = NON_HOST_ID;
+    mockFetchGroup.mockResolvedValue({
+      id: VALID_GROUP_ID,
+      hostId: HOST_ID,
+      name: 'x',
+      dates: ['2026-06-01'],
+      memberCount: 1,
+      confirmedAt: null,
+      confirmedStartAt: null,
+      confirmedEndAt: null,
+      confirmedPlaceId: null,
+    });
+    const { queryByTestId, findByText } = render(<GroupConfirmScreen />, { wrapper });
+    await findByText('x');
+    expect(queryByTestId('invite-button')).toBeNull();
+  });
+
   test('back-button → router.back 호출', async () => {
     mockFetchGroup.mockResolvedValue({
       id: VALID_GROUP_ID,

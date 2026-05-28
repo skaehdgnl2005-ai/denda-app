@@ -9,9 +9,9 @@
 ## 진행 현황 요약
 
 - **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** + **S14 sub-task 다수** + **fail-cleanup** (2026-05-26) + **S15-deeplink-schema** (2026-05-26) + **S12-backend-f1-f4 + S12-publishers-f4 + S12-client** (2026-05-26) + **S08-backend** (2026-05-26) + **S08-ui** (2026-05-27 — S08 정식 DONE) + **S15-deeplink 잔여 5 sub-task** (2026-05-27 — edge + web + rn-fallback + rn-conversion + deeplink. S15-deeplink 정식 DONE) + **Q-B22** + **D34** + **D35** 신규
-- **DONE**: 12 + **Lane E S18·S19·S20·S21** (S00, S01, S03, S04, S06, S07, S08, S11, S12, S14, S15-deeplink, **S18 2026-05-28**, **S19 2026-05-28**, **S20 2026-05-28**, **S21 2026-05-28**) + S05 acceptance 7/7 (S05e 운영 task)
+- **DONE**: 12 + **Lane E S18·S19·S20·S21·S22** (S00, S01, S03, S04, S06, S07, S08, S11, S12, S14, S15-deeplink, **S18·S19·S20·S21·S22 2026-05-28**) + S05 acceptance 7/7 (S05e 운영 task)
 - **IN_PROGRESS**: 4 (S05 — S05e 60fps 부하 실기기 잔여 / S16 — map 검색 provider 레이어 완성 PARTIAL, AppleAuthProvider Phase 3 deferred / S13 — EAS skeleton 완성[설정·계측·manifest·runbook], 인증서·실기기 측정 운영 트랙 / S10 — 데이터·로직 레이어 완성[coords·cache·filter·clustering·hook·scaffold 2026-05-28], native Naver Maps SDK 렌더·마커 PNG는 EAS 운영 트랙)
-- **TODO**: 5 (S15-mapmode, S17 + **Lane E** S22~S24 — 여정 척추, [spec](superpowers/specs/2026-05-28-journey-spine-roadmap-design.md) 2026-05-28. **S18·S19·S20 DONE** = 트랙 1 종착(생성→리스트→**장소 확정+Gate #1·#2 측정**) S10 native 없이 게이트 성립. **S21 DONE** = 트랙 2 친구 실DB 1단계 완료, S12 ⏸️ F1/F2 publisher prereq 해소. 다음 S22[인앱 모임 초대/합류] 또는 S23[F1/F2/F3 publisher wire-up])
+- **TODO**: 4 (S15-mapmode, S17 + **Lane E** S23·S24 — 여정 척추, [spec](superpowers/specs/2026-05-28-journey-spine-roadmap-design.md) 2026-05-28. **S18·S19·S20 DONE** = 트랙 1 종착(생성→리스트→**장소 확정+Gate #1·#2 측정**) S10 native 없이 게이트 성립. **S21·S22 DONE** = 트랙 2 친구 실DB + 인앱 초대/합류 종착, S12 ⏸️ F1/F2/F3 publisher prereq 모두 해소. 다음 S23[F1/F2/F3 publisher wire-up])
 - **BLOCKED**: 0 (S10·S16 D1 no-answer 액션 발동[D36]으로 정책 블록 해소)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
@@ -438,15 +438,18 @@
 
 ### S22 — 인앱 모임 초대 / 합류
 
-- **Status**: TODO | **Owner**: Mobile + Backend | **Sprint**: post-MVP | **Lane**: E
-- **Depends**: S21, S00 (group_invitations + group_members + RLS 0005), D16, [D31](DECISIONS.md#d31--차단-호스트-모임--부분-노출-groups-select-불변--클라이언트-호스트-mask)
+- **Status**: DONE (2026-05-28) | **Owner**: Mobile + Backend | **Sprint**: post-MVP | **Lane**: E
+- **Depends**: S21 ✅, S00 ✅ (group_invitations + group_members + RLS 0005), D16 ✅, [D31](DECISIONS.md#d31--차단-호스트-모임--부분-노출-groups-select-불변--클라이언트-호스트-mask) ✅
 - **Acceptance**:
-  - `src/lib/groups/invitations.ts` (createInvitation INSERT status=pending + listMyInvitations + acceptInvitation → group_members INSERT atomic·idempotent + status update)
-  - 초대 UI (친구 선택 → 초대) + 초대함 진입 + 수락 → 합류 → `/group/[id]`
-  - 차단 사용자 초대 hidden (D31)
-- **Files**: `src/lib/groups/invitations.ts(.test)`, 초대 UI 컴포넌트/화면
+  - ✅ `src/lib/groups/invitations.ts` (createInvitation INSERT status=pending + listMyInvitations + acceptInvitation atomic·idempotent + rejectInvitation)
+  - ✅ acceptInvitation = `accept_group_invitation` RPC (0020, SECURITY INVOKER, FOR UPDATE lock + invitee=auth.uid() 검증 + 양방향 차단 차단 + status UPDATE + group_members INSERT ON CONFLICT DO NOTHING)
+  - ✅ 호스트 초대 UI: `app/group/[id]/invite.tsx` (친구 multi-select → batch createInvitation + 부분 실패 허용 Alert)
+  - ✅ 호스트 진입로: `app/group/[id]/index.tsx` 헤더 우측 "친구 초대" 버튼
+  - ✅ 초대함 진입 + 수락 → 합류 → `/group/[id]`: 친구 요청 inbox(`/friends/requests`)에 3번째 탭 "모임 초대" 통합 (헤더 "친구 요청" → "요청함")
+  - ✅ 차단 사용자 초대 hidden (D31) — 0005 `group_invitations_select_involving_self` NOT is_blocked로 자연 hide + 0002 INSERT NOT is_blocked + 0020 RPC 양방향 재check
+- **Files**: `supabase/migrations/0020_accept_invitation_rpc.sql` ✅, `src/lib/groups/invitations.ts(.test).ts` ✅, `app/group/[id]/invite.tsx` ✅ + `tests/screens/group/invite.test.tsx` ✅, `app/group/[id]/index.tsx`(헤더 버튼) ✅, `app/(tabs)/friends/requests.tsx`(3번째 탭) ✅, test 갱신
 - **Worktree 분기**: 가능
-- **Notes**: `group_members` INSERT 경로가 현재 deeplink 전환(attribution_resolve)뿐 → 인앱 합류 경로 신설
+- **Notes**: `group_members` INSERT 경로가 인앱(0020 RPC) + deeplink(attribution_resolve) 두 경로 공존. S12 ⏸️ F1/F2/F3 publisher prereq 두 측(friends·invitations API 실 DB) 모두 해소 → S23에서 dispatch wire-up 가능
 
 ### S23 — 푸시 F1/F2/F3 publisher wire-up
 

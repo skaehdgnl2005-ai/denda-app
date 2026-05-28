@@ -3,14 +3,40 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import FriendsRequestsScreen from '../../../app/(tabs)/friends/requests';
 import { ThemeProvider } from '@/design/theme';
 import { friendsApi } from '@/lib/friends/api';
+import { invitationsApi } from '@/lib/groups/invitations';
 import { Alert } from 'react-native';
 
 const mockBack = jest.fn();
+const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
   useRouter: () => ({
     back: mockBack,
+    push: mockPush,
   }),
 }));
+
+const DEFAULT_INVITATIONS = [
+  {
+    id: 'inv-1',
+    group_id: 'g-1',
+    inviter_id: 'user-8',
+    invitee_id: 'me',
+    status: 'pending' as const,
+    created_at: '2026-05-25T12:00:00Z',
+    group: { id: 'g-1', name: '점심 모임' },
+    inviter: { id: 'user-8', nickname: '강하나' },
+  },
+  {
+    id: 'inv-2',
+    group_id: 'g-2',
+    inviter_id: 'user-9',
+    invitee_id: 'me',
+    status: 'pending' as const,
+    created_at: '2026-05-24T12:00:00Z',
+    group: { id: 'g-2', name: '저녁 모임' },
+    inviter: { id: 'user-9', nickname: '윤지호' },
+  },
+];
 
 // S21: friendsApi가 supabase로 전면 교체됨 — mock data는 spy로 명시.
 const DEFAULT_INCOMING = [
@@ -50,6 +76,9 @@ describe('FriendsRequestsScreen Screen', () => {
     jest.spyOn(friendsApi, 'acceptRequest').mockResolvedValue(undefined);
     jest.spyOn(friendsApi, 'rejectRequest').mockResolvedValue(undefined);
     jest.spyOn(friendsApi, 'cancelRequest').mockResolvedValue(undefined);
+    jest.spyOn(invitationsApi, 'listMyInvitations').mockResolvedValue([...DEFAULT_INVITATIONS]);
+    jest.spyOn(invitationsApi, 'acceptInvitation').mockResolvedValue({ groupId: 'g-1' });
+    jest.spyOn(invitationsApi, 'rejectInvitation').mockResolvedValue(undefined);
   });
 
   test('renders incoming requests by default', async () => {
@@ -156,5 +185,94 @@ describe('FriendsRequestsScreen Screen', () => {
 
     fireEvent.press(backBtn);
     expect(mockBack).toHaveBeenCalled();
+  });
+
+  test('S22: switches to invitations tab → 모임 초대 list 렌더', async () => {
+    const { getByText, getByTestId, getAllByTestId } = render(<FriendsRequestsScreen />, {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(getByText('박민수')).toBeTruthy();
+    });
+
+    fireEvent.press(getByTestId('invitations-tab'));
+
+    await waitFor(() => {
+      expect(getByText('점심 모임')).toBeTruthy();
+      expect(getByText('저녁 모임')).toBeTruthy();
+    });
+
+    const cards = getAllByTestId('group-invitation-card');
+    expect(cards.length).toBe(2);
+  });
+
+  test('S22: accept invitation → group_members 합류 + group 화면 navigation', async () => {
+    const acceptSpy = jest.spyOn(invitationsApi, 'acceptInvitation');
+    const alertSpy = jest.spyOn(Alert, 'alert');
+
+    const { getByText, getByTestId, getAllByTestId } = render(<FriendsRequestsScreen />, {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(getByText('박민수')).toBeTruthy();
+    });
+
+    fireEvent.press(getByTestId('invitations-tab'));
+    await waitFor(() => {
+      expect(getByText('점심 모임')).toBeTruthy();
+    });
+
+    const acceptBtns = getAllByTestId('invitation-accept-button');
+    await act(async () => {
+      fireEvent.press(acceptBtns[0]!);
+    });
+
+    expect(acceptSpy).toHaveBeenCalledWith('inv-1');
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith('/group/g-1');
+    });
+    expect(alertSpy).toHaveBeenCalledWith('합류 완료', expect.stringContaining('합류'));
+  });
+
+  test('S22: reject invitation → rejectInvitation 호출 + 한국어 Alert', async () => {
+    const rejectSpy = jest.spyOn(invitationsApi, 'rejectInvitation');
+    const alertSpy = jest.spyOn(Alert, 'alert');
+
+    const { getByText, getByTestId, getAllByTestId } = render(<FriendsRequestsScreen />, {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(getByText('박민수')).toBeTruthy();
+    });
+
+    fireEvent.press(getByTestId('invitations-tab'));
+    await waitFor(() => {
+      expect(getByText('점심 모임')).toBeTruthy();
+    });
+
+    const rejectBtns = getAllByTestId('invitation-reject-button');
+    await act(async () => {
+      fireEvent.press(rejectBtns[0]!);
+    });
+
+    expect(rejectSpy).toHaveBeenCalledWith('inv-1');
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith('알림', expect.stringContaining('거절'));
+    });
+  });
+
+  test('S22: invitations 빈 상태 → empty state 노출', async () => {
+    jest.spyOn(invitationsApi, 'listMyInvitations').mockResolvedValueOnce([]);
+    const { getByText, getByTestId, findByTestId } = render(<FriendsRequestsScreen />, {
+      wrapper,
+    });
+    await waitFor(() => {
+      expect(getByText('박민수')).toBeTruthy();
+    });
+    fireEvent.press(getByTestId('invitations-tab'));
+    expect(await findByTestId('requests-empty-state')).toBeTruthy();
   });
 });

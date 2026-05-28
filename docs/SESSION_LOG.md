@@ -25,6 +25,33 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S22 — 인앱 모임 초대 / 합류 (2026-05-28) — DONE
+- Depends: S21 ✅ (친구 API 실 DB), S00 ✅ (group_invitations + group_members + 0001/0002/0005 RLS), D16 ✅ (is_blocked helper), [D31](DECISIONS.md#d31--차단-호스트-모임--부분-노출-groups-select-불변--클라이언트-호스트-mask). 모두 충족.
+- Context: 사용자 "/start-task S22". Lane E(여정 척추) 트랙 2 — 인앱에서 호스트가 친구를 모임에 초대하고, 초대받은 친구가 합류하는 첫 walkable 경로 신설(이전엔 group_members INSERT가 deeplink 전환[attribution_resolve]뿐). 시그너처 mock 없이 supabase 실 DB 전제로 처음부터 작성(S21 패턴 mirror). UI 표면 최소화 — 새 inbox 라우트 추가 대신 기존 친구 요청 inbox(`/friends/requests`)에 "모임 초대" 세 번째 탭으로 통합(receive 측 navigation 표면 변화 0).
+- Changes (신규 4 파일 + 수정 4 파일):
+  - **`supabase/migrations/0020_accept_invitation_rpc.sql` (+72 신규)** — `accept_group_invitation(p_invitation_id UUID)` RPC. plpgsql + SECURITY INVOKER(둘 다 invitee=auth.uid() 기준 RLS 통과 — UPDATE는 `group_invitations_update_invitee`, INSERT는 `group_members_insert_self`). 동작: FOR UPDATE lock → invitee=caller 검증 → status='pending' 검증 → 양방향 차단(`is_blocked`) 차단 → UPDATE status='accepted' → INSERT group_members ON CONFLICT DO NOTHING(멤버 idempotent). 반환 group_id(클라 navigation push). RAISE EXCEPTION 분기: invitation_not_found / not_invitee / invitation_not_pending / blocked
+  - **`src/lib/groups/invitations.ts` (+178 신규)** — invitationsApi. `requireUserId` helper(supabase.auth.getUser + 비인증 한국어 throw) + `createInvitation({groupId, inviteeId})`(INSERT inviter_id=me, 23505 → "이미 초대했어요" 분기) + `listMyInvitations()`(invitee=me + status=pending + group:group_id(id, name) + inviter:inviter_id(id, nickname, avatar_url) PostgREST join + desc 정렬, pickJoinRow로 배열/단일 row 호환) + `acceptInvitation(invitationId)`(rpc 'accept_group_invitation' → `{groupId}` 반환, invitation_not_found/invitation_not_pending/not_invitee/blocked 한국어 분기) + `rejectInvitation(invitationId)`(UPDATE status='rejected' + invitee=me + pending 3-eq guard로 idempotency). InvitationGroup/InvitationInviter/InvitationRow 타입 export
+  - **`src/lib/groups/invitations.test.ts` (+267 신규, 20 Jest TDD-first)** — supabase from/rpc/auth.getUser chain mock + 한국어 에러 매핑 검증. createInvitation 5(INSERT shape + 빈 인자 + 23505 + 일반 에러 + 비인증) / listMyInvitations 5(join + 빈 결과 + 배열 join pick + 에러 + 비인증) / acceptInvitation 6(RPC shape + 빈 id + invitation_not_found + invitation_not_pending + blocked/not_invitee + 일반) / rejectInvitation 4(UPDATE chain + 빈 id + 에러 + 비인증)
+  - **`app/group/[id]/invite.tsx` (+260 신규)** — 호스트 친구 multi-select 초대 화면. Route: `/group/[id]/invite`. friendsApi.list() useEffect + `Set<string>` 선택 toggle + 하단 brand-500 fill CTA "N명 초대하기"(§17 단 1개 fill, count 0 시 surface-2 disabled `{disabled: true}`) + Promise.allSettled batch createInvitation + 결과 분기 Alert(전부 성공/전부 실패/일부 성공) + `router.back()`. 친구 0명 빈 상태("초대할 친구가 없어요" + 친구 검색 CTA). cancel guard로 unmount race 처리
+  - **`tests/screens/group/invite.test.tsx` (+148 신규, 9 Jest)** — 친구 fetch/렌더 + 빈 상태 + 선택 toggle + CTA disabled/activated count + batch createInvitation + 부분 실패 Alert + fetch 에러 + back + 빈 상태 검색 CTA → /friends/search push
+  - **`app/group/[id]/index.tsx` (+14/-1)** — 호스트 헤더 우측 "친구 초대" 버튼(Icon name="추가" UserPlus, testID="invite-button" → `/group/${groupId}/invite` push). 비호스트는 empty View placeholder
+  - **`tests/screens/group/confirm.test.tsx` (+35 신규, Jest +2)** — S22 호스트 invite-button push 검증 + 비호스트 미노출 검증
+  - **`app/(tabs)/friends/requests.tsx` (+213/-30)** — 3번째 탭 "모임 초대" 추가(RequestTab union 확장 'invitations'). activeTab 변경 시 fetchData 분기(`invitationsApi.listMyInvitations()`). 초대 카드 inline 렌더(group.name + inviter.nickname + 거절/수락·합류 두 버튼) + 수락 → `invitationsApi.acceptInvitation` → "합류 완료" Alert + `/group/${groupId}` push. 거절 → `rejectInvitation` + refresh. 빈 상태 카피·아이콘 분기(invitations: 캘린더 아이콘 + "받은 모임 초대가 없어요"). 헤더 타이틀 "친구 요청" → "요청함"(2종 inbox 통합 정체성)
+  - **`tests/screens/friends/requests.test.tsx` (+118/-0, Jest +4)** — invitationsApi spy default setup + S22 invitations 탭 전환·렌더 + accept 후 group 화면 push + reject 후 한국어 Alert + 빈 상태
+  - **`docs/NOW.md` (+6 / -6)** — S22 활성 항목 add/remove
+- Tests: **Jest 763 passed + 1 skip** (728 → +35: invitations api 20 + invite screen 9 + confirm +2 + requests +4), **typecheck 0**, **lint 0 errors**(eslint --fix로 prettier 정리 완료)
+- Next: **S23 (F1/F2/F3 publisher wire-up)** — S21으로 friends api 실 DB 됐고 S22로 invitations 실 DB 됐으므로 두 publisher prereq 모두 해소. friends sendRequest→dispatch(F1), accept→dispatch(F2), invitations createInvitation→dispatch(F3) + Edge handler register. Depends(S21·S22·S12·D33) 충족 → unblocked. 또는 **S24** 부차적 dead-end 정리 / EAS Build 트랙
+- Notes:
+  - **Lane E 트랙 2 2단계 종착** — S21(친구 실DB) → **S22(인앱 모임 초대/합류)** = 인앱 합류 경로 신설(group_members INSERT가 이제 인앱과 deeplink 두 경로 공존). 베타에서 친구 사전 선택 → 초대 → 수락 → 합류 walkable.
+  - **navigation 표면 최소화 결정**: receive 측 inbox를 새 라우트로 분리하지 않고 친구 요청 inbox에 "모임 초대" 탭 추가 — 친구 요청과 모임 초대는 모두 "받은 요청" 인박스 컨셉이라 자연스러움. 헤더 타이틀 "친구 요청" → "요청함"으로 정체성 일반화. 첫 walkable + 베타 가독성 양립.
+  - **RPC SECURITY INVOKER 선택 근거** (vs S19 accept_friend_request의 SECURITY DEFINER): friend accept는 *상대방* user_id row INSERT가 필요(friendships RLS는 user_id=auth.uid()만 허용) → DEFINER 필수. invitation accept는 *본인* group_members INSERT만 → INVOKER 안전(권한 상승 회피). atomic 보장은 plpgsql function 단일 transaction으로 충족
+  - **D16 일관성**: `accept_group_invitation` RPC가 inviter↔invitee 양방향 차단을 check(수락 직전 차단 가능성). SELECT 단계는 0005 RLS `group_invitations_select_involving_self`가 NOT is_blocked로 자연 hide. INSERT는 0002 `group_invitations_insert_as_inviter`가 inviter→invitee 차단 차단(역방향은 RPC accept에서 추가 보강 — 2-stage 안전망)
+  - **D13 비위반**: 신규 파일 `new Date()` 0건(grep clear) — 모든 시각은 supabase TIMESTAMPTZ + client 표시는 기존 헬퍼 의존. createInvitation은 시각 column 직접 INSERT 없음(default NOW())
+  - **secret 클라 expose 0**: invitations.ts는 supabase-js client만 사용. RPC accept_group_invitation은 authenticated GRANT만(anon 차단)
+  - **eslint/typecheck/Jest 모두 green** — @reviewer Critical 4(DESIGN 토큰/RLS/KST/secret) 자체 검증 통과: invite.tsx + requests.tsx 모두 design tokens only(hex 0건), RLS는 0001/0002/0005/0020 일관성(group_invitations + group_members 모두 본인 RLS 통과), KST 미적용 영역(시각 표시 없음), secret 클라 expose 0
+
+---
+
 ## S21 — 친구 시스템 실DB 전환 (2026-05-28) — DONE
 - Depends: S00 ✅ (friendships/friend_requests/blocks + 0001 + 0002 RLS), D16 ✅ (is_blocked helper + 0007 propagation), 0008 block_user RPC ✅
 - Changes:
