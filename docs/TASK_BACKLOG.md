@@ -10,8 +10,8 @@
 
 - **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** + **S14 sub-task 다수** + **fail-cleanup** (2026-05-26) + **S15-deeplink-schema** (2026-05-26) + **S12-backend-f1-f4 + S12-publishers-f4 + S12-client** (2026-05-26) + **S08-backend** (2026-05-26) + **S08-ui** (2026-05-27 — S08 정식 DONE) + **S15-deeplink 잔여 5 sub-task** (2026-05-27 — edge + web + rn-fallback + rn-conversion + deeplink. S15-deeplink 정식 DONE) + **Q-B22** + **D34** + **D35** 신규
 - **DONE**: 12 + **Lane E S18·S19·S20·S21·S22·S23·S24** (S00, S01, S03, S04, S06, S07, S08, S11, S12, S14, S15-deeplink, **S18·S19·S20·S21·S22·S23·S24 2026-05-28** = 여정 척추 7/7 완성) + S05 acceptance 7/7 (S05e 운영 task)
-- **IN_PROGRESS**: 4 (S05 — S05e 60fps 부하 실기기 잔여 / S16 — map 검색 provider 레이어 완성 PARTIAL, AppleAuthProvider Phase 3 deferred / S13 — EAS skeleton 완성[설정·계측·manifest·runbook], 인증서·실기기 측정 운영 트랙 / S10 — 데이터·로직 레이어 완성[coords·cache·filter·clustering·hook·scaffold 2026-05-28], native Naver Maps SDK 렌더·마커 PNG는 EAS 운영 트랙)
-- **TODO**: 2 (S15-mapmode, S17. **Lane E** **S18·S19·S20·S21·S22·S23·S24 모두 DONE 2026-05-28** = 여정 척추 7/7 완성. 트랙 1(생성→리스트→장소 확정+Gate #1·#2 측정) + 트랙 2(친구 실DB→인앱 초대/합류→F1/F2/F3 publisher) + 트랙 3(부차 dead-end 정리). S10 native 없이 게이트 성립)
+- **IN_PROGRESS**: 5 (S05 — S05e 60fps 부하 실기기 잔여 / S16 — map 검색 provider 레이어 완성 PARTIAL, AppleAuthProvider Phase 3 deferred / S13 — EAS skeleton 완성[설정·계측·manifest·runbook], 인증서·실기기 측정 운영 트랙 / S10 — 데이터·로직 레이어 완성[coords·cache·filter·clustering·hook·scaffold 2026-05-28], native Naver Maps SDK 렌더·마커 PNG는 EAS 운영 트랙 / **S15-mapmode — 데이터·로직 레이어 완성[scheduleMapPoint·polyline·timeRangeFilter·groupScheduleQueries·MapViewMode 2026-05-28], 캘린더 토글·native MapView mode 분기 렌더·폴리라인 native 그리기는 EAS 운영 트랙**)
+- **TODO**: 1 (S17. **Lane E** **S18·S19·S20·S21·S22·S23·S24 모두 DONE 2026-05-28** = 여정 척추 7/7 완성. 트랙 1(생성→리스트→장소 확정+Gate #1·#2 측정) + 트랙 2(친구 실DB→인앱 초대/합류→F1/F2/F3 publisher) + 트랙 3(부차 dead-end 정리). S10 native 없이 게이트 성립)
 - **BLOCKED**: 0 (S10·S16 D1 no-answer 액션 발동[D36]으로 정책 블록 해소)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
@@ -200,18 +200,18 @@
 
 ### S15 — "지도로 내 일정 보기" 모드
 
-- **Status**: TODO | **Owner**: Mobile | **Sprint**: 4 | **Lane**: B
-- **Depends**: S10 (지도 + 마커), S00 (schedules, groups)
+- **Status**: IN_PROGRESS (2026-05-28 데이터·로직 레이어 ✅ — scheduleMapPoint + polyline DESIGN §10.5 + timeRangeFilter D13 KST + groupScheduleQueries + MapViewMode 타입. 캘린더 토글·native MapView mode 분기 렌더·폴리라인 native 그리기·시간 범위 picker UI는 EAS Build 운영 트랙 deferred) | **Owner**: Mobile | **Sprint**: 4 | **Lane**: B
+- **Depends**: S10 (지도 + 마커, IN_PROGRESS 동일 — 데이터·로직 ✅ / native EAS), S00 ✅ (schedules, groups, places), DESIGN §10.5 (폴리라인 spec)
 - **Acceptance**:
-  - 캘린더에서 토글 진입
-  - `<MapView mode="search" | "schedule">` 분기 (mode 전환 시 마커 set 교체 + 폴리라인 toggle)
-  - 모임 일정 좌표 표시 (Google·Apple 일정 좌표 차기 — Q-C6)
-  - 시간순 ①②③ 숫자 배지 (DESIGN §10.5)
-  - 보라 #7C3AED 점선 폴리라인
-  - 5+ 마커 자동 숨김 (가장 가까운 두 점만)
-  - 시간 범위 선택
-- **Files**: `src/screens/map/schedule_mode.tsx`
-- **Notes**: D2에서 founder가 keep. P5 (B standalone 외부 확장) 검증 가치
+  - ⏸️ 캘린더에서 토글 진입 — **EAS Build 운영 트랙** (calendar route 신설 후 wire-up)
+  - ⏸️ `<MapView mode="search" | "schedule">` 분기 (mode 전환 시 마커 set 교체 + 폴리라인 toggle) — **EAS Build 운영 트랙** (native MapView 렌더 시점). 타입 alias `src/lib/places/MapViewMode.ts`로 prop 계약은 scaffold ✅
+  - ✅ 모임 일정 좌표 표시 — `groupScheduleQueries.fetchConfirmedGroupSchedules` (groups + places JOIN, confirmed_at·start_at·place_id NOT NULL 필터, RLS 자연 차단)
+  - ✅ 시간순 ①②③ 숫자 배지 (DESIGN §10.5) — `scheduleMapPoint.toScheduleMapPoints` stable sort + 1-based `order` index. native 32pt brand-500 fill 배지 렌더는 EAS 운영 트랙
+  - ⏸️ 보라 점선 폴리라인 (DESIGN §10.5: brand-500 2pt dashed) — segment 좌표 array 산출 ✅(`polyline.buildPolylineSegments`), stroke·dashed·색은 native 렌더러(EAS) 책임
+  - ✅ 5+ 마커 자동 숨김 (DESIGN §10.5: "마커 5개 초과 시 폴리라인 자동 숨김 — 가장 가까운 두 점만") — `polyline.buildPolylineSegments(points, hideThreshold=5)` haversine 최소 pair 1 segment
+  - ✅ 시간 범위 선택 — `timeRangeFilter.filterByKstDateRange(points, fromKstDate, toKstDate)` D13 luxon `Asia/Seoul` 양 끝 inclusive. UI picker는 EAS 운영 트랙
+- **Files**: ✅ `src/lib/schedules/{scheduleMapPoint,polyline,timeRangeFilter,groupScheduleQueries}.ts`, ✅ `src/lib/places/MapViewMode.ts` / ⏸️ `app/calendar/schedule-mode.tsx`(native MapView mode='schedule' 렌더) — EAS 운영 트랙
+- **Notes**: D2에서 founder가 keep. P5 (B standalone 외부 확장) 검증 가치. S10과 같은 PARTIAL 패턴 — 데이터·로직 레이어 closure → native UI는 EAS Build 운영 트랙. native 합류 시 `app/(tabs)/map.tsx`(또는 새 calendar route)에서 `<MapView mode={mode}>` props로 `useMapSearch` 결과 / `fetchConfirmedGroupSchedules + toScheduleMapPoints + buildPolylineSegments + filterByKstDateRange` 결과 분기만 하면 됨
 
 ---
 

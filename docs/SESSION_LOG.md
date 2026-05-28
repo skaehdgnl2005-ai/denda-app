@@ -25,6 +25,33 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S15-mapmode-logic — 지도 schedule mode 데이터·로직 레이어 (2026-05-28) — DONE
+- Depends: S00 ✅ (groups·places·schedules schema), S10 데이터·로직 레이어 ✅ (coords/normalize D18 + distance haversine), DESIGN §10.5 (폴리라인 spec)
+- Changes:
+  - `src/lib/schedules/scheduleMapPoint.ts` (+47, 신규) — `ConfirmedGroupScheduleInput` / `ScheduleMapPoint` 타입 + `toScheduleMapPoints` (chronological stable sort + ①②③ order 부여 + D18 normalizeWgs84)
+  - `src/lib/schedules/scheduleMapPoint.test.ts` (+73, 신규, Jest +5) — 빈/정렬/unordered/stable/invalid 좌표
+  - `src/lib/schedules/polyline.ts` (+62, 신규) — `buildPolylineSegments(points, hideThreshold=5)` — N≤5 chronological consecutive, N>5는 가장 가까운 두 점 segment 1개 (DESIGN §10.5 hide rule)
+  - `src/lib/schedules/polyline.test.ts` (+95, 신규, Jest +7) — 0/1/2/5/6점·custom threshold·determinism
+  - `src/lib/schedules/timeRangeFilter.ts` (+47, 신규) — `kstDateRangeToUtcWindow` (KST yyyy-MM-dd → UTC ISO 양 끝 inclusive) + `filterByKstDateRange` (D13 luxon Asia/Seoul)
+  - `src/lib/schedules/timeRangeFilter.test.ts` (+62, 신규, Jest +7) — 양일·단일·역순·잘못된 형식·경계 inclusive
+  - `src/lib/schedules/groupScheduleQueries.ts` (+43, 신규) — `fetchConfirmedGroupSchedules` (groups + places JOIN, confirmed_at·start_at·place_id NOT NULL 필터, RLS 자연 차단)
+  - `src/lib/schedules/groupScheduleQueries.test.ts` (+101, 신규, Jest +4) — supabase mock JOIN/places null defensive/에러 한국어/빈 결과
+  - `src/lib/places/MapViewMode.ts` (+9, 신규) — `MapViewMode = 'search' | 'schedule'` type alias scaffold (native MapView mode 분기는 EAS Build wire-up)
+  - `docs/NOW.md` — S15-mapmode-logic 활성 add(/start-task) → remove(/ship-task)
+- Tests: **Jest 818 passed + 1 skipped + 0 failed** (788 → +29: 5+7+7+4=23 신규 + activeFilter 6 동거 reverify). typecheck 0, eslint 0 errors (auto-fix prettier 3건만 정리). design-guard hook 1차 차단(주석 안 hex `#7C3AED`) → tokens 이름으로 교체 후 통과.
+- Next:
+  - **S15-mapmode UI/native 트랙** — 캘린더 화면 토글 진입(현 시점 calendar route 미존재 → 캘린더 화면 신설부터) + `<MapView mode="schedule">` 분기 native 렌더 + 32pt ①②③ 배지 + 보라 dashed 폴리라인 + 시간 범위 picker UI. **S10 native 트랙(EAS Build)과 같은 시점에 unblock** — 두 mode 모두 native MapView 위에 그려야 하므로.
+  - **다음 가능 태스크**: S17 QA 종합 / S13 EAS 운영 트랙 / S10·S15 native unblock 시점 합류
+- Notes:
+  - **S10 패턴 그대로**: 데이터·로직 레이어만 본 turn에 close, native MapView 렌더는 EAS Build 운영 트랙 deferred. S15 acceptance 7개 중 (3) 좌표 fetch / (4) 시간순 ①②③ / (6) 5+ hide algorithm / (7) 시간 범위 필터 = 4개를 로직 레이어에서 완전 close. (1) 캘린더 토글 / (2) `<MapView mode>` 분기 렌더 / (5) 폴리라인 native 그리기 = 3개는 native UI 트랙.
+  - **DESIGN §10.5 vs S15 acceptance 문구 차이 해소**: S15 acceptance는 "5+ 마커 자동 숨김 (가장 가까운 두 점만)"이지만 DESIGN §10.5 (canonical 시각 결정)은 "마커 5개 초과 시 **폴리라인** 자동 숨김 (가장 가까운 두 점만)" — DESIGN 우선(CLAUDE.md 절대 규칙 #1). 본 모듈은 폴리라인 segment를 가장 가까운 pair 1개로 축소 (마커 자체는 모두 표시).
+  - **D13 KST**: 모든 confirmedStartAt 비교는 UTC ISO lexicographic. KST date range → UTC 변환은 luxon `Asia/Seoul` `startOf('day')`/`endOf('day')` (수동 -9h offset 금지).
+  - **D18 좌표**: `toScheduleMapPoints`는 `normalizeWgs84`로 invalid lat/lng를 한국어 throw로 차단 — 잘못된 좌표가 폴리라인 계산에 새지 않게.
+  - **floating-point 결정성**: 인접 lng pair는 부동소수상 거리가 미세하게 달라 "첫 발견 동일 거리" 단정은 검증 불가. 대신 "같은 입력 → 같은 출력" determinism 속성만 검증 (실제 첫 발견 인덱스는 V8/Hermes 모두 결정적이지만 부동소수 비교 결과 차이는 알고리즘 안정성과 무관).
+  - **Supabase JOIN 타입 위 cast**: PostgREST 자동 추론은 FK 관계를 `T[]`로 잡지만 `places` FK는 단일 객체 (`groups.confirmed_place_id → places.id` belongs-to). `as unknown as JoinRow[]` 우회 + runtime null guard 1줄로 안전 unwrap (`places: null` 행은 silent skip).
+
+---
+
 ## S24 — 부차적 dead-end 정리 (2026-05-28) — DONE
 - Depends: 없음 (독립 task). 사용자 결정 — 혼합안 (실연결 1 + 베타 비활성 안내 4)
 - Context: 사용자 "/start-task S24". Lane E(여정 척추) 트랙 3 — 게이트 KPI 무관 부차적 dead-end 5종 정리. AskUserQuestion으로 처리 방향 확정(혼합: 친구탭 카톡초대만 실연결, 나머지 4종은 "준비 중" 안내). 친구탭 카톡초대는 S08의 sharePlaceToKakao 패턴(RN core Share API + DI shareApi + dynamicRequire `createNativeShareApi()`) 그대로 mirror. 프로필 3행·홈 알림 버튼은 `Alert.alert` 안내. 정식 출시 시점에 P1으로 이연 명시.
