@@ -11,7 +11,7 @@
 - **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** + **S14 sub-task 다수** + **fail-cleanup** (2026-05-26) + **S15-deeplink-schema** (2026-05-26) + **S12-backend-f1-f4 + S12-publishers-f4 + S12-client** (2026-05-26) + **S08-backend** (2026-05-26) + **S08-ui** (2026-05-27 — S08 정식 DONE) + **S15-deeplink 잔여 5 sub-task** (2026-05-27 — edge + web + rn-fallback + rn-conversion + deeplink. S15-deeplink 정식 DONE) + **Q-B22** + **D34** + **D35** 신규
 - **DONE**: 12 (S00, S01, S03, S04, S06, S07, S08, S11, S12, S14, S15-deeplink) + S05 acceptance 7/7 (S05e 운영 task)
 - **IN_PROGRESS**: 4 (S05 — S05e 60fps 부하 실기기 잔여 / S16 — map 검색 provider 레이어 완성 PARTIAL, AppleAuthProvider Phase 3 deferred / S13 — EAS skeleton 완성[설정·계측·manifest·runbook], 인증서·실기기 측정 운영 트랙 / S10 — 데이터·로직 레이어 완성[coords·cache·filter·clustering·hook·scaffold 2026-05-28], native Naver Maps SDK 렌더·마커 PNG는 EAS 운영 트랙)
-- **TODO**: 2 (S15-mapmode, S17)
+- **TODO**: 9 (S15-mapmode, S17 + **Lane E 신설** S18~S24 — 여정 척추, [spec](superpowers/specs/2026-05-28-journey-spine-roadmap-design.md) 2026-05-28. S18·S19는 [plan](superpowers/plans/2026-05-28-journey-spine-s18-s19.md) ready)
 - **BLOCKED**: 0 (S10·S16 D1 no-answer 액션 발동[D36]으로 정책 블록 해소)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
@@ -378,6 +378,94 @@
 
 ---
 
+## Lane E — Journey/Glue (여정 척추)
+
+> 기능 Lane(A~D)을 *걸을 수 있는 유저 여정*으로 잇는 연결 작업. 기존 Lane의 능력 기반 DONE 카운트를 정직하게 유지하기 위해 분리.
+> 출처: [spec](superpowers/specs/2026-05-28-journey-spine-roadmap-design.md) (갭 인벤토리 A~D + 게이트 최단 순서 + S10 무충돌)
+> 순서: 임계경로 **S18 → S19 → S20**(게이트 측정 최단, S10 디커플) / 트랙2 S21→S22→S23(병행 가능) / 트랙3 S24(최하)
+
+### S18 — 모임 생성 flow
+
+- **Status**: TODO (plan ready) | **Owner**: Mobile + Backend | **Sprint**: post-MVP | **Lane**: E
+- **Depends**: S00 (groups/group_members/dates + invite_code 트리거 0016), S05 (생성 후 진입 대상 그리드), D13 (KST)
+- **Acceptance**:
+  - `create_group` RPC (0018, 원자적 groups + 호스트 group_members INSERT, SECURITY INVOKER) + `createGroup` 클라 wrapper
+  - `app/group/new.tsx` (모임 이름 + 후보 날짜 다중선택 최대 7일 KST + brand-500 CTA 1개 §17)
+  - 홈 CTA(`app/(tabs)/index.tsx:77` TODO stub) + 친구탭 `handleMakeGroup`(Alert stub) → `router.push('/group/new')` 실연결
+  - 생성 성공 → `router.replace('/group/[id]')` (그리드 진입)
+- **Files**: `supabase/migrations/0018_create_group_rpc.sql`, `src/lib/groups/{create,dateOptions}.ts(.test)`, `app/group/new.tsx`, `tests/screens/group/new.test.tsx`, `app/(tabs)/index.tsx`(CTA 1줄), `app/(tabs)/friends/index.tsx`(handleMakeGroup 1줄)
+- **Worktree 분기**: 가능 (S10·친구 mock 무접촉. 신규 파일 + 홈/친구탭 stub 본문만)
+- **Notes**: 구현 단계별 가이드 = [plan](superpowers/plans/2026-05-28-journey-spine-s18-s19.md). `/start-task S18`로 시작, `/ship-task`로 DONE 마킹
+
+### S19 — 내 모임 리스트
+
+- **Status**: TODO (plan ready) | **Owner**: Mobile | **Sprint**: post-MVP | **Lane**: E
+- **Depends**: S00 (groups RLS = host_id ∨ group_members), S18, D13
+- **Acceptance**:
+  - `fetchMyGroups()` — RLS 자연 필터(host 또는 멤버), 미확정 먼저 정렬
+  - 홈 "다가오는 모임" 실데이터 (`upcomingCount=0` 하드코딩 제거) + 카드 탭 → `router.push('/group/[id]')` (#3 그리드 도달 경로 확보)
+  - 빈 상태 §11.2 유지
+- **Files**: `src/lib/groups/list.ts(.test)`, `app/(tabs)/index.tsx`(섹션 교체), `tests/screens/home.test.tsx`
+- **Worktree 분기**: 가능
+- **Notes**: 구현 가이드 = [plan](superpowers/plans/2026-05-28-journey-spine-s18-s19.md) (S18과 묶음). **S18·S19 완료 = 첫 walkable 경로(생성→리스트→그리드) + 모임 확정 이벤트 발생**
+
+### S20 — 지도 없는 장소 검색·선택 (★게이트, S10 디커플)
+
+- **Status**: TODO | **Owner**: Mobile + Backend | **Sprint**: post-MVP | **Lane**: E
+- **Depends**: S16 ✅ (NaverSearchProvider + Edge `naver_local_search`), S08 ✅ (PlaceActionSheet + place.tsx + click_log), S04/S05, [G1](DECISIONS.md), [G2](DECISIONS.md#g2--gate-2-장소-확정--예약하기-click-through--가장-critical)
+- **Acceptance**:
+  - `app/group/[id]/place-search.tsx` (신규 라우트) — 텍스트 검색 → NaverSearchProvider → 결과 리스트 → 선택
+  - 선택 시 장소 영속화 + `groups.confirmed_place_id` UPDATE (**= 장소 확정 = Gate #1 이벤트**) → S08 `place.tsx`로 navigate
+  - 확정 화면에 호스트 "장소 정하기" 버튼
+  - PlaceActionSheet "예약하기" → `logReservationClick` (**Gate #2**, S08 기존)
+- **Files**: `app/group/[id]/place-search.tsx`, `src/lib/places/persist.ts(.test)`, `src/lib/groups/setConfirmedPlace.ts(.test)`, `app/group/[id]/index.tsx`(버튼), 가능 시 `supabase/migrations/00XX_places_provider.sql` (kakao_place_id nullable + provider_place_id 보강)
+- **Worktree 분기**: 가능 (신규 라우트 — S10 지도탭·`places/*` 무접촉. S10 랜딩 시 마커→place는 두 번째 경로로 공존)
+- **Notes**: 게이트 측정을 S10 네이티브 맵에서 디커플하는 임계경로 종착. 별도 spec/plan 사이클. places 영속화 스키마는 진입 시 결정
+
+### S21 — 친구 시스템 실DB 전환
+
+- **Status**: TODO | **Owner**: Mobile + Backend | **Sprint**: post-MVP | **Lane**: E
+- **Depends**: S00 (friendships, friend_requests, blocks), D16 (is_blocked helper)
+- **Acceptance**:
+  - `src/lib/friends/api.ts` mock(in-memory array) → supabase 전면 교체 (list/search/sendRequest/accept/reject/cancel/remove)
+  - search·list는 `is_blocked` 통과 (D16). 시그너처 유지 → 친구탭/검색/요청 UI 무변경
+  - **S07을 PARTIAL로 재마킹** (정직성 — S07 acceptance는 mock UI 기준으로 close됨)
+- **Files**: `src/lib/friends/api.ts`(전면 교체), `.test.ts`, (필요 시 friend_requests RLS 보강 migration)
+- **Worktree 분기**: 가능 (`friends/api.ts`만 — S18/S19·S10과 충돌 0). **S18/S19 병렬 후보로 최적**
+- **Notes**: S12 잔여 F1/F2/F3 publisher(line 333-334)의 prereq
+
+### S22 — 인앱 모임 초대 / 합류
+
+- **Status**: TODO | **Owner**: Mobile + Backend | **Sprint**: post-MVP | **Lane**: E
+- **Depends**: S21, S00 (group_invitations + group_members + RLS 0005), D16, [D31](DECISIONS.md#d31--차단-호스트-모임--부분-노출-groups-select-불변--클라이언트-호스트-mask)
+- **Acceptance**:
+  - `src/lib/groups/invitations.ts` (createInvitation INSERT status=pending + listMyInvitations + acceptInvitation → group_members INSERT atomic·idempotent + status update)
+  - 초대 UI (친구 선택 → 초대) + 초대함 진입 + 수락 → 합류 → `/group/[id]`
+  - 차단 사용자 초대 hidden (D31)
+- **Files**: `src/lib/groups/invitations.ts(.test)`, 초대 UI 컴포넌트/화면
+- **Worktree 분기**: 가능
+- **Notes**: `group_members` INSERT 경로가 현재 deeplink 전환(attribution_resolve)뿐 → 인앱 합류 경로 신설
+
+### S23 — 푸시 F1/F2/F3 publisher wire-up
+
+- **Status**: TODO | **Owner**: Backend + Mobile | **Sprint**: post-MVP | **Lane**: E
+- **Depends**: S21, S22, S12 ✅ (notify_f1/f2/f3 handler + dispatcher), [D33](DECISIONS.md#d33--모임-확정-fan-out--단일-dispatcher-q-b5-close)
+- **Acceptance**: friends sendRequest→dispatch(F1), accept→dispatch(F2), invitations createInvitation→dispatch(F3) + 각 notify_f{1,2,3} handler register
+- **Files**: `src/lib/friends/api.ts`, `src/lib/groups/invitations.ts` (dispatch 추가), Edge handler register
+- **Worktree 분기**: S21·S22 후속이라 합류 시점 조율
+- **Notes**: S12 line 333-334의 ⏸️ 잔여 항목 close
+
+### S24 — 부차적 dead-end 정리
+
+- **Status**: TODO | **Owner**: Mobile | **Sprint**: post-MVP | **Lane**: E
+- **Depends**: 없음 (독립)
+- **Acceptance**: 프로필 설정행 3개(알림설정/신고차단관리/화면모드)·홈 알림 버튼·친구탭 카톡초대(가짜 Alert) 실연결 or 베타 비활성 명시. 게이트 무관, 일부 P1(차기) 이연 가능
+- **Files**: `app/(tabs)/profile.tsx`, `app/(tabs)/index.tsx`, `app/(tabs)/friends/index.tsx`
+- **Worktree 분기**: 가능
+- **Notes**: 최하 우선. 게이트 KPI 무관
+
+---
+
 ## Sprint 0 — Pre-build 인프라 체크리스트 (ENG_REVIEW §10)
 
 이 12개는 Sprint 1 시작 전 완료. **태스크 코드 부여 X (인프라 셋업)**.
@@ -405,7 +493,8 @@ Worktree 분기 시 conflict flag (ENG_REVIEW §9.4):
 - **S06 (Calendar) ↔ S12 (Push)** — 둘 다 모임 확정 trigger. 단일 dispatcher pattern (Q-B5)
 - **S10 (지도) ↔ S11 (다크 토큰)** — 네이버 SDK `isNightModeEnabled` 통합 시점 명확히. S11이 토큰만, S10에서 적용
 - **S03 (OCR) ↔ S06 (Calendar)** — `source = 'everytime'` enum 격리로 충돌 없음. OCR 일정의 외부 캘린더 push 안 함 (D2 + ENG_REVIEW §9.4)
-- **S10 (지도 search mode) ↔ S15 (지도 schedule mode)** — `<MapView mode="search"|"schedule">` 분기. S15는 S10 완료 후
+- **S10 (지도 search mode) ↔ S15 (지도 schedule mode)** — `<MapView mode="search"|"schedule">` 분기. S15(mapmode)는 S10 완료 후 (네이티브 MapView가 EAS로 랜딩한 뒤). S10 진행 중 병렬 금지
+- **Lane E (S18~S24) ↔ S10** — 척추는 지도탭·`places/*` 무접촉으로 S10과 충돌 0. S20만 신규 라우트 `place-search`로 장소 진입 *두 번째 경로* 추가(공존). S18/S19 병렬 후보 = S21(`friends/api.ts`만, 충돌 0)
 
 ---
 
