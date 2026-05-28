@@ -1,0 +1,50 @@
+# Maestro E2E — 멤버 시간 그리드 투표 + Realtime 히트맵.
+# 흐름: 모임 진입 → 시간 그리드 mount → 셀 드래그 sweep → vote commit → 히트맵 update.
+# 사전 조건: 호스트가 미리 모임 생성 + invite_code 또는 attribution_resolve로 멤버 합류 완료.
+# 검증: D11 (Edge votes_aggregate broadcast), D12 (60fps spec — 시각 검증 한계, 수치는 별도).
+#
+# 본 spec은 *흐름 단위 검증* — 60fps 수치 측정은 production binary + Android profiler (S05e 운영).
+
+appId: com.denda.app
+---
+- launchApp
+
+# 1. 모임 진입 (홈 → 카드 탭)
+- assertVisible:
+    text: "다가오는 모임"
+    timeout: 8000
+
+# 첫 모임 카드 탭 (testID `my-group-{id}` — group_id는 환경별 다름. 정규식 매칭)
+- tapOn:
+    id: "my-group-.*"
+
+# 2. 시간 그리드 화면
+- assertVisible:
+    id: "time-grid"
+    timeout: 8000
+- assertVisible:
+    id: "realtime-status"
+
+# 3. 셀 드래그 sweep (09:00 → 10:30 7셀 선택 = D14 15분 단위 6 슬롯)
+# Maestro coordinate 또는 element-relative swipe — 그리드 셀 testID는 컴포넌트 추상화로 노출 안 됨
+# → percentage-based swipe (그리드 영역 내부에서)
+- swipe:
+    from:
+      x: 50%
+      y: 40%
+    to:
+      x: 50%
+      y: 55%
+    duration: 800
+
+# 4. selection 시각 변화 확인 (heat-1 이상 셀이 늘어남)
+# Maestro는 색 검증 한계 — 시각적 회귀는 별도 도구 (Chromatic/Percy 운영 트랙)
+
+# 5. Realtime 연결 상태 유지
+- assertVisible:
+    id: "realtime-status"
+
+# 6. (선택) 호스트만 노출되는 "확정" 버튼은 멤버 view에서 숨김 확인
+# 비호스트: host-confirm-button 미노출
+# - assertNotVisible:
+#     id: "host-confirm-button"

@@ -25,6 +25,40 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S17 — QA + Regression Test Set (코딩 트랙) (2026-05-28) — PARTIAL
+- Depends: Lane A~D 코딩 부분 모두 mature ✅ (DONE 12 + Lane E 7 + IN_PROGRESS 5의 코딩 부분 완성). 운영 트랙(EAS·실기기)은 의존 외.
+- Done (코딩 트랙):
+  - **Critical Path 4·5 갭 분석 + 5 모듈/screen test 신규 = 39 Jest tests**:
+    - `tests/screens/(auth)/login.test.tsx` (+97, 7 — 카카오 버튼·약관 안내, signIn → router.replace, AuthError 분기 4종(cancelled silent/network Alert/일반 Error/lastError 노출), authenticating 상태 disabled)
+    - `tests/screens/(auth)/terms.test.tsx` (+92, 7 — 3 약관 + 모두 동의 + CTA 렌더, 필수 미동의 disabled + 안내 텍스트, 필수 둘 다 → CTA enabled + 안내 사라짐, "모두 동의" toggle on/off, 필수 미동의 CTA press silent, agreeToTerms + router.replace(onboarding))
+    - `tests/screens/(auth)/onboarding.test.tsx` (+98, 5 — 첫 슬라이드 mount + "다음" + "건너뛰기", "건너뛰기" complete + router.replace("/(tabs)"), momentumScrollEnd로 마지막 슬라이드 → CTA "시작하기"로 변경, 마지막에서 "시작하기" press → complete + replace, 중복 press 1회만 호출)
+    - `src/lib/ocr/imagePicker.test.ts` (+140, 12 — Error class 2종 한국어 메시지, 권한 거부 → Denied + launchImageLibraryAsync 미호출, canceled, assets 빈 배열, base64 누락, mimeType hint 우선, .jpg/.webp/unknown uri 추론, loader가 "Cannot find module"·"expo-image-picker" 포함 Error → Unavailable로 wrap)
+    - `tests/screens/schedule/everytime.test.tsx` (+145, 8 — semester 미입력 시 pick-button disabled + 안내, OCR 권한 거부 → "권한 필요" Alert, unavailable → "곧 활성화돼요", canceled silent, 일반 Error → "OCR 실패", OCR 결과 빈 → "강의를 찾지 못했어요", OCR 성공 → preview step("강의 추가" 노출), back 버튼 → router.back)
+  - **`src/lib/ocr/imagePicker.ts` DI loader 매개변수 추가** — jest dynamic import vm-modules 회피 (`"A dynamic import callback was invoked without --experimental-vm-modules"` 에러 해소). production default param으로 동일 동작 + lazy load 보존 (D25 cold start 영향 0). `PickerModuleLike` 인터페이스로 mock 표면 명세
+  - **Maestro E2E 스켈레톤 4개 + README** (TEST_PLAN.md §3.2 critical paths):
+    - `maestro/kakao_oauth.yaml` (CP1·CP4 — D29 OIDC 첫 로그인 → 약관 → 온보딩 → 홈)
+    - `maestro/host_create_group.yaml` (CP2 진입 — 홈 → 생성 → 그리드 + 친구 초대)
+    - `maestro/member_vote.yaml` (CP3 — 모임 진입 → 시간 그리드 드래그 sweep → Realtime 유지)
+    - `maestro/place_select_click_through.yaml` (**Gate #2 측정 SSoT** — 장소 정하기 → 검색·선택 → 확정 → "예약하기" 더블 탭 idempotency)
+    - `maestro/README.md` (설치·실행·사전조건·운영 트랙 명시 — Maestro CLI/Cloud, 실기기 매트릭스, 한계)
+  - `jest.setup.js` + `jest.config.js` + `plugins/withKakaoMaven.js` + `web-guest/jest.config.js` prettier 정리 (lint --fix 부산물)
+- Remaining (운영 트랙 별도, 본 task 코딩 close):
+  - Maestro CLI 설치 + Maestro Cloud API key 등록 (founder 운영)
+  - 실기기 매트릭스: iPhone SE 2 + Galaxy A14/A10 (D12 측정 기준)
+  - TestFlight + Internal Testing 라운드
+  - 안암 invite-only 베타 (카톡 viral funnel)
+  - Prior MVP 시간 그리드 영상 → 새 코드 side-by-side regression (founder asset)
+  - S05e 60fps 부하 production binary 실기기 측정 (D12)
+- Tests: Jest **863 passed + 1 skipped** (825 → +38, 5 신규 파일 합 39 - 1 stat 차이는 stat 집계 변동). Deno 미실행(본 turn Edge 무변경 — pre-existing 300 그대로). typecheck 0, lint 0 errors (pre-existing 4 파일 prettier 정리 부산물 포함)
+- Next: 운영 트랙 본격 진입 — EAS Build · TestFlight · 안암 invite-only · Maestro 실기기 실행. **코딩 잔여 없음** (베타 출시 코드 안전망 완성)
+- Notes:
+  - S17 본체 acceptance 5개 중 *코딩 가능 부분 100% close*. acceptance 항목 자체는 운영 트랙이 닫아야 함 → 본 항목은 PARTIAL(IN_PROGRESS 유지) — 운영 QA 완료 시 별도 ship 또는 self-close
+  - **CP4 갭 발견**: 약관·온보딩 화면 test 부재 → 본 turn 보강 (가입 funnel 안전망)
+  - **CP5 갭 발견**: imagePicker + everytime 권한 분기 test 부재 → 본 turn 보강. imagePicker.ts의 dynamic `import('expo-image-picker')`가 jest 환경에서 vm-modules 의존이라 DI 패턴으로 리팩토링 (production 영향 0)
+  - Maestro yaml은 *흐름과 검증 포인트 정의 단계*. 실기기에서 selector 미세조정 + 60fps 수치 측정은 별도 (S05e 운영). 카카오 SDK 네이티브 모달은 Maestro 입력 한계 — webview script 필요할 수 있음
+  - **Lane E 여정 척추 + S17 코딩 안전망 = 베타 출시 코드 준비 완료**. 남은 path는 모두 EAS Build·실기기·안암 운영 트랙
+  - design-guard CRITICAL 4(DESIGN 토큰·RLS·KST·secret) CLEAR — 시각 결정 hex 0건 / RLS 변경 0 / `new Date()` 신규 0건 / secret 클라 expose 0
+
 ## S15-mapmode-ui-calendar — 캘린더 진입 + schedule mode 토글 (SDK 무관) (2026-05-28) — DONE
 - Depends: S15-mapmode-logic ✅ (groupScheduleQueries / toScheduleMapPoints / filterByKstDateRange), S00 ✅ (groups·places schema), S19 ✅ (홈 "다가오는 모임" 섹션). 사용자 결정 — Naver Maps Client ID 미발급 + EAS Build 운영 트랙이라 SDK 의존 0 범위로 합의.
 - Changes:

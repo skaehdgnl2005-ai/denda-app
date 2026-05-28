@@ -24,9 +24,26 @@ export class ImagePickerPermissionDeniedError extends Error {
 
 // expo-image-picker 설치 전엔 unavailable. 설치 후 이 함수만 교체.
 // dynamic import로 가둬 cold start 영향 0 (D25).
-export async function pickImageFromLibrary(): Promise<PickedImage> {
+//
+// `loadPicker` 매개변수: jest 환경에서 native dynamic import가 vm-modules 의존이라
+// 테스트 시 mock을 주입할 수 있도록 DI. production은 default로 동일 동작 + lazy load.
+type PickerModuleLike = {
+  requestMediaLibraryPermissionsAsync(): Promise<{ granted: boolean }>;
+  launchImageLibraryAsync(opts: unknown): Promise<{
+    canceled: boolean;
+    assets?: { uri?: string; base64?: string; mimeType?: string }[];
+  }>;
+  MediaTypeOptions?: { Images?: unknown };
+};
+
+const defaultLoadPicker = (): Promise<PickerModuleLike> =>
+  import('expo-image-picker') as unknown as Promise<PickerModuleLike>;
+
+export async function pickImageFromLibrary(
+  loadPicker: () => Promise<PickerModuleLike> = defaultLoadPicker,
+): Promise<PickedImage> {
   try {
-    const mod = await import('expo-image-picker');
+    const mod = await loadPicker();
     const permission = await mod.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       throw new ImagePickerPermissionDeniedError();

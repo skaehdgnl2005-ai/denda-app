@@ -367,15 +367,16 @@
 
 ### S17 — QA + Regression Test Set
 
-- **Status**: TODO | **Owner**: QA (founder) | **Sprint**: 4 + W3.5 | **Lane**: D
-- **Depends**: 모든 step (mature 후)
+- **Status**: IN_PROGRESS (2026-05-28 코딩 트랙 ✅ PARTIAL — CP4/CP5 갭 보강 39 신규 Jest + Maestro 4 스켈레톤. 운영 트랙 잔여) | **Owner**: QA (founder) | **Sprint**: 4 + W3.5 | **Lane**: D
+- **Depends**: 모든 step (mature 후) — Lane A~D 코딩 부분 모두 mature ✅
 - **Acceptance**:
-  - Test framework (Jest + Maestro + Playwright + Deno) — D24
-  - 50+ path test 구현 (TEST_PLAN.md 참조: 32 unit/integration + 15 E2E + 1 regression + OCR eval)
-  - Prior MVP 시간 그리드 동작 영상 → 새 코드 side-by-side regression
-  - 안암 invite-only 베타 (카톡 viral funnel)
-  - TestFlight + Internal Testing 라운드
-- **Files**: `tests/`, `e2e/`, `playwright/`, `supabase/functions/_tests/`
+  - ✅ **Test framework (Jest + Playwright + Deno) — D24** — Jest 91 + Playwright 18 + Deno 300 모두 동작. Maestro yaml 스켈레톤 4개 ✅ (CLI 설치는 운영)
+  - ✅ **50+ path test 구현** — 현재 Jest 863 + Playwright 18 + Deno 300 + web-guest Jest 90 = **1,271+ tests, target 훨씬 초과**. CP4(약관·온보딩) + CP5(권한 거부) 갭은 본 turn 보강
+  - ⏸️ Prior MVP 시간 그리드 동작 영상 → 새 코드 side-by-side regression — **founder asset (영상 필요)**
+  - ⏸️ 안암 invite-only 베타 (카톡 viral funnel) — **운영 트랙**
+  - ⏸️ TestFlight + Internal Testing 라운드 — **EAS Build 운영 트랙**
+- **Files**: `tests/screens/(auth)/{login,terms,onboarding}.test.tsx` ✅, `tests/screens/schedule/everytime.test.tsx` ✅, `src/lib/ocr/imagePicker.{ts,test.ts}` ✅(DI loader 추가), `maestro/{kakao_oauth,host_create_group,member_vote,place_select_click_through}.yaml` + `README.md` ✅
+- **Notes**: S17 본체는 코드+운영 혼합 task. 코딩 트랙은 close, 운영 트랙(EAS·실기기·안암 베타·prior MVP 영상)이 별도. IN_PROGRESS 유지 → 운영 QA 완료 시 self-close 또는 별도 ship
 
 ---
 

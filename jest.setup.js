@@ -75,14 +75,34 @@ jest.mock('react-native-gesture-handler', () => {
   const makeGesture = () => {
     const g = {
       _handlers: {},
-      onBegin(cb) { g._handlers.onBegin = cb; return g; },
-      onUpdate(cb) { g._handlers.onUpdate = cb; return g; },
-      onEnd(cb) { g._handlers.onEnd = cb; return g; },
-      onFinalize(cb) { g._handlers.onFinalize = cb; return g; },
-      minDistance(_) { return g; },
-      activeOffsetX(_) { return g; },
-      activeOffsetY(_) { return g; },
-      runOnJS(_) { return g; },
+      onBegin(cb) {
+        g._handlers.onBegin = cb;
+        return g;
+      },
+      onUpdate(cb) {
+        g._handlers.onUpdate = cb;
+        return g;
+      },
+      onEnd(cb) {
+        g._handlers.onEnd = cb;
+        return g;
+      },
+      onFinalize(cb) {
+        g._handlers.onFinalize = cb;
+        return g;
+      },
+      minDistance(_) {
+        return g;
+      },
+      activeOffsetX(_) {
+        return g;
+      },
+      activeOffsetY(_) {
+        return g;
+      },
+      runOnJS(_) {
+        return g;
+      },
     };
     return g;
   };
