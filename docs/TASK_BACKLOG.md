@@ -9,9 +9,9 @@
 ## 진행 현황 요약
 
 - **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** + **S14 sub-task 다수** + **fail-cleanup** (2026-05-26) + **S15-deeplink-schema** (2026-05-26) + **S12-backend-f1-f4 + S12-publishers-f4 + S12-client** (2026-05-26) + **S08-backend** (2026-05-26) + **S08-ui** (2026-05-27 — S08 정식 DONE) + **S15-deeplink 잔여 5 sub-task** (2026-05-27 — edge + web + rn-fallback + rn-conversion + deeplink. S15-deeplink 정식 DONE) + **Q-B22** + **D34** + **D35** 신규
-- **DONE**: 12 + **Lane E S18·S19·S20** (S00, S01, S03, S04, S06, S07, S08, S11, S12, S14, S15-deeplink, **S18 2026-05-28**, **S19 2026-05-28**, **S20 2026-05-28**) + S05 acceptance 7/7 (S05e 운영 task)
+- **DONE**: 12 + **Lane E S18·S19·S20·S21** (S00, S01, S03, S04, S06, S07, S08, S11, S12, S14, S15-deeplink, **S18 2026-05-28**, **S19 2026-05-28**, **S20 2026-05-28**, **S21 2026-05-28**) + S05 acceptance 7/7 (S05e 운영 task)
 - **IN_PROGRESS**: 4 (S05 — S05e 60fps 부하 실기기 잔여 / S16 — map 검색 provider 레이어 완성 PARTIAL, AppleAuthProvider Phase 3 deferred / S13 — EAS skeleton 완성[설정·계측·manifest·runbook], 인증서·실기기 측정 운영 트랙 / S10 — 데이터·로직 레이어 완성[coords·cache·filter·clustering·hook·scaffold 2026-05-28], native Naver Maps SDK 렌더·마커 PNG는 EAS 운영 트랙)
-- **TODO**: 6 (S15-mapmode, S17 + **Lane E** S21~S24 — 여정 척추, [spec](superpowers/specs/2026-05-28-journey-spine-roadmap-design.md) 2026-05-28. **S18·S19·S20 DONE** — 트랙 1 종착(생성→리스트→**장소 확정+Gate #1·#2 측정**) S10 native 없이 게이트 성립. 트랙 2 S21[친구 실DB]·S22·S23 또는 S24가 다음)
+- **TODO**: 5 (S15-mapmode, S17 + **Lane E** S22~S24 — 여정 척추, [spec](superpowers/specs/2026-05-28-journey-spine-roadmap-design.md) 2026-05-28. **S18·S19·S20 DONE** = 트랙 1 종착(생성→리스트→**장소 확정+Gate #1·#2 측정**) S10 native 없이 게이트 성립. **S21 DONE** = 트랙 2 친구 실DB 1단계 완료, S12 ⏸️ F1/F2 publisher prereq 해소. 다음 S22[인앱 모임 초대/합류] 또는 S23[F1/F2/F3 publisher wire-up])
 - **BLOCKED**: 0 (S10·S16 D1 no-answer 액션 발동[D36]으로 정책 블록 해소)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
@@ -158,6 +158,7 @@
   - ⏸️ 운영팀 카톡 채널 자동 통지 — [D32](DECISIONS.md#d32--베타-신고--reports-db-only-운영-통지-채널-deferred) deferred (Sprint 0 #11 prereq). 베타는 founder weekly manual review (Supabase dashboard SELECT reports)
 - **Files**: `src/screens/friends/`, `app/(tabs)/friends/`, `src/lib/reports/`, `src/lib/blocks/`, `supabase/functions/_lib/blocking.ts`, `supabase/migrations/0005_group_invitations_blocking.sql`, `supabase/migrations/0007_d16_propagation_audit.sql`, `supabase/migrations/0008_block_user_rpc.sql`
 - **Worktree 분기**: 가능 (S07-backend PR #2 머지 완료 2026-05-26 commit 569940a, S07-d16-audit/S07-report/S07-block-supabase는 main 위 격리 진행 완료)
+- **Notes**: 친구 클라 API(`src/lib/friends/api.ts`)는 본 S07 turn에서 mock array UI 데모로 close → **S21(2026-05-28)에서 supabase 전면 교체** (accept_friend_request RPC 0019 포함). S07 acceptance는 그대로 DONE 유지, S21으로 자연 self-close
 
 ---
 
@@ -424,15 +425,16 @@
 
 ### S21 — 친구 시스템 실DB 전환
 
-- **Status**: TODO | **Owner**: Mobile + Backend | **Sprint**: post-MVP | **Lane**: E
-- **Depends**: S00 (friendships, friend_requests, blocks), D16 (is_blocked helper)
+- **Status**: DONE (2026-05-28) | **Owner**: Mobile + Backend | **Sprint**: post-MVP | **Lane**: E
+- **Depends**: S00 ✅ (friendships, friend_requests, blocks), D16 ✅ (is_blocked helper + 0007 propagation), 0008 block_user RPC ✅
 - **Acceptance**:
-  - `src/lib/friends/api.ts` mock(in-memory array) → supabase 전면 교체 (list/search/sendRequest/accept/reject/cancel/remove)
-  - search·list는 `is_blocked` 통과 (D16). 시그너처 유지 → 친구탭/검색/요청 UI 무변경
-  - **S07을 PARTIAL로 재마킹** (정직성 — S07 acceptance는 mock UI 기준으로 close됨)
-- **Files**: `src/lib/friends/api.ts`(전면 교체), `.test.ts`, (필요 시 friend_requests RLS 보강 migration)
+  - ✅ `src/lib/friends/api.ts` mock(in-memory array) → supabase 전면 교체 (list/search/sendRequest/listIncoming/listOutgoing/accept/reject/cancel/remove/block)
+  - ✅ search·list는 RLS `is_blocked` 자연 통과 (0001/0002/0007). 시그너처 유지 → 친구탭/검색/요청 UI 무변경
+  - ✅ acceptRequest atomic = `accept_friend_request` RPC (0019, SECURITY DEFINER, 양방향 차단 직전 check + friendships 대칭 INSERT 권한 위임)
+  - ✅ S07 정직성: Notes에 "친구 클라 API는 S21에서 supabase 전환" 1줄 cross-ref 추가(history 일관성 — PARTIAL 재마킹보다 self-close가 가독성 우월)
+- **Files**: `supabase/migrations/0019_accept_friend_request_rpc.sql` ✅(+59), `src/lib/friends/api.ts` ✅(+290/-127), `src/lib/friends/api.test.ts` ✅(+459, 29 Jest), `tests/screens/friends/{index,requests,search}.test.tsx` ✅(spy fixture 패턴 마이그레이션)
 - **Worktree 분기**: 가능 (`friends/api.ts`만 — S18/S19·S10과 충돌 0). **S18/S19 병렬 후보로 최적**
-- **Notes**: S12 잔여 F1/F2/F3 publisher(line 333-334)의 prereq
+- **Notes**: S12 잔여 ⏸️ F1/F2 publisher prereq(친구 sendRequest/acceptRequest dispatch) 해소 — invitations 측은 S22 후 S23에서 wire-up. `__resetMocks` 시그너처 호환 no-op 유지로 screen test 비파괴성 보장. removeFriend는 RLS friendships_delete_self 양측 통과 활용해 sequential 두 row DELETE — atomic RPC 회피
 
 ### S22 — 인앱 모임 초대 / 합류
 

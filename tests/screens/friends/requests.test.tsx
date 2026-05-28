@@ -12,12 +12,44 @@ jest.mock('expo-router', () => ({
   }),
 }));
 
+// S21: friendsApi가 supabase로 전면 교체됨 — mock data는 spy로 명시.
+const DEFAULT_INCOMING = [
+  {
+    id: 'req-1',
+    sender_id: 'user-5',
+    receiver_id: 'me',
+    sender: { id: 'user-5', nickname: '박민수' },
+    created_at: '2026-05-23T10:00:00Z',
+  },
+  {
+    id: 'req-2',
+    sender_id: 'user-6',
+    receiver_id: 'me',
+    sender: { id: 'user-6', nickname: '최수지' },
+    created_at: '2026-05-23T11:30:00Z',
+  },
+];
+const DEFAULT_OUTGOING = [
+  {
+    id: 'req-3',
+    sender_id: 'me',
+    receiver_id: 'user-7',
+    receiver: { id: 'user-7', nickname: '정다은' },
+    created_at: '2026-05-23T09:15:00Z',
+  },
+];
+
 describe('FriendsRequestsScreen Screen', () => {
   const wrapper = ThemeProvider;
 
   beforeEach(() => {
     jest.clearAllMocks();
     friendsApi.__resetMocks();
+    jest.spyOn(friendsApi, 'listIncomingRequests').mockResolvedValue([...DEFAULT_INCOMING]);
+    jest.spyOn(friendsApi, 'listOutgoingRequests').mockResolvedValue([...DEFAULT_OUTGOING]);
+    jest.spyOn(friendsApi, 'acceptRequest').mockResolvedValue(undefined);
+    jest.spyOn(friendsApi, 'rejectRequest').mockResolvedValue(undefined);
+    jest.spyOn(friendsApi, 'cancelRequest').mockResolvedValue(undefined);
   });
 
   test('renders incoming requests by default', async () => {

@@ -25,6 +25,22 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S21 — 친구 시스템 실DB 전환 (2026-05-28) — DONE
+- Depends: S00 ✅ (friendships/friend_requests/blocks + 0001 + 0002 RLS), D16 ✅ (is_blocked helper + 0007 propagation), 0008 block_user RPC ✅
+- Changes:
+  - supabase/migrations/0019_accept_friend_request_rpc.sql (+59 신규 — accept_friend_request RPC: pending 검증 + 양방향 차단 차단 + accepted update + friendships 대칭 INSERT, SECURITY DEFINER로 친구 양쪽 row INSERT 권한 위임)
+  - src/lib/friends/api.ts (+290/-127 — mock array 전면 제거 → supabase chain. requireUserId helper + list[friendships eq user_id, friend:friend_id join] + search[users ilike + neq self + limit 20] + sendRequest[insert + 23505 → "이미 요청"] + listIncoming/Outgoing[from/to + pending + order desc + sender/receiver join] + acceptRequest[RPC] + reject/cancel[update + me + pending guard] + removeFriend[양방향 두 row DELETE — RLS friendships_delete_self 양측 통과 활용] + blockUser[blocks/api 위임] + __resetMocks no-op[시그너처 호환])
+  - src/lib/friends/api.test.ts (+459 신규 — 29 tests: chain mock + RPC mock + auth.getUser mock + 한국어 에러 매핑 + UNIQUE pending 충돌·friend_request_not_found·request_not_pending 분기)
+  - tests/screens/friends/index.test.tsx (+27/-2 — DEFAULT_FRIENDS/DEFAULT_INCOMING fixture + beforeEach `jest.spyOn().mockResolvedValue()` 명시 패턴)
+  - tests/screens/friends/requests.test.tsx (+32 — DEFAULT_INCOMING/OUTGOING fixture + spy mock setup beforeEach)
+  - tests/screens/friends/search.test.tsx (+3 — search/sendRequest spy default beforeEach)
+  - docs/NOW.md (+6 / -6 — S21 활성 항목 add/remove)
+- Tests: 728 passed + 1 skip (676→+52 누적; friends api 29 신규 + 친구 screen 17 재통과 + 기존 supabase mock 패턴 호환), typecheck 0, lint 0 errors
+- Next: S22 (인앱 모임 초대/합류 — group_invitations API + UI) 또는 S23 (F1/F2/F3 publisher wire-up — S21 unblock으로 friends.sendRequest/acceptRequest에 dispatch.dispatch 추가). 트랙2 척추 1단계 완료.
+- Notes: S21 acceptance "S07을 PARTIAL로 재마킹"은 의도상 정직성 보강 — 본 turn에서는 S07을 DONE 그대로 유지 + Notes에 "친구 클라 API는 S21에서 supabase 전환" 1줄 cross-ref 추가가 가독성 우월(history 일관성 + S21으로 self-close). S12의 ⏸️ F1/F2/F3 publisher prereq(friends/invitations API supabase 전환)은 friends 부분 본 turn에서 해소 — invitations는 S22 차례. `__resetMocks` 시그너처 호환 no-op 유지는 screen test 마이그레이션 비파괴성 보장. RLS `friendships_delete_self`가 양측 본인 row 통과 허용하므로 removeFriend 두 번 DELETE로 atomic RPC 회피(한쪽 fail 시도 self-list 사라짐으로 UX 일관성 유지). accept_friend_request RPC는 양방향 차단 직전 check(`is_blocked`) 포함 — D16 일관성
+
+---
+
 ## 예시 (실제 항목 아님 — 형식 참조용)
 
 ```markdown

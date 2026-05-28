@@ -22,12 +22,37 @@ jest.mock('@/lib/supabase/client', () => ({
   supabase: { from: jest.fn(), rpc: jest.fn() },
 }));
 
+// S21: friendsApi가 supabase로 전면 교체됨 — mock data는 spy로 명시.
+const DEFAULT_FRIENDS = [
+  { id: 'user-2', nickname: '홍길동' },
+  { id: 'user-3', nickname: '김영희' },
+  { id: 'user-4', nickname: '이철수' },
+];
+const DEFAULT_INCOMING = [
+  {
+    id: 'req-1',
+    sender_id: 'user-5',
+    receiver_id: 'me',
+    sender: { id: 'user-5', nickname: '박민수' },
+    created_at: '2026-05-23T10:00:00Z',
+  },
+  {
+    id: 'req-2',
+    sender_id: 'user-6',
+    receiver_id: 'me',
+    sender: { id: 'user-6', nickname: '최수지' },
+    created_at: '2026-05-23T11:30:00Z',
+  },
+];
+
 describe('FriendsIndexScreen Screen', () => {
   const wrapper = ThemeProvider;
 
   beforeEach(() => {
     jest.clearAllMocks();
     friendsApi.__resetMocks();
+    jest.spyOn(friendsApi, 'list').mockResolvedValue([...DEFAULT_FRIENDS]);
+    jest.spyOn(friendsApi, 'listIncomingRequests').mockResolvedValue([...DEFAULT_INCOMING]);
   });
 
   test('renders loading and then list of friends', async () => {
@@ -73,8 +98,8 @@ describe('FriendsIndexScreen Screen', () => {
   });
 
   test('renders empty state when list is empty', async () => {
-    jest.spyOn(friendsApi, 'list').mockResolvedValueOnce([]);
-    jest.spyOn(friendsApi, 'listIncomingRequests').mockResolvedValueOnce([]);
+    (friendsApi.list as jest.Mock).mockResolvedValueOnce([]);
+    (friendsApi.listIncomingRequests as jest.Mock).mockResolvedValueOnce([]);
 
     const { getByText, getByTestId, queryByTestId } = render(<FriendsIndexScreen />, { wrapper });
 

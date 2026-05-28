@@ -18,6 +18,9 @@ describe('FriendsSearchScreen Screen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     friendsApi.__resetMocks();
+    // S21: search/sendRequest spy로 기본 응답 — 각 test가 mockResolvedValueOnce로 override
+    jest.spyOn(friendsApi, 'search').mockResolvedValue([]);
+    jest.spyOn(friendsApi, 'sendRequest').mockResolvedValue(undefined);
     jest.useFakeTimers();
   });
 
