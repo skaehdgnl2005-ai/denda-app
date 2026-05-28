@@ -50,6 +50,17 @@ describe('HomeScreen', () => {
     expect(await findByText('잡힌 모임이 아직 없어요')).toBeTruthy();
   });
 
+  // S15-mapmode-ui-calendar: "지도로 보기" 진입 버튼 → /schedule/map navigation.
+  test('"지도로 보기" 버튼 → router.push(/schedule/map)', async () => {
+    mockFetchMyGroups.mockResolvedValue([
+      { id: 'g1', name: '5/30 저녁', dates: ['2026-05-30'], confirmedAt: null },
+    ]);
+    const { findByTestId } = render(<HomeScreen />, { wrapper });
+    const btn = await findByTestId('schedule-map-entry');
+    fireEvent.press(btn);
+    expect(mockPush).toHaveBeenCalledWith('/schedule/map');
+  });
+
   // S24: 알림 버튼 → "준비 중" Alert (실연결은 P1 차기).
   test('알림 버튼 → "준비 중" Alert', async () => {
     mockFetchMyGroups.mockResolvedValue([]);

@@ -160,24 +160,42 @@ export default function HomeScreen() {
           <Title level="h3" color={colors.text.primary} style={{ letterSpacing: -0.4 }}>
             다가오는 모임
           </Title>
-          {/* 0 배지 hide — 카운트 > 0일 때만 (피드백 P1 12) */}
-          {upcomingCount > 0 ? (
-            <View
-              style={{
-                minWidth: 24,
-                height: 24,
-                paddingHorizontal: space[2],
-                borderRadius: radius.pill,
-                backgroundColor: colors.brand[50],
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
+            {/* 0 배지 hide — 카운트 > 0일 때만 (피드백 P1 12) */}
+            {upcomingCount > 0 ? (
+              <View
+                style={{
+                  minWidth: 24,
+                  height: 24,
+                  paddingHorizontal: space[2],
+                  borderRadius: radius.pill,
+                  backgroundColor: colors.brand[50],
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Caption variant="micro" color={colors.brand[600]} tabularNums>
+                  {upcomingCount}
+                </Caption>
+              </View>
+            ) : null}
+            {/* S15-mapmode-ui-calendar: "지도로 보기" 진입 */}
+            <Pressable
+              onPress={() => router.push('/schedule/map')}
+              accessibilityRole="button"
+              accessibilityLabel="지도로 일정 보기"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              testID="schedule-map-entry"
+              style={({ pressed }) => [
+                { flexDirection: 'row', alignItems: 'center', opacity: pressed ? 0.6 : 1 },
+              ]}
             >
-              <Caption variant="micro" color={colors.brand[600]} tabularNums>
-                {upcomingCount}
+              <Caption variant="default" color={colors.text.secondary}>
+                지도로 보기
               </Caption>
-            </View>
-          ) : null}
+              <Icon name="화살표" color={colors.text.tertiary} size={16} />
+            </Pressable>
+          </View>
         </View>
 
         {/* 모임 목록 (실데이터) 또는 빈 카드 — §11.2 */}

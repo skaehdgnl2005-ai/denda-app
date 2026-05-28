@@ -25,6 +25,28 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S15-mapmode-ui-calendar — 캘린더 진입 + schedule mode 토글 (SDK 무관) (2026-05-28) — DONE
+- Depends: S15-mapmode-logic ✅ (groupScheduleQueries / toScheduleMapPoints / filterByKstDateRange), S00 ✅ (groups·places schema), S19 ✅ (홈 "다가오는 모임" 섹션). 사용자 결정 — Naver Maps Client ID 미발급 + EAS Build 운영 트랙이라 SDK 의존 0 범위로 합의.
+- Changes:
+  - `app/schedule/map.tsx` (+364, 신규) — "지도로 내 일정 보기" 화면. fetchConfirmedGroupSchedules → toScheduleMapPoints → 시간 범위 chip(이번 주/이번 달/전체, D13 luxon `Asia/Seoul` startOf/endOf 'week'|'month') → filterByKstDateRange → viewMode 토글(리스트/지도). 리스트 모드 = 36pt brand-500 fill ①②③ 배지 + 모임명·장소명·KST 시간(`M월 d일 (EEE) HH:mm` tabular-nums). 지도 모드 = "준비 중" placeholder(native MapView SDK는 EAS 운영 트랙). 5-state(loading/error/empty/list/map-placeholder).
+  - `tests/screens/schedule/map.test.tsx` (+104, 신규, Jest +6) — mount 시 fetch + ①②③ 시간순 렌더 / 빈 결과 카피 / 에러 한국어 / viewMode 토글 → placeholder / 시간 범위 chip 전환 → 필터 적용 / back 버튼 → router.back
+  - `app/(tabs)/index.tsx` (+25/-15) — "다가오는 모임" 헤더 우측에 "지도로 보기" 진입(testID="schedule-map-entry", ChevronRight) + `router.push('/schedule/map')`
+  - `tests/screens/home.test.tsx` (+10, Jest +1) — 진입 버튼 → `/schedule/map` navigation
+  - `.expo/types/router.d.ts` (typed routes 수동 patch — `/schedule/map` 3 lines 추가. gitignored 로컬 아티팩트 — founder `expo start` 한 번 돌리면 자동 regen)
+  - `docs/NOW.md` — S15-mapmode-ui-calendar 활성 add(/start-task) → remove(/ship-task)
+- Tests: **Jest 825 passed + 1 skipped + 0 failed** (818 → +7: 6 신규 화면 + 1 홈 진입). typecheck 0, eslint 0 errors (auto-fix prettier 4건만 정리). design-guard hook 통과 — 시각 결정 hex 0건 / KST는 luxon Asia/Seoul / secret 클라 expose 0 / RLS 자연 차단.
+- Next:
+  - **S10·S15-mapmode native UI 합류** — Naver Maps Client ID 발급 + EAS Build 운영 트랙 완성 시점에 `app/(tabs)/map.tsx` map mode='search' native 렌더 + `app/schedule/map.tsx` map mode='schedule' native 렌더(현재 placeholder 자리) 합류. 32pt brand-500 fill ①②③ 마커 + 보라 dashed 폴리라인은 그때.
+  - **다음 가능 태스크**: S17 QA 종합 / S13 EAS skeleton 운영 트랙 / EAS Build 운영 prereq(Google OAuth dev key + Naver Maps Client ID + AASA TEAMID + assetlinks sha256 + ATT 모달)
+- Notes:
+  - **S15 acceptance 진척**: #1(캘린더에서 토글 진입) ✅ close — 홈 "다가오는 모임" 헤더에서 "지도로 보기" 진입 + 새 화면에 list/map 토글. #2(`<MapView mode>` 분기) scaffold ✅ — viewMode state 분기까지 close, native MapView 자체는 EAS. #6(5+ hide)·#7(시간 범위)도 본 화면에서 데이터 layer 결선 close.
+  - **사용자 결정 근거**: Naver Maps Client ID 미발급 상태라 SDK 통합 진입 시 native 렌더 검증 불가 + 키 발급은 founder cloud platform 작업이라 Claude 실행 불가. 캘린더 진입 + UI 토글만 = SDK 의존 0이라 Jest로 완전 검증 가능 + 베타 walkable. 이후 SDK 합류는 placeholder 자리 1줄 교체.
+  - **typedRoutes 회피**: `.expo/types/router.d.ts`가 gitignored 로컬 아티팩트라 새 라우트(`/schedule/map`)는 founder `expo start` 시 자동 regen. 본 turn에서는 typecheck 통과를 위해 동일 포맷으로 3 line 수동 patch — S18(`/group/new`) 패턴 동일.
+  - **시간 범위 default = "이번 주"**: 베타 핵심 use case는 "다가오는 모임 한눈에" — 이번주가 가장 자연. "전체" chip으로 과거 모임도 조회 가능. 사용자 직접 date picker는 P1 차기.
+  - **빈 상태 카피 분기**: 범위 안에 점 0 = "이 범위에 확정된 모임이 없어요" + "모임이 확정되고 장소가 정해지면 여기에 시간순으로 보여드려요". 캘린더 아이콘 회색 컨테이너(D5 절제).
+
+---
+
 ## S15-mapmode-logic — 지도 schedule mode 데이터·로직 레이어 (2026-05-28) — DONE
 - Depends: S00 ✅ (groups·places·schedules schema), S10 데이터·로직 레이어 ✅ (coords/normalize D18 + distance haversine), DESIGN §10.5 (폴리라인 spec)
 - Changes:
