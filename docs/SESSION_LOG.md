@@ -42,6 +42,32 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S10 — 지도 + 장소 검색 (데이터·로직 레이어) (2026-05-28) — PARTIAL (데이터·로직 레이어 ✅, 네이티브 Naver Maps SDK 렌더·마커 PNG·실기기는 EAS Build 운영 트랙 deferred)
+- Depends: S00 ✅ (places·partnerships), [D1](DECISIONS.md#d1--kakao-oauth--local-api-정책-verify-track--lazy-backup)→[D36](DECISIONS.md#d36--s16-장소-검색-fallback--naversearchprovider-eager-q-a2-no-answer--edge-proxy) 정책 블록 해소, [D18](DECISIONS.md#d18--좌표계-정규화-layer) (좌표 WGS84 정규화), [D26](DECISIONS.md#d26--kakao-local-api-quota-client-debounce--viewport-cache) (debounce + viewport cache), S16 NaverSearchProvider ✅ (검색 데이터 소스), S13 (네이티브 SDK는 EAS Build — IN_PROGRESS)
+- Context: 사용자 "start task S10". S10은 native Naver Maps SDK 렌더링이 EAS Build 의존(S13 운영 트랙)이라 실기기 검증 불가 — S08-ui/S16 패턴(테스트 가능한 데이터·로직 레이어 먼저, native/EAS는 운영 트랙)을 사용자 승인(AskUserQuestion "데이터·로직 레이어 전부") 후 적용. 카카오 Local API는 D1 no-answer(D36)로 네이버 fallback 사용 중이나 coords/normalize.ts는 카카오 unblock 대비 `toKakaoXY` 매핑 포함(D18 단일 진입점). TDD-first 7 모듈 순차 ship.
+- Changes (신규 7 lib/screen + 7 test, +1344 lines):
+  - **`src/lib/coords/normalize.ts` (+76)** — D18 좌표 정규화 단일 진입점. `Wgs84Coord` + `KOREA_BBOX`(Edge naver_local과 정합) + `isValidWgs84`/`isPlausibleKoreaWgs84` + `normalizeWgs84`(숫자/문자열 → 검증된 WGS84, 범위 밖 throw) + **`toKakaoXY`(x=lng, y=lat — D18 카카오 `?x&y` swap 방지 단일화)** + `coordKey`(dedup). test +99 (17)
+  - **`src/lib/coords/distance.ts` (+25)** — `haversineMeters`(반경 필터·동선 거리, IUGG mean radius, asin clamp). test +34 (5)
+  - **`src/lib/places/viewportCache.ts` (+109)** — D26 viewport 격자 캐싱. `VIEWPORT_CACHE_TTL_MS=5분` + `DEFAULT_GRID_DEG=0.01` + `viewportCenter` + `gridCellKey`(floor quantize) + `viewportCacheKey`(중심 격자) + `ViewportCache<T>`(DI now/ttlMs/maxEntries, TTL 만료 get→undefined, LRU-ish FIFO eviction, prune). test +122 (13)
+  - **`src/lib/places/placeFilter.ts` (+61)** — 카테고리 필터(substring 대소문자 무시, null category 제외) + 반경 필터(haversine, radius<=0 skip) + `applyPlaceFilters`(카테고리→반경 조합, center 없으면 반경 skip). test +102 (12)
+  - **`src/lib/places/clustering.ts` (+68)** — 격자 클러스터링 Layer 1 fallback(ARCHITECTURE §3.3 — 네이버 SDK 클러스터 없을 때). `clusterByGrid`(같은 셀 병합, center=centroid, cellSize<=0 시 독립 클러스터 방어, deterministic 순서). test +53 (8)
+  - **`src/lib/places/useMapSearch.ts` (+128)** — D26 debounce(기본 400ms 300-500 범위) + 5분 격자 캐시 + NaverSearchProvider(DI) + placeFilter 후필터 조합 hook. 캐시 hit 시 provider 호출 skip(quota 보호), 에러 시 한국어 메시지 + 이전 결과 유지(D26 fallback), reqId로 out-of-order 응답 무시. effect body 동기 setState 회피(모든 state 변경 debounce 콜백 내 — react-hooks/set-state-in-effect 정합), 캐시는 useState lazy init(ref-during-render 회피). test +130 (7)
+  - **`app/(tabs)/map.tsx` (placeholder → +236)** — 검색 입력(useMapSearch wire) + 네이티브 지도 "준비 중" info chip(semantic.info, EAS Build 운영 트랙 명시) + loading/error(한국어)/initial/empty/결과 리스트 5-state. DESIGN 토큰 only(friends/search.tsx 입력 패턴 mirror). test +101 (7)
+- Tests: **Jest 654 passed + 1 skipped + 0 failed** (585 → +69: 17+5+13+12+8+7+7), **typecheck 0**, **eslint 0 errors** (9 warnings 모두 pre-existing — expoNotifications/PushRegistrationRoot, 본 turn 신규 파일 0). **@reviewer CLEARED** (Critical 4 통과: DESIGN 토큰 정합 / RLS 해당없음 / new Date() 없음·Date.now는 TTL elapsed라 D13 미적용 / secret은 NaverSearchProvider→Edge proxy)
+- Next:
+  - **S10 native 트랙 (EAS Build 운영, S13 의존)**: `@mj-studio/react-native-naver-map` 설치 + `<NaverMapView>` 렌더(map.tsx 리스트 자리 교체) + `useMapSearch` 결과를 `clusterByGrid`로 마커 그림 + 제휴 마커 PNG 1.5x/2x/3x(Q-B13 디자인 자산, DESIGN §10.2) + `isNightModeEnabled`(S11 토큰 적용) + 마커 onPress → `router.push('/group/[id]/place?placeId=')`(S08 PlaceActionSheet 1줄 wire) + viewport onChange → useMapSearch(좌표 검색은 카카오 unblock 시; 네이버는 키워드)
+  - **다음 가능 태스크**: S15-mapmode(지도 schedule mode — S10 마커 렌더 native 트랙 후) / S17 QA 종합 / S13 EAS 운영 트랙
+- 운영 prereq (별도 트랙):
+  - **NAVER_CLIENT_ID/SECRET 등록**(S16 prereq 공유) + Naver Maps SDK key 발급(Sprint 0) — 둘은 별개 제품
+  - 네이버 지역검색 display 최대 5 한계 — 키워드 검색만(viewport bbox 검색 아님). 카카오 Local API unblock(Q-A2 "허용") 시 KakaoLocalProvider를 같은 PlaceSearchProvider로 추가 + viewport 좌표 검색 활성(coords/normalize toKakaoXY 재사용)
+  - 좌표 format live 검증(네이버 WGS84×10^7 가정 — isPlausibleKoreaWgs84 bbox 안전망이 mismatch 조기 감지, S16 공유)
+- Notes:
+  - **PARTIAL 정직성**: S10 acceptance 8개 중 데이터·로직 5개 close — coords/normalize(D18) ✅ + viewport debounce·5분 격자 캐시(D26) ✅ + 카테고리 필터·반경 조절 ✅ + 클러스터링(Layer 1 순수 fallback) ✅ + PlaceSearchProvider 추상화 ✅(S16). native 3개(`@mj-studio/react-native-naver-map` 통합 + 제휴 마커 PNG 강조 + rate limit fallback의 실 UI 노출)는 native 모듈/EAS Build 의존이라 운영 트랙. Rate limit "잠시 후 다시"는 Edge(naver_local_search 429→메시지) + useMapSearch error 전파로 데이터 경로는 ready, 시각 표시는 map.tsx error state로 노출됨. TASK_BACKLOG Status IN_PROGRESS 유지(DONE 아님)
+  - **선제 활성 무위험(S16 mirror)**: PlaceSearchProvider 인터페이스 + coords/normalize + viewportCache는 카카오 "허용" 답변 시에도 재사용. 버려지는 작업 0
+  - **clustering은 순수 Layer 1**: 네이버 SDK 자체 클러스터링 API 유무는 EAS Build 후 확인 — 있으면 SDK 사용, 없으면 본 clusterByGrid 사용(ARCHITECTURE §3.3). 순수 함수라 어느 쪽이든 zoom→cellSizeDeg 매핑만 화면에서 주입
+  - **map.tsx 입력 패턴**: friends/search.tsx의 TextInput 패턴(fontFamily PretendardVariable + fontSize 16 + surface-2 wrapper)을 mirror — 리뷰어 권고(fontSize/lineHeight/marginTop 리터럴)는 기존 입력 컨벤션과 동일하여 house style 유지
+  - **D13 비위반**: viewportCache·useMapSearch debounce는 `Date.now()`/`setTimeout`(monotonic elapsed)만 사용 — `new Date()` 직접 사용 0. D13은 달력 시각 표시·저장 규칙이라 elapsed/TTL엔 미적용(coldStart.ts 선례 동일)
+
 ## S13-build-bringup — preview APK 실기기 빌드 성공 + cold-start 측정 (2026-05-28) — PARTIAL (Android 빌드·측정 ✅, iOS·TestFlight·Play 운영 트랙 잔여)
 - Depends: S13 skeleton (2026-05-27), [D25](DECISIONS.md#d25--cold-start-target--2초--lazy-loading) (cold start < 2초), Q-B20 부분 해소 (Apple Dev ✅ / Play 미가입이나 APK 사이드로드로 불필요)
 - Context: 사용자가 직접 `eas build -p android --profile preview`로 실기기(Galaxy A10) 빌드 진행. 3회 실패를 거치며 production 번들 차단 요인을 순차 해소 — 각 단계 로컬 `expo export`로 재현·검증해 클라우드 빌드 낭비 최소화. 최종 preview release APK 사이드로드 → cold-start 화면 배지로 측정 성공.

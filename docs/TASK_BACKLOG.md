@@ -10,8 +10,8 @@
 
 - **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** + **S14 sub-task 다수** + **fail-cleanup** (2026-05-26) + **S15-deeplink-schema** (2026-05-26) + **S12-backend-f1-f4 + S12-publishers-f4 + S12-client** (2026-05-26) + **S08-backend** (2026-05-26) + **S08-ui** (2026-05-27 — S08 정식 DONE) + **S15-deeplink 잔여 5 sub-task** (2026-05-27 — edge + web + rn-fallback + rn-conversion + deeplink. S15-deeplink 정식 DONE) + **Q-B22** + **D34** + **D35** 신규
 - **DONE**: 12 (S00, S01, S03, S04, S06, S07, S08, S11, S12, S14, S15-deeplink) + S05 acceptance 7/7 (S05e 운영 task)
-- **IN_PROGRESS**: 3 (S05 — S05e 60fps 부하 실기기 잔여 / S16 — map 검색 provider 레이어 완성 PARTIAL, AppleAuthProvider Phase 3 deferred / S13 — EAS skeleton 완성[설정·계측·manifest·runbook], 인증서·실기기 측정 운영 트랙)
-- **TODO**: 3 (S15-mapmode, S17, S10 — 정책 블록 해소[D36], native Naver Maps SDK/EAS gating)
+- **IN_PROGRESS**: 4 (S05 — S05e 60fps 부하 실기기 잔여 / S16 — map 검색 provider 레이어 완성 PARTIAL, AppleAuthProvider Phase 3 deferred / S13 — EAS skeleton 완성[설정·계측·manifest·runbook], 인증서·실기기 측정 운영 트랙 / S10 — 데이터·로직 레이어 완성[coords·cache·filter·clustering·hook·scaffold 2026-05-28], native Naver Maps SDK 렌더·마커 PNG는 EAS 운영 트랙)
+- **TODO**: 2 (S15-mapmode, S17)
 - **BLOCKED**: 0 (S10·S16 D1 no-answer 액션 발동[D36]으로 정책 블록 해소)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
@@ -165,19 +165,20 @@
 
 ### S10 — 지도 + 카카오 Local API
 
-- **Status**: TODO (2026-05-27 정책 블록 해소 — [D36](DECISIONS.md#d36--s16-장소-검색-fallback--naversearchprovider-eager-q-a2-no-answer--edge-proxy) NaverSearchProvider 활성. native Naver Maps SDK + EAS Build gating만 잔여) | **Owner**: Mobile + Backend | **Sprint**: 2 | **Lane**: B
+- **Status**: IN_PROGRESS (2026-05-28 데이터·로직 레이어 ✅ — coords/normalize D18 + viewportCache D26 + filter + clustering + useMapSearch + map.tsx scaffold. native Naver Maps SDK 렌더·제휴 마커 PNG·실기기 검증은 EAS Build 운영 트랙 deferred) | **Owner**: Mobile + Backend | **Sprint**: 2 | **Lane**: B
 - **Depends**: S00 (places, partnerships), ~~D1 W1 deadline~~ (D36으로 해소), D18 (좌표 정규화), D26 (debounce + cache), **S16 NaverSearchProvider ✅** (장소 검색 데이터 소스 ready — `src/lib/places/NaverSearchProvider.ts` + Edge `naver_local_search`), S13 (Naver Maps SDK native 모듈은 EAS Build)
 - **Acceptance**:
-  - `@mj-studio/react-native-naver-map` 통합
-  - 카카오 Local API client (`coords/normalize.ts` 통과, WGS84 명시)
-  - 카테고리 필터 + 반경 조절
-  - Viewport 이동 300-500ms debounce + 5분 격자 캐싱
-  - 클러스터링 (네이버 SDK API 검증 → 없으면 `react-native-supercluster`)
-  - 제휴 마커 강조 (PNG 1.5x/2x/3x — Q-B13)
-  - Rate limit fallback ("잠시 후 다시")
-  - `PlaceSearchProvider` interface 추상화 (S16 fallback 대비)
-- **Files**: `src/screens/map/`, `src/lib/places/KakaoLocalProvider.ts`, `src/lib/places/PlaceSearchProvider.ts`, `src/lib/coords/normalize.ts`
+  - ⏸️ `@mj-studio/react-native-naver-map` 통합 — **EAS Build 운영 트랙** (native 모듈)
+  - ✅ 좌표 정규화 client (`coords/normalize.ts` WGS84 단일 진입점 + `toKakaoXY` x=lng/y=lat — 카카오 unblock 대비. 현재 검색은 네이버 fallback D36)
+  - ✅ 카테고리 필터 + 반경 조절 — `placeFilter.ts` (substring 카테고리 + haversine 반경)
+  - ✅ Viewport 이동 300-500ms debounce + 5분 격자 캐싱 — `viewportCache.ts`(D26) + `useMapSearch.ts`(debounce 400ms)
+  - ✅ 클러스터링 (순수 Layer 1 `clustering.ts` — 네이버 SDK 클러스터 API 유무는 EAS 후 확인, 없으면 본 격자 클러스터 사용)
+  - ⏸️ 제휴 마커 강조 (PNG 1.5x/2x/3x — Q-B13) — **EAS Build 운영 트랙** (네이티브 마커 + 디자인 자산)
+  - ✅ Rate limit fallback ("잠시 후 다시") — Edge `naver_local_search` 429 + `useMapSearch` error 전파 + map.tsx error state (데이터 경로 ready)
+  - ✅ `PlaceSearchProvider` interface 추상화 (S16 fallback 대비) — S16에서 완성
+- **Files**: ✅ `src/lib/coords/normalize.ts`, ✅ `src/lib/coords/distance.ts`, ✅ `src/lib/places/{viewportCache,placeFilter,clustering,useMapSearch}.ts`, ✅ `src/lib/places/PlaceSearchProvider.ts`(S16), ✅ `app/(tabs)/map.tsx` / ⏸️ native MapView 렌더 + `KakaoLocalProvider.ts`(카카오 unblock 시)
 - **Worktree 분기**: 가능 (Lane A와 독립)
+- **Notes**: 네이티브 트랙 unblock 시 — `<NaverMapView>` 렌더(map.tsx 리스트 자리 교체) + 결과를 `clusterByGrid`로 마커 + 제휴 마커 PNG + `isNightModeEnabled`(S11) + 마커 onPress → `/group/[id]/place`(S08 1줄 wire) + viewport onChange → useMapSearch
 
 ### S08 — "예약하기" Click-through 측정
 
