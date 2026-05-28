@@ -9,9 +9,9 @@
 ## 진행 현황 요약
 
 - **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** + **S14 sub-task 다수** + **fail-cleanup** (2026-05-26) + **S15-deeplink-schema** (2026-05-26) + **S12-backend-f1-f4 + S12-publishers-f4 + S12-client** (2026-05-26) + **S08-backend** (2026-05-26) + **S08-ui** (2026-05-27 — S08 정식 DONE) + **S15-deeplink 잔여 5 sub-task** (2026-05-27 — edge + web + rn-fallback + rn-conversion + deeplink. S15-deeplink 정식 DONE) + **Q-B22** + **D34** + **D35** 신규
-- **DONE**: 12 + **Lane E S18** (S00, S01, S03, S04, S06, S07, S08, S11, S12, S14, S15-deeplink, **S18 2026-05-28**) + S05 acceptance 7/7 (S05e 운영 task)
+- **DONE**: 12 + **Lane E S18·S19** (S00, S01, S03, S04, S06, S07, S08, S11, S12, S14, S15-deeplink, **S18 2026-05-28**, **S19 2026-05-28**) + S05 acceptance 7/7 (S05e 운영 task)
 - **IN_PROGRESS**: 4 (S05 — S05e 60fps 부하 실기기 잔여 / S16 — map 검색 provider 레이어 완성 PARTIAL, AppleAuthProvider Phase 3 deferred / S13 — EAS skeleton 완성[설정·계측·manifest·runbook], 인증서·실기기 측정 운영 트랙 / S10 — 데이터·로직 레이어 완성[coords·cache·filter·clustering·hook·scaffold 2026-05-28], native Naver Maps SDK 렌더·마커 PNG는 EAS 운영 트랙)
-- **TODO**: 8 (S15-mapmode, S17 + **Lane E** S19~S24 — 여정 척추, [spec](superpowers/specs/2026-05-28-journey-spine-roadmap-design.md) 2026-05-28. **S18 DONE**, S19는 [plan](superpowers/plans/2026-05-28-journey-spine-s18-s19.md) ready)
+- **TODO**: 7 (S15-mapmode, S17 + **Lane E** S20~S24 — 여정 척추, [spec](superpowers/specs/2026-05-28-journey-spine-roadmap-design.md) 2026-05-28. **S18·S19 DONE** — 첫 walkable 경로 생성→리스트→그리드 확보. S20[★게이트 임계경로]·S21[병렬 후보]이 다음)
 - **BLOCKED**: 0 (S10·S16 D1 no-answer 액션 발동[D36]으로 정책 블록 해소)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
@@ -399,12 +399,12 @@
 
 ### S19 — 내 모임 리스트
 
-- **Status**: TODO (plan ready) | **Owner**: Mobile | **Sprint**: post-MVP | **Lane**: E
+- **Status**: DONE (2026-05-28) | **Owner**: Mobile | **Sprint**: post-MVP | **Lane**: E
 - **Depends**: S00 (groups RLS = host_id ∨ group_members), S18, D13
 - **Acceptance**:
-  - `fetchMyGroups()` — RLS 자연 필터(host 또는 멤버), 미확정 먼저 정렬
-  - 홈 "다가오는 모임" 실데이터 (`upcomingCount=0` 하드코딩 제거) + 카드 탭 → `router.push('/group/[id]')` (#3 그리드 도달 경로 확보)
-  - 빈 상태 §11.2 유지
+  - ✅ `fetchMyGroups()` — RLS 자연 필터(host 또는 멤버), 미확정 먼저 정렬 (`src/lib/groups/list.ts`)
+  - ✅ 홈 "다가오는 모임" 실데이터 (`upcomingCount=0` 하드코딩 제거) + 카드 탭 → `router.push('/group/[id]')` (#3 그리드 도달 경로 확보)
+  - ✅ 빈 상태 §11.2 유지 (`else` 분기)
 - **Files**: `src/lib/groups/list.ts(.test)`, `app/(tabs)/index.tsx`(섹션 교체), `tests/screens/home.test.tsx`
 - **Worktree 분기**: 가능
 - **Notes**: 구현 가이드 = [plan](superpowers/plans/2026-05-28-journey-spine-s18-s19.md) (S18과 묶음). **S18·S19 완료 = 첫 walkable 경로(생성→리스트→그리드) + 모임 확정 이벤트 발생**

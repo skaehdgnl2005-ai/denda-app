@@ -2,6 +2,7 @@
 // 탭바 추가 후 quick action 제거 — 한 화면 한 정보 (토스 풍).
 // 보라는 메인 CTA 하나만, 빈 상태 아이콘은 회색.
 
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -11,14 +12,29 @@ import { BrandMark } from '@/components/brand/BrandMark';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { useAuth } from '@/lib/auth/setup';
+import { fetchMyGroups, type MyGroupSummary } from '@/lib/groups/list';
+import { formatDateChip } from '@/lib/groups/dateOptions';
 
 export default function HomeScreen() {
   const { colors, space, radius, shadow } = useTheme();
   const router = useRouter();
   const nickname = useAuth((s) => s.session?.user.nickname ?? '');
 
-  // 더미 — 실제 데이터는 후속 sprint. 0일 때 badge hide 규칙 검증용.
-  const upcomingCount = 0;
+  const [myGroups, setMyGroups] = useState<MyGroupSummary[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetchMyGroups()
+      .then((g) => {
+        if (!cancelled) setMyGroups(g);
+      })
+      .catch(() => {
+        /* 홈 진입을 막지 않음 — 빈 목록 유지 (silent) */
+      });
+    return (): void => {
+      cancelled = true;
+    };
+  }, []);
+  const upcomingCount = myGroups.length;
 
   return (
     <SafeAreaView
@@ -163,44 +179,83 @@ export default function HomeScreen() {
           ) : null}
         </View>
 
-        {/* Empty card — §11.2. 아이콘 컨테이너는 회색(D5 절제) */}
-        <View style={{ paddingHorizontal: space[4], marginTop: space[3] }}>
-          <View
-            style={[
-              styles.emptyCard,
-              {
-                backgroundColor: colors.surface[2],
-                borderColor: colors.border.subtle,
-                borderRadius: radius.lg,
-                padding: space[8],
-              },
-            ]}
-          >
-            <View
-              style={{
-                width: 56,
-                height: 56,
-                borderRadius: radius.full,
-                backgroundColor: colors.surface[3],
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: space[3],
-              }}
-            >
-              <Icon name="캘린더" color={colors.text.secondary} size={26} />
-            </View>
-            <Body variant="bold" color={colors.text.primary} style={{ marginBottom: space[1] }}>
-              잡힌 모임이 아직 없어요
-            </Body>
-            <Caption
-              variant="default"
-              color={colors.text.tertiary}
-              style={{ textAlign: 'center', lineHeight: 18 }}
-            >
-              위에서 새 모임을 만들면{'\n'}여기에 다가오는 일정이 표시돼요.
-            </Caption>
+        {/* 모임 목록 (실데이터) 또는 빈 카드 — §11.2 */}
+        {myGroups.length > 0 ? (
+          <View style={{ paddingHorizontal: space[4], marginTop: space[3] }}>
+            {myGroups.map((g) => (
+              <Pressable
+                key={g.id}
+                onPress={() => router.push(`/group/${g.id}`)}
+                accessibilityRole="button"
+                accessibilityLabel={`${g.name} 모임 열기`}
+                testID={`my-group-${g.id}`}
+                style={({ pressed }) => [
+                  {
+                    backgroundColor: colors.surface[2],
+                    borderColor: colors.border.subtle,
+                    borderWidth: 1,
+                    borderRadius: radius.lg,
+                    padding: space[4],
+                    marginBottom: space[2],
+                    opacity: pressed ? 0.8 : 1,
+                  },
+                ]}
+              >
+                <Body variant="bold" color={colors.text.primary}>
+                  {g.name}
+                </Body>
+                <Caption
+                  variant="default"
+                  color={colors.text.tertiary}
+                  style={{ marginTop: space[1] }}
+                >
+                  {g.confirmedAt
+                    ? '확정됨'
+                    : `투표 중 · 후보 ${g.dates.length}일 (${g.dates.map(formatDateChip).join(', ')})`}
+                </Caption>
+              </Pressable>
+            ))}
           </View>
-        </View>
+        ) : (
+          /* Empty card — §11.2. 아이콘 컨테이너는 회색(D5 절제) */
+          <View style={{ paddingHorizontal: space[4], marginTop: space[3] }}>
+            <View
+              style={[
+                styles.emptyCard,
+                {
+                  backgroundColor: colors.surface[2],
+                  borderColor: colors.border.subtle,
+                  borderRadius: radius.lg,
+                  padding: space[8],
+                },
+              ]}
+            >
+              <View
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: radius.full,
+                  backgroundColor: colors.surface[3],
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: space[3],
+                }}
+              >
+                <Icon name="캘린더" color={colors.text.secondary} size={26} />
+              </View>
+              <Body variant="bold" color={colors.text.primary} style={{ marginBottom: space[1] }}>
+                잡힌 모임이 아직 없어요
+              </Body>
+              <Caption
+                variant="default"
+                color={colors.text.tertiary}
+                style={{ textAlign: 'center', lineHeight: 18 }}
+              >
+                위에서 새 모임을 만들면{'\n'}여기에 다가오는 일정이 표시돼요.
+              </Caption>
+            </View>
+          </View>
+        )}
 
         {/* Stat row */}
         <View

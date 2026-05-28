@@ -42,6 +42,17 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S19 — 내 모임 리스트 (2026-05-28) — DONE
+- Depends: S00 ✅ (groups RLS `groups_select_member_or_host` — host ∨ group_members), S18 ✅ (모임 생성 진입로), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc) (KST). 모두 충족.
+- Changes:
+  - `src/lib/groups/list.ts` (+35, `fetchMyGroups` — RLS 자연 필터[userId 인자 불필요] + `confirmed_at` nullsFirst 정렬[미확정 먼저] + camelCase 매핑 + 한국어 에러)
+  - `src/lib/groups/list.test.ts` (+48, Jest 3 — 매핑·에러·빈배열)
+  - `app/(tabs)/index.tsx` (+91/-36, 홈 "다가오는 모임" 실데이터: `fetchMyGroups` useEffect 연동 + `upcomingCount=0` 하드코딩 제거 + 모임 카드 렌더[탭→`router.push('/group/[id]')` = #3 그리드 도달 경로] + 빈 상태는 `else` 분기로 §11.2 유지. fetch 실패는 silent[빈 목록])
+  - `tests/screens/home.test.tsx` (+51, Jest 3 — CTA push·카드 렌더+탭·빈 상태)
+- Tests: Jest 676 passed + 1 skip (670→+6), typecheck 0, lint 0 errors (10 pre-existing warnings, 변경 파일 무관). @reviewer Critical 4 (DESIGN/RLS/KST/secret) CLEARED — 권고 2건(rgba overlay·StatChip margin)은 기존 코드, S19 신규 유입 아님.
+- Next: S20 (지도 없는 장소 검색·선택 — ★게이트 임계경로, S10 디커플). Depends S16 ✅·S08 ✅·S04/S05 충족 → unblocked. 또는 트랙2 S21(친구 실DB 전환, S18/S19 병렬 후보). **S18·S19 완료 = 첫 walkable 경로(생성→리스트→그리드) 확보.**
+- Notes: 정렬은 `confirmed_at` nullsFirst만으로 충분(plan 명시). `formatDateChip`(S18 luxon Asia/Seoul) 재사용으로 KST 정합. 홈 카드는 기존 emptyCard와 동일 토큰(surface[2]/border.subtle/radius.lg).
+
 ## S18 — 모임 생성 flow (2026-05-28) — DONE
 - Depends: S00 ✅ (groups/group_members/dates + invite_code 트리거 0016), S05 ✅ (생성 후 진입 대상 그리드 `app/group/[id]/index.tsx`), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc) (KST). 모두 충족.
 - Changes:
