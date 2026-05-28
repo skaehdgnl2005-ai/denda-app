@@ -52,8 +52,9 @@ export default function FriendsIndexScreen() {
     fetchFriends();
   };
 
-  const handleMakeGroup = (friend: FriendUser) => {
-    Alert.alert('모임 만들기', `${friend.nickname}님과 모임을 만듭니다.`);
+  // S18: 베타는 멤버 사전 선택 없이 생성 후 링크 공유. 친구 사전선택 초대는 S22.
+  const handleMakeGroup = (_friend: FriendUser) => {
+    router.push('/group/new');
   };
 
   const handleMore = (friend: FriendUser) => {

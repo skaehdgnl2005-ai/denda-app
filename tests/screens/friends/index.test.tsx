@@ -3,7 +3,6 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import FriendsIndexScreen from '../../../app/(tabs)/friends/index';
 import { ThemeProvider } from '@/design/theme';
 import { friendsApi } from '@/lib/friends/api';
-import { Alert } from 'react-native';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
@@ -86,8 +85,8 @@ describe('FriendsIndexScreen Screen', () => {
     });
   });
 
-  test('triggers Alert on make group CTA click', async () => {
-    const alertSpy = jest.spyOn(Alert, 'alert');
+  // S18: 모임 만들기 CTA → 모임 생성 화면 진입 (이전 Alert stub 대체).
+  test('navigates to new group screen on make group CTA click', async () => {
     const { getAllByTestId } = render(<FriendsIndexScreen />, { wrapper });
 
     await waitFor(() => {
@@ -95,7 +94,7 @@ describe('FriendsIndexScreen Screen', () => {
       fireEvent.press(makeGroupBtns[0]!);
     });
 
-    expect(alertSpy).toHaveBeenCalledWith('모임 만들기', '홍길동님과 모임을 만듭니다.');
+    expect(mockPush).toHaveBeenCalledWith('/group/new');
   });
 
   test('opens block/report sheet on friend more button click', async () => {

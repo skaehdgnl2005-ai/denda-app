@@ -4,6 +4,7 @@
 
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
 import { Icon } from '@/components/Icon';
 import { BrandMark } from '@/components/brand/BrandMark';
@@ -13,6 +14,7 @@ import { useAuth } from '@/lib/auth/setup';
 
 export default function HomeScreen() {
   const { colors, space, radius, shadow } = useTheme();
+  const router = useRouter();
   const nickname = useAuth((s) => s.session?.user.nickname ?? '');
 
   // 더미 — 실제 데이터는 후속 sprint. 0일 때 badge hide 규칙 검증용.
@@ -74,9 +76,7 @@ export default function HomeScreen() {
         {/* Primary CTA — 한 화면 1개의 brand-500 fill (§17.1) */}
         <View style={{ paddingHorizontal: space[4], marginTop: space[6] }}>
           <Pressable
-            onPress={() => {
-              /* TODO S04 — 모임 만들기 흐름 진입 */
-            }}
+            onPress={() => router.push('/group/new')}
             accessibilityRole="button"
             accessibilityLabel="새 모임 만들기"
             style={({ pressed }) => [

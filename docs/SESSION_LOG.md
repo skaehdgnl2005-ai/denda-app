@@ -42,6 +42,24 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S18 — 모임 생성 flow (2026-05-28) — DONE
+- Depends: S00 ✅ (groups/group_members/dates + invite_code 트리거 0016), S05 ✅ (생성 후 진입 대상 그리드 `app/group/[id]/index.tsx`), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc) (KST). 모두 충족.
+- Changes:
+  - `src/lib/groups/dateOptions.ts` (+26, KST 후보 날짜 순수 함수 buildDateOptions/formatDateChip/todayKstIso — luxon Asia/Seoul)
+  - `src/lib/groups/dateOptions.test.ts` (+33, Jest 6)
+  - `supabase/migrations/0018_create_group_rpc.sql` (+48, create_group RPC — SECURITY INVOKER, groups + 호스트 group_members 원자적 INSERT, host_id=auth.uid() 위변조 방지, invite_code는 0016 트리거 자동)
+  - `src/lib/groups/create.ts` (+34, createGroup 클라 wrapper — RPC 호출 + 한국어 에러 분기)
+  - `src/lib/groups/create.test.ts` (+66, Jest 7)
+  - `app/group/new.tsx` (+174, 모임 생성 화면 — 이름 + 후보 날짜 다중선택 최대 7일 + brand-500 fill CTA 1개 §17 + chip hitSlop 44pt 보강)
+  - `tests/screens/group/new.test.tsx` (+68, Jest 3)
+  - `app/(tabs)/index.tsx` (+6/-3, 홈 "새 모임 만들기" CTA TODO stub → router.push('/group/new'))
+  - `app/(tabs)/friends/index.tsx` (+5/-3, handleMakeGroup Alert stub → router.push('/group/new'))
+  - `tests/screens/friends/index.test.tsx` (+3/-4, make-group CTA 테스트를 Alert→navigation으로 갱신 + 미사용 Alert import 제거)
+  - `.expo/types/router.d.ts` (regen — /group/new 추가, gitignored 아티팩트라 commit 제외)
+- Tests: Jest 670 passed + 1 skip (654→+16), typecheck 0, lint 0 errors (11 pre-existing warnings). @reviewer Critical 4 (DESIGN/RLS/KST/secret) CLEARED.
+- Next: S19 (내 모임 리스트 — fetchMyGroups + 홈 "다가오는 모임" 실데이터 + 카드→/group/[id] navigation). 같은 [plan](superpowers/plans/2026-05-28-journey-spine-s18-s19.md)의 T5·T6. Depends(S00·S18) 충족 → unblocked.
+- Notes: 임계경로 척추 1번째 — 앱 안에서 모임 생성 진입로 확보(이전엔 도달 불가). RPC는 로컬 supabase test framework 부재로 createGroup wrapper의 supabase.rpc mock + 운영 `db push` 검증(0008 패턴 동일). typedRoutes(SDK56) 생성 아티팩트는 `expo start`로 regen해 `/group/new` 반영. @reviewer 권고 3건(chip hitSlop은 본 turn 적용 / friends 빈 상태 brand[50] 통일 + Alert→토스트는 기존 코드 패턴, S24 polish 또는 별도 태스크로 이연).
+
 ## S10 — 지도 + 장소 검색 (데이터·로직 레이어) (2026-05-28) — PARTIAL (데이터·로직 레이어 ✅, 네이티브 Naver Maps SDK 렌더·마커 PNG·실기기는 EAS Build 운영 트랙 deferred)
 - Depends: S00 ✅ (places·partnerships), [D1](DECISIONS.md#d1--kakao-oauth--local-api-정책-verify-track--lazy-backup)→[D36](DECISIONS.md#d36--s16-장소-검색-fallback--naversearchprovider-eager-q-a2-no-answer--edge-proxy) 정책 블록 해소, [D18](DECISIONS.md#d18--좌표계-정규화-layer) (좌표 WGS84 정규화), [D26](DECISIONS.md#d26--kakao-local-api-quota-client-debounce--viewport-cache) (debounce + viewport cache), S16 NaverSearchProvider ✅ (검색 데이터 소스), S13 (네이티브 SDK는 EAS Build — IN_PROGRESS)
 - Context: 사용자 "start task S10". S10은 native Naver Maps SDK 렌더링이 EAS Build 의존(S13 운영 트랙)이라 실기기 검증 불가 — S08-ui/S16 패턴(테스트 가능한 데이터·로직 레이어 먼저, native/EAS는 운영 트랙)을 사용자 승인(AskUserQuestion "데이터·로직 레이어 전부") 후 적용. 카카오 Local API는 D1 no-answer(D36)로 네이버 fallback 사용 중이나 coords/normalize.ts는 카카오 unblock 대비 `toKakaoXY` 매핑 포함(D18 단일 진입점). TDD-first 7 모듈 순차 ship.

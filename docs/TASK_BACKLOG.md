@@ -9,9 +9,9 @@
 ## 진행 현황 요약
 
 - **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** + **S14 sub-task 다수** + **fail-cleanup** (2026-05-26) + **S15-deeplink-schema** (2026-05-26) + **S12-backend-f1-f4 + S12-publishers-f4 + S12-client** (2026-05-26) + **S08-backend** (2026-05-26) + **S08-ui** (2026-05-27 — S08 정식 DONE) + **S15-deeplink 잔여 5 sub-task** (2026-05-27 — edge + web + rn-fallback + rn-conversion + deeplink. S15-deeplink 정식 DONE) + **Q-B22** + **D34** + **D35** 신규
-- **DONE**: 12 (S00, S01, S03, S04, S06, S07, S08, S11, S12, S14, S15-deeplink) + S05 acceptance 7/7 (S05e 운영 task)
+- **DONE**: 12 + **Lane E S18** (S00, S01, S03, S04, S06, S07, S08, S11, S12, S14, S15-deeplink, **S18 2026-05-28**) + S05 acceptance 7/7 (S05e 운영 task)
 - **IN_PROGRESS**: 4 (S05 — S05e 60fps 부하 실기기 잔여 / S16 — map 검색 provider 레이어 완성 PARTIAL, AppleAuthProvider Phase 3 deferred / S13 — EAS skeleton 완성[설정·계측·manifest·runbook], 인증서·실기기 측정 운영 트랙 / S10 — 데이터·로직 레이어 완성[coords·cache·filter·clustering·hook·scaffold 2026-05-28], native Naver Maps SDK 렌더·마커 PNG는 EAS 운영 트랙)
-- **TODO**: 9 (S15-mapmode, S17 + **Lane E 신설** S18~S24 — 여정 척추, [spec](superpowers/specs/2026-05-28-journey-spine-roadmap-design.md) 2026-05-28. S18·S19는 [plan](superpowers/plans/2026-05-28-journey-spine-s18-s19.md) ready)
+- **TODO**: 8 (S15-mapmode, S17 + **Lane E** S19~S24 — 여정 척추, [spec](superpowers/specs/2026-05-28-journey-spine-roadmap-design.md) 2026-05-28. **S18 DONE**, S19는 [plan](superpowers/plans/2026-05-28-journey-spine-s18-s19.md) ready)
 - **BLOCKED**: 0 (S10·S16 D1 no-answer 액션 발동[D36]으로 정책 블록 해소)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
@@ -386,13 +386,13 @@
 
 ### S18 — 모임 생성 flow
 
-- **Status**: TODO (plan ready) | **Owner**: Mobile + Backend | **Sprint**: post-MVP | **Lane**: E
+- **Status**: DONE (2026-05-28) | **Owner**: Mobile + Backend | **Sprint**: post-MVP | **Lane**: E
 - **Depends**: S00 (groups/group_members/dates + invite_code 트리거 0016), S05 (생성 후 진입 대상 그리드), D13 (KST)
 - **Acceptance**:
-  - `create_group` RPC (0018, 원자적 groups + 호스트 group_members INSERT, SECURITY INVOKER) + `createGroup` 클라 wrapper
-  - `app/group/new.tsx` (모임 이름 + 후보 날짜 다중선택 최대 7일 KST + brand-500 CTA 1개 §17)
-  - 홈 CTA(`app/(tabs)/index.tsx:77` TODO stub) + 친구탭 `handleMakeGroup`(Alert stub) → `router.push('/group/new')` 실연결
-  - 생성 성공 → `router.replace('/group/[id]')` (그리드 진입)
+  - ✅ `create_group` RPC (0018, 원자적 groups + 호스트 group_members INSERT, SECURITY INVOKER) + `createGroup` 클라 wrapper
+  - ✅ `app/group/new.tsx` (모임 이름 + 후보 날짜 다중선택 최대 7일 KST + brand-500 CTA 1개 §17)
+  - ✅ 홈 CTA(`app/(tabs)/index.tsx` TODO stub) + 친구탭 `handleMakeGroup`(Alert stub) → `router.push('/group/new')` 실연결
+  - ✅ 생성 성공 → `router.replace('/group/[id]')` (그리드 진입)
 - **Files**: `supabase/migrations/0018_create_group_rpc.sql`, `src/lib/groups/{create,dateOptions}.ts(.test)`, `app/group/new.tsx`, `tests/screens/group/new.test.tsx`, `app/(tabs)/index.tsx`(CTA 1줄), `app/(tabs)/friends/index.tsx`(handleMakeGroup 1줄)
 - **Worktree 분기**: 가능 (S10·친구 mock 무접촉. 신규 파일 + 홈/친구탭 stub 본문만)
 - **Notes**: 구현 단계별 가이드 = [plan](superpowers/plans/2026-05-28-journey-spine-s18-s19.md). `/start-task S18`로 시작, `/ship-task`로 DONE 마킹
