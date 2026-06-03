@@ -56,50 +56,175 @@ function loadOptionalModule<T = unknown>(load: () => T, packageName: string): T 
 // Google OAuth adapter — expo-auth-session 기반
 // ---------------------------------------------------------------------------
 
-/**
- * production 환경에서 GoogleOAuthClient 어댑터 생성.
- *
- * expo-auth-session API 가정 (subset, EAS Build 시 install 후 type check):
- *   - AuthRequest (만들기 + promptAsync)
- *   - exchangeCodeAsync / refreshAsync / revokeAsync
- *
- * EAS Build 미설치 시 require() throw → createGoogleCalendarProvider에서 전파.
- *
- * 본 함수의 정확한 expo-auth-session API binding은 EAS Build 시점에 검증.
- * 본 ship은 wrapper 구조만 정의 — production wiring 시 expo-auth-session config
- * (Google client id, redirect URI, scopes)와 함께 implement.
- */
-function createGoogleOAuthClient(_config: GoogleOAuthConfig): GoogleOAuthClient {
-  // 호출 시 패키지 require (presence check). 미설치 시 throw.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
-  loadOptionalModule(() => require('expo-auth-session'), 'expo-auth-session');
-
-  return {
-    async authorize(_scopes): Promise<GoogleOAuthGrant> {
-      throw new Error(
-        'createGoogleOAuthClient.authorize: expo-auth-session production wiring 필요. EAS Build 시점에 implement.',
-      );
-    },
-    async refresh(_refreshToken): Promise<GoogleOAuthAccessTokenResponse> {
-      throw new Error(
-        'createGoogleOAuthClient.refresh: expo-auth-session production wiring 필요. EAS Build 시점에 implement.',
-      );
-    },
-    async revoke(_refreshToken): Promise<void> {
-      throw new Error(
-        'createGoogleOAuthClient.revoke: expo-auth-session production wiring 필요. EAS Build 시점에 implement.',
-      );
-    },
-  };
-}
-
 export interface GoogleOAuthConfig {
   /** Google Cloud Console에서 발급받은 OAuth client id (web type 또는 ios/android). */
   clientId: string;
-  /** OAuth redirect URI (expo-auth-session 또는 native scheme). */
+  /** OAuth redirect URI. expo-auth-session의 `makeRedirectUri()` 결과 권장. */
   redirectUri: string;
   /** scope list. default = ['https://www.googleapis.com/auth/calendar.events']. */
   scopes?: string[];
+}
+
+/**
+ * Google OAuth 2.0 discovery endpoints. fetchDiscoveryAsync 호출 절약 위해 인라인.
+ * https://accounts.google.com/.well-known/openid-configuration 의 subset.
+ */
+const GOOGLE_OAUTH_DISCOVERY = {
+  authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
+  tokenEndpoint: 'https://oauth2.googleapis.com/token',
+  revocationEndpoint: 'https://oauth2.googleapis.com/revoke',
+} as const;
+
+const DEFAULT_GOOGLE_SCOPES = ['https://www.googleapis.com/auth/calendar.events'];
+
+// expo-auth-session SDK 56 minimal type surface (실제 패키지 type을 import하지 않고
+// 사용처별 contract만 명시 — 미설치 환경 type compile 가드).
+interface ExpoAuthSessionApi {
+  AuthRequest: new (config: {
+    clientId: string;
+    scopes: string[];
+    redirectUri: string;
+    responseType: string;
+    usePKCE: boolean;
+    codeChallengeMethod?: string;
+    extraParams?: Record<string, string>;
+  }) => {
+    codeVerifier?: string;
+    promptAsync: (discovery: typeof GOOGLE_OAUTH_DISCOVERY) => Promise<{
+      type: 'success' | 'cancel' | 'dismiss' | 'error' | 'locked';
+      params?: { code?: string; error?: string };
+    }>;
+  };
+  ResponseType: { Code: string };
+  CodeChallengeMethod: { S256: string };
+  exchangeCodeAsync: (
+    config: {
+      clientId: string;
+      code: string;
+      redirectUri: string;
+      extraParams?: Record<string, string>;
+    },
+    discovery: typeof GOOGLE_OAUTH_DISCOVERY,
+  ) => Promise<{
+    accessToken: string;
+    refreshToken?: string;
+    expiresIn?: number;
+    scope?: string;
+  }>;
+  refreshAsync: (
+    config: { clientId: string; refreshToken: string },
+    discovery: typeof GOOGLE_OAUTH_DISCOVERY,
+  ) => Promise<{
+    accessToken: string;
+    expiresIn?: number;
+  }>;
+  revokeAsync: (
+    config: { token: string; clientId: string },
+    discovery: typeof GOOGLE_OAUTH_DISCOVERY,
+  ) => Promise<boolean>;
+}
+
+/**
+ * production 환경에서 GoogleOAuthClient 어댑터 생성.
+ *
+ * expo-auth-session API (SDK 56, package.json `expo-auth-session ~56.0.12`):
+ *   - `AuthRequest` (PKCE + S256) + `promptAsync(discovery)` → code 응답
+ *   - `exchangeCodeAsync({code, code_verifier}, discovery)` → access + refresh
+ *   - `refreshAsync` / `revokeAsync` (Google revocation endpoint)
+ *
+ * Google 특화 OAuth 파라미터:
+ *   - `access_type=offline` — refresh_token 필수 발급
+ *   - `prompt=consent` — 사용자가 이전에 동의한 적 있어도 refresh_token 재발급 보장
+ *     (Google은 기본적으로 첫 동의 후 refresh_token을 한 번만 줌)
+ *
+ * 미설치 시 createGoogleCalendarProvider 호출 시점에 한국어 에러 wrap throw → UI 모달이 표시.
+ */
+function createGoogleOAuthClient(config: GoogleOAuthConfig): GoogleOAuthClient {
+  const api = loadOptionalModule<ExpoAuthSessionApi>(
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
+    () => require('expo-auth-session'),
+    'expo-auth-session',
+  );
+
+  const scopes = config.scopes ?? DEFAULT_GOOGLE_SCOPES;
+
+  return {
+    async authorize(requestScopes): Promise<GoogleOAuthGrant> {
+      // requestScopes(GoogleCalendarProvider가 정의)를 우선, fallback config.scopes.
+      const effectiveScopes = requestScopes.length > 0 ? requestScopes : scopes;
+
+      const request = new api.AuthRequest({
+        clientId: config.clientId,
+        scopes: effectiveScopes,
+        redirectUri: config.redirectUri,
+        responseType: api.ResponseType.Code,
+        usePKCE: true,
+        codeChallengeMethod: api.CodeChallengeMethod.S256,
+        // Google refresh_token 발급 보장 + 기존 동의 재요청
+        extraParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      });
+
+      const result = await request.promptAsync(GOOGLE_OAUTH_DISCOVERY);
+      if (result.type !== 'success' || !result.params?.code) {
+        const reason =
+          result.type === 'cancel' || result.type === 'dismiss'
+            ? '사용자가 Google 로그인을 취소했어요.'
+            : result.params?.error
+              ? `Google 로그인 실패: ${result.params.error}`
+              : 'Google 로그인을 완료하지 못했어요.';
+        throw new Error(reason);
+      }
+      if (!request.codeVerifier) {
+        // usePKCE: true이면 항상 set되지만 type guard.
+        throw new Error('PKCE code_verifier 누락 — expo-auth-session 내부 상태 오류.');
+      }
+
+      const token = await api.exchangeCodeAsync(
+        {
+          clientId: config.clientId,
+          code: result.params.code,
+          redirectUri: config.redirectUri,
+          extraParams: { code_verifier: request.codeVerifier },
+        },
+        GOOGLE_OAUTH_DISCOVERY,
+      );
+
+      if (!token.refreshToken) {
+        // 동의 후 refresh_token 미수신은 access_type=offline + prompt=consent 누락 외엔 발생 X.
+        // Google이 이전 grant를 재사용하면 발생 가능 → 사용자에게 재인증 안내.
+        throw new Error('Google이 refresh_token을 발급하지 않았어요. 잠시 후 다시 시도해 주세요.');
+      }
+
+      return {
+        accessToken: token.accessToken,
+        refreshToken: token.refreshToken,
+        expiresInSeconds: token.expiresIn ?? 3600,
+        scope: token.scope ?? effectiveScopes.join(' '),
+      };
+    },
+
+    async refresh(refreshToken): Promise<GoogleOAuthAccessTokenResponse> {
+      const refreshed = await api.refreshAsync(
+        { clientId: config.clientId, refreshToken },
+        GOOGLE_OAUTH_DISCOVERY,
+      );
+      return {
+        accessToken: refreshed.accessToken,
+        expiresInSeconds: refreshed.expiresIn ?? 3600,
+      };
+    },
+
+    async revoke(refreshToken): Promise<void> {
+      // revokeAsync는 boolean을 반환하지만 best-effort라 결과 무시.
+      await api.revokeAsync(
+        { token: refreshToken, clientId: config.clientId },
+        GOOGLE_OAUTH_DISCOVERY,
+      );
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------

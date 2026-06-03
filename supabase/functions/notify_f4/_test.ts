@@ -35,10 +35,14 @@ Deno.test('formatF4Title — 빈 모임 이름 fallback', () => {
   const title = formatF4Title({ groupName: '' });
   assert(title.length > 0);
 });
-Deno.test('formatF4Body — 시간 확정 nudge 톤', () => {
-  const body = formatF4Body();
-  // 호스트가 확정해야 함을 안내
+Deno.test('formatF4Body — groupName 포함 + 시간 확정 nudge 톤 (A-10 polish)', () => {
+  const body = formatF4Body({ groupName: '안암 저녁' });
+  assert(body.includes('안암 저녁'));
   assert(body.includes('확정') || body.includes('시간'));
+});
+Deno.test('formatF4Body — 빈 groupName fallback', () => {
+  const body = formatF4Body({ groupName: '' });
+  assert(body.length > 0);
 });
 
 // fan-out

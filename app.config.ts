@@ -84,6 +84,17 @@ export default ({ config: _ }: ConfigContext): ExpoConfig => ({
     ...(kakaoPlugin ? [kakaoPlugin] : []),
     // 카카오 SDK는 자체 Nexus 저장소 (devrepo.kakao.com)에서 제공 — settings.gradle에 추가
     './plugins/withKakaoMaven.js',
+    // S15-deeplink (D28) — iOS 14+ ATT(App Tracking Transparency).
+    // 자체 deferred deep link fingerprint(IP/UA 해시) 매칭이 Apple 정의상 "tracking"에 해당 →
+    // 첫 launch 시 ATT 프롬프트 의무. 거부해도 매칭은 server-side에서 동작(IDFA 미사용)하지만
+    // App Store 심사 통과를 위해 프롬프트는 표시. 카피는 PIPA 처리방침과 정합 (docs/privacy).
+    [
+      'expo-tracking-transparency',
+      {
+        userTrackingPermission:
+          '친구가 보낸 초대 링크로 들어왔는지 확인해 모임에 자동으로 합류시키기 위해 사용해요.',
+      },
+    ],
   ],
   experiments: {
     typedRoutes: true,

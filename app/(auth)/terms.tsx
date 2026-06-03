@@ -151,6 +151,27 @@ export default function TermsScreen() {
           ))}
         </View>
 
+        {/* 전문 보기 링크 — PIPA 의무 (A-6) */}
+        <Pressable
+          onPress={() => router.push('/(auth)/privacy')}
+          accessibilityRole="link"
+          accessibilityLabel="개인정보 처리방침 전문 보기"
+          hitSlop={8}
+          style={({ pressed }) => ({
+            alignSelf: 'flex-start',
+            marginTop: space[5],
+            opacity: pressed ? 0.6 : 1,
+          })}
+        >
+          <Caption
+            variant="default"
+            color={colors.text.tertiary}
+            style={{ textDecorationLine: 'underline' }}
+          >
+            개인정보 처리방침 전문 보기
+          </Caption>
+        </Pressable>
+
         <View style={{ flex: 1 }} />
       </ScrollView>
 

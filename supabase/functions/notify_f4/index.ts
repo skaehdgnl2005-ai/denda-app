@@ -45,8 +45,17 @@ export function formatF4Title(args: F4TitleArgs): string {
   return `${name} 멤버가 모두 시간을 골랐어요`;
 }
 
-export function formatF4Body(): string {
-  return '이제 시간을 확정해주세요';
+export interface F4BodyArgs {
+  groupName: string;
+}
+
+/**
+ * Q-B12 1차안 polish: 본문에도 groupName 포함 → notification tray에서
+ * title 줄임/잘림 시에도 어느 모임인지 보장. (A-10 founder review 1차안)
+ */
+export function formatF4Body(args: F4BodyArgs): string {
+  const name = args.groupName.trim() || '모임';
+  return `'${name}' 시간을 확정해주세요`;
 }
 
 export interface F4Recipient {
@@ -61,7 +70,7 @@ export interface BuildF4MessagesArgs {
 
 export function buildF4PushMessages(args: BuildF4MessagesArgs): ExpoPushMessage[] {
   const title = formatF4Title({ groupName: args.groupName });
-  const body = formatF4Body();
+  const body = formatF4Body({ groupName: args.groupName });
   return args.recipient.tokens.map((token) => ({
     to: token,
     title,

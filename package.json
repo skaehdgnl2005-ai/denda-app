@@ -32,6 +32,7 @@
     "expo-router": "~56.2.7",
     "expo-secure-store": "~56.0.4",
     "expo-status-bar": "~56.0.4",
+    "expo-tracking-transparency": "~56.0.5",
     "expo-updates": "~56.0.17",
     "lucide-react-native": "^1.16.0",
     "luxon": "^3.7.2",

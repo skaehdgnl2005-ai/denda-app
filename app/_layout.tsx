@@ -5,13 +5,15 @@
 import { Stack, SplashScreen } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { useFonts } from 'expo-font';
+import * as SecureStore from 'expo-secure-store';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { authStore, useAuth } from '@/lib/auth/setup';
 import { AttributionRoot } from '@/lib/branch/AttributionRoot';
 import { resolveAttribution } from '@/lib/branch/attributionApi';
+import { requestAttPermissionOnce } from '@/lib/branch/attTracking';
 import { CalendarSyncRoot } from '@/lib/calendar/CalendarSyncRoot';
 import { fetchCalendarPreference } from '@/lib/calendar/preference';
 import { createAppStateAdapter, createAppleCalendarProvider } from '@/lib/calendar/setup';
@@ -36,6 +38,19 @@ export default function RootLayout() {
 
   useEffect(() => {
     authStore.getState().bootstrap();
+  }, []);
+
+  // S15-deeplink (D28) — iOS ATT 첫 launch 프롬프트. Android·web은 skipped.
+  // 거부해도 attribution 매칭은 서버 측 IP/UA 해시로 동작(IDFA 미사용). 프롬프트는
+  // Apple ATT 정의(다른 도메인 데이터와 연결)와 App Store 심사 통과 의무로 표시.
+  useEffect(() => {
+    requestAttPermissionOnce({
+      api: createAttApiOrNull() ?? noopAttApi,
+      storage: SecureStore,
+      platform: { isIos: Platform.OS === 'ios' },
+    }).catch(() => {
+      // 베타 한정 silent. ATT는 서비스 기능과 무관.
+    });
   }, []);
 
   useEffect(() => {
@@ -130,6 +145,38 @@ function PushRegistrationConnected(): React.JSX.Element | null {
  * attribution_resolve Edge Function 호출. matched 시 한국어 Alert로 자동 합류 안내.
  * 본 wrapper는 _layout.tsx와 함께 untested glue. AttributionRoot 자체는 Jest tested.
  */
+/**
+ * expo-tracking-transparency dynamicRequire 어댑터. 미설치 환경(Jest·일부 dev)에선 null →
+ * noopAttApi로 fallback해 layout mount는 통과. iOS production 빌드에서만 실제 API 호출.
+ */
+function createAttApiOrNull(): {
+  getTrackingPermissionsAsync(): Promise<{ status: string }>;
+  requestTrackingPermissionsAsync(): Promise<{ status: string }>;
+} | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
+    const mod = require('expo-tracking-transparency') as {
+      getTrackingPermissionsAsync: () => Promise<{ status: string }>;
+      requestTrackingPermissionsAsync: () => Promise<{ status: string }>;
+    };
+    return {
+      getTrackingPermissionsAsync: () => mod.getTrackingPermissionsAsync(),
+      requestTrackingPermissionsAsync: () => mod.requestTrackingPermissionsAsync(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+const noopAttApi = {
+  getTrackingPermissionsAsync: async (): Promise<{ status: string }> => ({
+    status: 'undetermined',
+  }),
+  requestTrackingPermissionsAsync: async (): Promise<{ status: string }> => ({
+    status: 'undetermined',
+  }),
+};
+
 function AttributionRootConnected(): React.JSX.Element {
   const userId = useAuth((s) => s.session?.user.id);
   const resolve = useCallback(

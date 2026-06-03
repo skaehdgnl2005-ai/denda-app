@@ -9,8 +9,12 @@ import TermsScreen from '../../../app/(auth)/terms';
 import { ThemeProvider } from '@/design/theme';
 
 const mockReplace = jest.fn();
+const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
-  router: { replace: (...args: unknown[]) => mockReplace(...args) },
+  router: {
+    replace: (...args: unknown[]) => mockReplace(...args),
+    push: (...args: unknown[]) => mockPush(...args),
+  },
 }));
 
 const mockAgreeToTerms = jest.fn();
@@ -78,6 +82,12 @@ describe('TermsScreen', () => {
     fireEvent.press(getByLabelText('동의하고 계속'));
     expect(mockAgreeToTerms).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  test('"개인정보 처리방침 전문 보기" press → router.push(/(auth)/privacy) — A-6 PIPA', () => {
+    const { getByLabelText } = render(<TermsScreen />, { wrapper });
+    fireEvent.press(getByLabelText('개인정보 처리방침 전문 보기'));
+    expect(mockPush).toHaveBeenCalledWith('/(auth)/privacy');
   });
 
   test('필수 동의 후 CTA press → agreeToTerms + router.replace(onboarding)', async () => {
