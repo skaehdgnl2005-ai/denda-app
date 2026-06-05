@@ -1,6 +1,7 @@
 // S20 — 장소 영속화. NaverSearchProvider 검색 결과를 places 테이블에 upsert.
 //
-// 0019_places_provider: places.source + provider_place_id 보강 + (source, provider_place_id) UNIQUE.
+// 0021_places_provider: places.source + provider_place_id 보강 + (source, provider_place_id) UNIQUE.
+// (원래 0019였으나 0019_accept_friend_request_rpc와 version PK 충돌로 2026-06-05에 0021로 rename)
 //   → 같은 식당을 여러 모임이 골라도 places 행 1개로 수렴 (upsert onConflict).
 //   RLS places_insert_authenticated (0002:119) — authenticated INSERT 자연 허용.
 //
