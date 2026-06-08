@@ -53,10 +53,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   timeContainer: {
-    height: 32, // matches visual height spacing/alignment
+    // height 32였을 때 row(16)를 넘어서 시간라벨이 위·아래 셀과 겹쳐 정렬이 어긋나
+    // 보이는 회귀 (2026-06-08). row와 같은 16으로 맞춰서 셀들과 한 줄에 정렬.
+    height: 16,
     justifyContent: 'center',
     alignItems: 'flex-end',
-    paddingRight: 8,
+    paddingRight: 6,
   },
   timeText: {
     fontWeight: '500',
