@@ -50,11 +50,15 @@ jest.mock('@/lib/heatmap/useHeatmapSubscription', () => ({
 }));
 
 // useSweepGesture mock — gesture-handler 의존 회피. 그리드 panGesture 우회.
+// Issue 1A — SelectionOverlay가 구독하는 startCoord/currentCoord/toggleAdd도 노출.
 jest.mock('@/lib/votes/useSweepGesture', () => ({
   useSweepGesture: () => ({
     panGesture: { _handlers: {} },
     selection: { value: {} },
     scrollOffsetY: { value: 0 },
+    startCoord: { value: null },
+    currentCoord: { value: null },
+    toggleAdd: { value: true },
   }),
 }));
 
@@ -92,8 +96,8 @@ describe('GroupConfirmScreen', () => {
       confirmedPlaceId: null,
     });
 
-    const { getByText } = render(<GroupConfirmScreen />, { wrapper });
-    expect(getByText('모임을 불러오는 중...')).toBeTruthy();
+    const { getByText, getByTestId } = render(<GroupConfirmScreen />, { wrapper });
+    expect(getByTestId('group-loading-skeleton')).toBeTruthy();
     await waitFor(() => expect(getByText('안암 회식')).toBeTruthy());
     expect(getByText('멤버 3명 · 2일 후보')).toBeTruthy();
   });

@@ -18,7 +18,7 @@ export interface CellState {
 }
 
 export interface GridProps {
-  cells: CellState[][]; // 60 rows × 7 columns
+  cells: CellState[][]; // 60 rows × N columns (N = colCount, default 7)
   onCellPress?: (slot: number, day: number) => void;
   dayLabels?: string[];
   testID?: string;
@@ -29,22 +29,31 @@ export interface GridProps {
   onCellWidthChange?: (cellWidth: number) => void;
   // ScrollView 수직 offset — 부모가 useSweepGesture의 scrollOffsetY sharedValue에 반영.
   onScrollY?: (offsetY: number) => void;
+  // 모임 후보 날짜 수 (groups.dates.length). 1~7. 미지정 시 dayLabels.length, 그것도 미지정 시 7.
+  colCount?: number;
+  // Issue 1A — drag 중 시각 피드백 overlay (SelectionOverlay 등). gridBody 안에
+  // absolutely positioned로 mount되어 scroll 같이 됨.
+  overlay?: React.ReactNode;
 }
 
 const DEFAULT_DAYS = ['월', '화', '수', '목', '금', '토', '일'];
 const ROW_COUNT = 60;
-const COL_COUNT = 7;
 const TIME_COLUMN_WIDTH = 50; // headerWidth — coords.ts pointToCell과 동일 단위
 
 export const Grid: React.FC<GridProps> = ({
   cells,
   onCellPress,
-  dayLabels = DEFAULT_DAYS,
+  dayLabels,
   testID,
   panGesture,
   onCellWidthChange,
   onScrollY,
+  colCount,
+  overlay,
 }) => {
+  // 우선순위: colCount prop > dayLabels.length > 7 (백워드 호환)
+  const effectiveColCount = colCount ?? dayLabels?.length ?? DEFAULT_DAYS.length;
+  const effectiveDayLabels = dayLabels ?? DEFAULT_DAYS.slice(0, effectiveColCount);
   const { colors } = useTheme();
 
   // Helper to format time label for slot index
@@ -57,7 +66,7 @@ export const Grid: React.FC<GridProps> = ({
   const handleGridBodyLayout = (event: LayoutChangeEvent): void => {
     if (!onCellWidthChange) return;
     const totalWidth = event.nativeEvent.layout.width;
-    const cellWidth = (totalWidth - TIME_COLUMN_WIDTH) / COL_COUNT;
+    const cellWidth = (totalWidth - TIME_COLUMN_WIDTH) / effectiveColCount;
     onCellWidthChange(cellWidth);
   };
 
@@ -68,6 +77,7 @@ export const Grid: React.FC<GridProps> = ({
 
   const gridBody = (
     <View style={styles.gridBody} onLayout={handleGridBodyLayout}>
+      {overlay}
       {Array.from({ length: ROW_COUNT }).map((_, slotIdx) => {
         const timeLabel = getTimeLabel(slotIdx);
         const rowCells = cells[slotIdx] || [];
@@ -79,8 +89,8 @@ export const Grid: React.FC<GridProps> = ({
               {timeLabel ? <Header type="time" label={timeLabel} /> : null}
             </View>
 
-            {/* 7 Day Grid Cells */}
-            {Array.from({ length: COL_COUNT }).map((_, dayIdx) => {
+            {/* N Day Grid Cells (N = effectiveColCount) */}
+            {Array.from({ length: effectiveColCount }).map((_, dayIdx) => {
               const cellData: CellState = rowCells[dayIdx] || {
                 state: 'empty',
                 count: 0,
@@ -122,7 +132,7 @@ export const Grid: React.FC<GridProps> = ({
         {/* Left Spacer matching time column width */}
         <View style={styles.timeColumnSpacer} />
         {/* Day Header Cells */}
-        {dayLabels.map((day, idx) => (
+        {effectiveDayLabels.map((day, idx) => (
           <View key={`day-header-${idx}`} style={styles.dayHeaderCellContainer}>
             <Header type="day" label={day} />
           </View>
@@ -173,11 +183,11 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 10, // 8pt visual cell + 2pt space
+    height: 14, // 12pt visual cell + 2pt vertical margin (Issue 2)
   },
   timeLabelContainer: {
     width: TIME_COLUMN_WIDTH,
-    height: 10,
+    height: 14,
     justifyContent: 'center',
     alignItems: 'flex-end',
     overflow: 'visible', // allows time header texts to render without cropping

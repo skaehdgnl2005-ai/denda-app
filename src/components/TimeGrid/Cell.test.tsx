@@ -99,18 +99,20 @@ describe('Cell Component', () => {
     );
   });
 
-  test('defines minimum hitSlop for 44pt touch target when cell is 8pt visual height', () => {
+  test('defines hitSlop to reach 44pt touch target from 12pt visual height (Issue 2: 8→12pt bump)', () => {
     const { getByTestId } = render(
       <Cell state="empty" count={0} isHeader={false} testID="grid-cell" />,
       { wrapper },
     );
     const cell = getByTestId('grid-cell');
-    // hitSlop should expand top/bottom by at least 18pt to reach 44pt from 8pt height
+    // 12pt visual + 16+16 hitSlop = 44pt total. D9 spec.
     const hitSlop = cell.props.hitSlop;
     expect(hitSlop).toBeDefined();
     if (hitSlop) {
-      expect(hitSlop.top).toBeGreaterThanOrEqual(18);
-      expect(hitSlop.bottom).toBeGreaterThanOrEqual(18);
+      expect(hitSlop.top).toBeGreaterThanOrEqual(16);
+      expect(hitSlop.bottom).toBeGreaterThanOrEqual(16);
+      // 12pt cell + top + bottom ≥ 44 (D9 touch target)
+      expect(12 + hitSlop.top + hitSlop.bottom).toBeGreaterThanOrEqual(44);
     }
   });
 

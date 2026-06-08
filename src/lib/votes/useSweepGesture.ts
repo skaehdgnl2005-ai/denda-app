@@ -42,6 +42,12 @@ export interface UseSweepGestureResult {
   panGesture: PanGesture;
   selection: SharedValue<Record<SlotKey, boolean>>;
   scrollOffsetY: SharedValue<number>;
+  // SelectionOverlay가 useAnimatedStyle로 구독해 drag 중 사각형 즉시 그림 (Issue 1A).
+  // null = drag 비활성 (overlay 숨김).
+  startCoord: SharedValue<CellCoord | null>;
+  currentCoord: SharedValue<CellCoord | null>;
+  // add 모드(true) = 보라색 fill / remove 모드(false) = 회색 X — overlay가 색 분기
+  toggleAdd: SharedValue<boolean>;
 }
 
 export function useSweepGesture(options: UseSweepGestureOptions): UseSweepGestureResult {
@@ -50,6 +56,7 @@ export function useSweepGesture(options: UseSweepGestureOptions): UseSweepGestur
   const selection = useSharedValue<Record<SlotKey, boolean>>(initialSelection ?? {});
   const baseline = useSharedValue<Record<SlotKey, boolean>>(initialSelection ?? {});
   const startCoord = useSharedValue<CellCoord | null>(null);
+  const currentCoord = useSharedValue<CellCoord | null>(null);
   const toggleAdd = useSharedValue<boolean>(true);
   const scrollOffsetY = useSharedValue<number>(0);
 
@@ -67,6 +74,7 @@ export function useSweepGesture(options: UseSweepGestureOptions): UseSweepGestur
       const start = pointToCell({ x: e.x, y: e.y }, layoutWithScroll);
       if (!start) return;
       startCoord.value = start;
+      currentCoord.value = start;
       baseline.value = selection.value;
       const startMinute = GRID_START_MINUTE + start.row * SLOT_MINUTES;
       const startKey = `${start.col}:${startMinute}` as SlotKey;
@@ -81,14 +89,16 @@ export function useSweepGesture(options: UseSweepGestureOptions): UseSweepGestur
       const layoutWithScroll: GridLayout = { ...layout.value, scrollOffsetY: scrollOffsetY.value };
       const end = pointToCell({ x: e.x, y: e.y }, layoutWithScroll);
       if (!end) return;
+      currentCoord.value = end;
       selection.value = applySweepToRecord(baseline.value, start, end, toggleAdd.value);
     })
     .onEnd(() => {
       'worklet';
       if (startCoord.value === null) return;
       startCoord.value = null;
+      currentCoord.value = null;
       runOnJS(jsCommit)(selection.value);
     });
 
-  return { panGesture, selection, scrollOffsetY };
+  return { panGesture, selection, scrollOffsetY, startCoord, currentCoord, toggleAdd };
 }

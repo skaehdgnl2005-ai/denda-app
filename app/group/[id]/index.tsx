@@ -18,8 +18,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSharedValue } from 'react-native-reanimated';
 
 import { Icon } from '@/components/Icon';
+import { Skeleton } from '@/components/Skeleton';
 import { Grid } from '@/components/TimeGrid/Grid';
 import { RealtimeStatus } from '@/components/TimeGrid/RealtimeStatus';
+import { SelectionOverlay } from '@/components/TimeGrid/SelectionOverlay';
+import { VoteGuide } from '@/components/TimeGrid/VoteGuide';
 import { FirstTimeModal } from '@/components/calendar/FirstTimeModal';
 import { ConfirmedTimeCard } from '@/components/group/ConfirmedTimeCard';
 import { HostConfirmButton } from '@/components/group/HostConfirmButton';
@@ -44,7 +47,7 @@ import { useSweepGesture } from '@/lib/votes/useSweepGesture';
 import { diffVoteSets, voteSetFromSlots, type VoteSlot } from '@/lib/votes/voteSet';
 
 const ROW_COUNT = 60;
-const CELL_HEIGHT = 10; // Grid styles.row.height
+const CELL_HEIGHT = 14; // Grid styles.row.height (Issue 2: 10 → 14)
 const HEADER_WIDTH = 50; // Grid TIME_COLUMN_WIDTH
 
 function formatDayLabels(dates: string[]): string[] {
@@ -174,7 +177,7 @@ export default function GroupConfirmScreen(): React.JSX.Element {
   );
 
   const days = group?.dates ?? [];
-  const { panGesture, scrollOffsetY } = useSweepGesture({
+  const { panGesture, scrollOffsetY, startCoord, currentCoord, toggleAdd } = useSweepGesture({
     days,
     layout,
     onCommit: handleSweepCommit,
@@ -267,8 +270,34 @@ export default function GroupConfirmScreen(): React.JSX.Element {
   if (!group) {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface[0] }]}>
-        <View style={[styles.centered, { padding: space[4] }]}>
-          <Body color={colors.text.tertiary}>모임을 불러오는 중...</Body>
+        <View style={[styles.topBar, { paddingHorizontal: space[4], paddingVertical: space[3] }]}>
+          <Pressable
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel="뒤로 가기"
+            testID="back-button"
+            style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.6 : 1 }]}
+          >
+            <Icon name="뒤로" color={colors.text.primary} size={24} />
+          </Pressable>
+          <Skeleton width={120} height={20} />
+          <View style={styles.iconButton} />
+        </View>
+        <View
+          testID="group-loading-skeleton"
+          accessibilityRole="progressbar"
+          accessibilityLabel="모임을 불러오는 중"
+          style={{ paddingHorizontal: space[4], paddingTop: space[2] }}
+        >
+          <Skeleton width={160} height={14} />
+          <View style={{ height: space[4] }} />
+          <Skeleton height={72} borderRadius={radius.md} />
+          <View style={{ height: space[4] }} />
+          {Array.from({ length: 9 }).map((_, i) => (
+            <View key={i} style={{ marginBottom: space[2] }}>
+              <Skeleton height={12} />
+            </View>
+          ))}
         </View>
       </SafeAreaView>
     );
@@ -375,16 +404,34 @@ export default function GroupConfirmScreen(): React.JSX.Element {
         </View>
       ) : null}
 
+      {!isConfirmed ? (
+        <View style={{ paddingHorizontal: space[4], paddingBottom: space[3] }}>
+          <VoteGuide hasSelection={selfMarks.size > 0} testID="vote-guide" />
+        </View>
+      ) : null}
+
       <RealtimeStatus isConnected={isConnected} testID="realtime-status" />
 
       <View style={styles.gridContainer}>
         <Grid
           cells={cells}
           dayLabels={dayLabels}
+          colCount={dayCount}
           panGesture={isConfirmed ? undefined : panGesture}
           onCellWidthChange={handleCellWidthChange}
           onScrollY={handleScrollY}
           testID="time-grid"
+          overlay={
+            isConfirmed ? null : (
+              <SelectionOverlay
+                layout={layout}
+                startCoord={startCoord}
+                currentCoord={currentCoord}
+                toggleAdd={toggleAdd}
+                testID="selection-overlay"
+              />
+            )
+          }
         />
       </View>
 
