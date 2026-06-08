@@ -34,9 +34,6 @@ export interface GridProps {
   // Issue 1A — drag 중 시각 피드백 overlay (SelectionOverlay 등). gridBody 안에
   // absolutely positioned로 mount되어 scroll 같이 됨.
   overlay?: React.ReactNode;
-  // Animated.ScrollView scrollEnabled — sweep 중 부모 ScrollView가 gesture 가로채는
-  // 회귀(2026-06-05 Issue 1) 차단용. 호출부에서 isDragging 동안 false로 toggle.
-  scrollEnabled?: boolean;
 }
 
 const DEFAULT_DAYS = ['월', '화', '수', '목', '금', '토', '일'];
@@ -53,7 +50,6 @@ export const Grid: React.FC<GridProps> = ({
   onScrollY,
   colCount,
   overlay,
-  scrollEnabled = true,
 }) => {
   // 우선순위: colCount prop > dayLabels.length > 7 (백워드 호환)
   const effectiveColCount = colCount ?? dayLabels?.length ?? DEFAULT_DAYS.length;
@@ -152,7 +148,6 @@ export const Grid: React.FC<GridProps> = ({
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        scrollEnabled={scrollEnabled}
       >
         {scrollContent}
       </Animated.ScrollView>

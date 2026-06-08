@@ -73,8 +73,6 @@ export default function GroupConfirmScreen(): React.JSX.Element {
   const [selectionRecord, setSelectionRecord] = useState<Record<SlotKey, boolean>>({});
   const [inflight, setInflight] = useState(false);
   const [showFirstTimeModal, setShowFirstTimeModal] = useState(false);
-  // sweep 중 ScrollView가 gesture 가로채는 회귀 차단 (Issue 1, 2026-06-05).
-  const [isDragging, setIsDragging] = useState(false);
 
   // S06: 첫 Google/Apple sign-in callback — lazy 구성 (expo-* 패키지 미설치 환경에서 페이지
   // 진입 시점 throw 방지). createGoogleCalendarProvider/createAppleCalendarProvider는 호출 시
@@ -183,7 +181,6 @@ export default function GroupConfirmScreen(): React.JSX.Element {
     days,
     layout,
     onCommit: handleSweepCommit,
-    onDragStateChange: setIsDragging,
   });
 
   const handleCellWidthChange = useCallback(
@@ -424,7 +421,6 @@ export default function GroupConfirmScreen(): React.JSX.Element {
           onCellWidthChange={handleCellWidthChange}
           onScrollY={handleScrollY}
           testID="time-grid"
-          scrollEnabled={!isDragging}
           overlay={
             isConfirmed ? null : (
               <SelectionOverlay

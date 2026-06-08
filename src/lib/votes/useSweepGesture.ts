@@ -5,9 +5,15 @@
 //   - drag = UI thread worklet
 //   - drag 종료 시 1회 runOnJS(commit) — 100ms debounce는 caller 책임
 //
+// 활성화 정책 (2026-06-08):
+//   - .activateAfterLongPress(300) — 꾹 누름 300ms 후에만 Pan 활성.
+//   - 그냥 드래그 = Pan 비활성 상태 → 부모 ScrollView가 자연스럽게 세로 스크롤 받음.
+//   - 꾹 누름 + 드래그 = Pan 활성 → RNGH가 ScrollView로부터 gesture 권리 회수.
+//   - 결과: scrollEnabled toggle 불필요. 회귀(Issue 1, 2026-06-05) 자연 해소.
+//
 // 동작:
-//   - onBegin: 시작 cell이 baseline에 false였으면 add 모드(toggleAdd=true),
-//              true였으면 remove 모드(toggleAdd=false). baseline = selection snapshot.
+//   - onStart: long press 통과 시점. 시작 cell이 baseline에 false였으면 add 모드,
+//              true였으면 remove 모드. baseline = selection snapshot.
 //   - onUpdate: applySweepToRecord(baseline, start, end, toggleAdd) → selection.value 갱신.
 //   - onEnd: runOnJS(jsCommit)(selection.value). jsCommit이 selectionToVoteSlots로 변환 + onCommit 호출.
 //
@@ -36,14 +42,11 @@ export interface UseSweepGestureOptions {
   layout: SharedValue<GridLayout>;
   initialSelection?: Record<SlotKey, boolean>;
   onCommit: (slots: VoteSlot[]) => void;
-  /**
-   * drag begin/end 시 호출. caller가 ScrollView scrollEnabled를 toggle해서
-   * sweep 중 부모 ScrollView가 gesture를 가로채는 회귀를 차단 (2026-06-05 Issue 1).
-   * runOnJS bridge로 호출되므로 ~16ms overhead. 첫 touch와 첫 movement 사이에 React
-   * 재렌더가 끼어들 시간이 보통 있어서 충분히 빠름.
-   */
-  onDragStateChange?: (active: boolean) => void;
 }
+
+/** 꾹 누름으로 sweep 활성화하는 임계값 (ms). 너무 짧으면 평범한 탭이 sweep로 잘못 인식,
+ * 너무 길면 답답함. 300ms = Google Calendar 수준. */
+const LONG_PRESS_MS = 300;
 
 export interface UseSweepGestureResult {
   panGesture: PanGesture;
@@ -58,7 +61,7 @@ export interface UseSweepGestureResult {
 }
 
 export function useSweepGesture(options: UseSweepGestureOptions): UseSweepGestureResult {
-  const { days, layout, initialSelection, onCommit, onDragStateChange } = options;
+  const { days, layout, initialSelection, onCommit } = options;
 
   const selection = useSharedValue<Record<SlotKey, boolean>>(initialSelection ?? {});
   const baseline = useSharedValue<Record<SlotKey, boolean>>(initialSelection ?? {});
@@ -73,18 +76,10 @@ export function useSweepGesture(options: UseSweepGestureOptions): UseSweepGestur
     onCommit(selectionToVoteSlots(snapshot, days));
   };
 
-  const jsSetDragActive = (active: boolean): void => {
-    if (onDragStateChange) onDragStateChange(active);
-  };
-
   const panGesture = Gesture.Pan()
-    .minDistance(0)
-    // Issue 1 (2026-06-05): ScrollView가 하향 swipe를 scroll로 가로채는 문제 해소.
-    // 1px 이동 시 Pan이 즉시 active 상태가 되어 부모 ScrollView보다 먼저 gesture 점유.
-    // ScrollView의 기본 활성 임계값(~10px)보다 작아서 sweep이 항상 우선권.
-    .activeOffsetX([-1, 1])
-    .activeOffsetY([-1, 1])
-    .onBegin((e: { x: number; y: number }) => {
+    // 꾹 누름 후에만 sweep 활성. 그냥 드래그는 부모 ScrollView가 받아 세로 스크롤로 진행.
+    .activateAfterLongPress(LONG_PRESS_MS)
+    .onStart((e: { x: number; y: number }) => {
       'worklet';
       const layoutWithScroll: GridLayout = { ...layout.value, scrollOffsetY: scrollOffsetY.value };
       const start = pointToCell({ x: e.x, y: e.y }, layoutWithScroll);
@@ -97,8 +92,6 @@ export function useSweepGesture(options: UseSweepGestureOptions): UseSweepGestur
       const add = baseline.value[startKey] !== true;
       toggleAdd.value = add;
       selection.value = applySweepToRecord(baseline.value, start, start, add);
-      // ScrollView가 가로채지 않게 즉시 비활성화 (Issue 1, 2026-06-05)
-      runOnJS(jsSetDragActive)(true);
     })
     .onUpdate((e: { x: number; y: number }) => {
       'worklet';
@@ -112,20 +105,10 @@ export function useSweepGesture(options: UseSweepGestureOptions): UseSweepGestur
     })
     .onEnd(() => {
       'worklet';
-      if (startCoord.value === null) {
-        // touch만 있고 drag 미달성한 경우에도 ScrollView 재활성 보장
-        runOnJS(jsSetDragActive)(false);
-        return;
-      }
+      if (startCoord.value === null) return;
       startCoord.value = null;
       currentCoord.value = null;
       runOnJS(jsCommit)(selection.value);
-      runOnJS(jsSetDragActive)(false);
-    })
-    .onFinalize(() => {
-      // gesture가 cancelled 등으로 끝나도 ScrollView 재활성 (safety net)
-      'worklet';
-      runOnJS(jsSetDragActive)(false);
     });
 
   return { panGesture, selection, scrollOffsetY, startCoord, currentCoord, toggleAdd };

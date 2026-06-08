@@ -79,6 +79,10 @@ jest.mock('react-native-gesture-handler', () => {
         g._handlers.onBegin = cb;
         return g;
       },
+      onStart(cb) {
+        g._handlers.onStart = cb;
+        return g;
+      },
       onUpdate(cb) {
         g._handlers.onUpdate = cb;
         return g;
@@ -98,6 +102,9 @@ jest.mock('react-native-gesture-handler', () => {
         return g;
       },
       activeOffsetY(_) {
+        return g;
+      },
+      activateAfterLongPress(_) {
         return g;
       },
       runOnJS(_) {
