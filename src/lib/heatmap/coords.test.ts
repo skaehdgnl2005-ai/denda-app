@@ -47,9 +47,12 @@ describe('pointToCell', () => {
     expect(pointToCell({ x: 50 + 7 * 40 + 1, y: 5 }, baseLayout)).toBeNull();
   });
 
-  test('scrollOffsetY 반영 — 스크롤 100px 내려간 상태에서 y=1은 row=10', () => {
+  test('scrollOffsetY는 무시됨 — pt.y가 이미 view-local(스크롤 반영) (2026-06-05 regression)', () => {
+    // RNGH가 GestureDetector 부착 view-local 좌표를 보고 → pt.y에 스크롤 이미 포함됨.
+    // scrollOffsetY를 더하면 이중 가산 → SelectionOverlay가 드래그보다 아래 그려지는 회귀.
     const scrolled: GridLayout = { ...baseLayout, scrollOffsetY: 100 };
-    expect(pointToCell({ x: 100, y: 1 }, scrolled)).toEqual({ row: 10, col: 1 });
+    expect(pointToCell({ x: 100, y: 1 }, scrolled)).toEqual({ row: 0, col: 1 });
+    expect(pointToCell({ x: 100, y: 101 }, scrolled)).toEqual({ row: 10, col: 1 });
   });
 
   test('경계값 — x가 정확히 cell 경계(col 1 시작)', () => {

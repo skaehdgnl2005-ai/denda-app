@@ -130,12 +130,15 @@ describe('useSweepGesture', () => {
     expect(onCommit).not.toHaveBeenCalled();
   });
 
-  test('scrollOffsetY 갱신 → onBegin이 보정된 좌표로 매핑', () => {
+  test('scrollOffsetY는 onBegin 매핑에 무시됨 — pt.y는 view-local (2026-06-05 regression)', () => {
+    // RNGH가 GestureDetector 부착 view-local 좌표를 보고 → pt.y에 스크롤 이미 포함됨.
+    // scrollOffsetY를 더하면 이중 가산 → SelectionOverlay가 드래그보다 더 아래·더 길게
+    // 그려지는 회귀 (dev client 실기기 확인).
     const { result } = renderSweep();
-    result.current.scrollOffsetY.value = 100; // ScrollView onScroll 시뮬레이션
+    result.current.scrollOffsetY.value = 100; // scroll 상태여도
     const h = handlersOf(result.current.panGesture);
-    h.onBegin?.({ x: 51, y: 1 }); // y=1 + scrollY=100 = 101 → row=10
-    const sm = 540 + 10 * 15; // 690
+    h.onBegin?.({ x: 51, y: 1 }); // y=1 자체 → row=0 (스크롤 가산 X)
+    const sm = 540 + 0 * 15; // 540
     expect(result.current.selection.value[`0:${sm}`]).toBe(true);
   });
 

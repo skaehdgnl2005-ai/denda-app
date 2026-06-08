@@ -68,6 +68,11 @@ export function useSweepGesture(options: UseSweepGestureOptions): UseSweepGestur
 
   const panGesture = Gesture.Pan()
     .minDistance(0)
+    // Issue 1 (2026-06-05): ScrollView가 하향 swipe를 scroll로 가로채는 문제 해소.
+    // 1px 이동 시 Pan이 즉시 active 상태가 되어 부모 ScrollView보다 먼저 gesture 점유.
+    // ScrollView의 기본 활성 임계값(~10px)보다 작아서 sweep이 항상 우선권.
+    .activeOffsetX([-1, 1])
+    .activeOffsetY([-1, 1])
     .onBegin((e: { x: number; y: number }) => {
       'worklet';
       const layoutWithScroll: GridLayout = { ...layout.value, scrollOffsetY: scrollOffsetY.value };
