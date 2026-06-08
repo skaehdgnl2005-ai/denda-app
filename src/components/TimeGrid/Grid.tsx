@@ -34,6 +34,9 @@ export interface GridProps {
   // Issue 1A — drag 중 시각 피드백 overlay (SelectionOverlay 등). gridBody 안에
   // absolutely positioned로 mount되어 scroll 같이 됨.
   overlay?: React.ReactNode;
+  // Animated.ScrollView scrollEnabled — sweep 중 부모 ScrollView가 gesture 가로채는
+  // 회귀(2026-06-05 Issue 1) 차단용. 호출부에서 isDragging 동안 false로 toggle.
+  scrollEnabled?: boolean;
 }
 
 const DEFAULT_DAYS = ['월', '화', '수', '목', '금', '토', '일'];
@@ -50,6 +53,7 @@ export const Grid: React.FC<GridProps> = ({
   onScrollY,
   colCount,
   overlay,
+  scrollEnabled = true,
 }) => {
   // 우선순위: colCount prop > dayLabels.length > 7 (백워드 호환)
   const effectiveColCount = colCount ?? dayLabels?.length ?? DEFAULT_DAYS.length;
@@ -77,7 +81,6 @@ export const Grid: React.FC<GridProps> = ({
 
   const gridBody = (
     <View style={styles.gridBody} onLayout={handleGridBodyLayout}>
-      {overlay}
       {Array.from({ length: ROW_COUNT }).map((_, slotIdx) => {
         const timeLabel = getTimeLabel(slotIdx);
         const rowCells = cells[slotIdx] || [];
@@ -114,6 +117,9 @@ export const Grid: React.FC<GridProps> = ({
           </View>
         );
       })}
+      {/* Overlay 마지막 = 가장 위 layer (cells 위에 떠야 drag rect 보임).
+          이전엔 cells 앞에 렌더돼 셀 배경에 가려져 첫 칸이 안 보이는 회귀가 있었음 (2026-06-05). */}
+      {overlay}
     </View>
   );
 
@@ -146,6 +152,7 @@ export const Grid: React.FC<GridProps> = ({
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
+        scrollEnabled={scrollEnabled}
       >
         {scrollContent}
       </Animated.ScrollView>
@@ -183,11 +190,11 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 14, // 12pt visual cell + 2pt vertical margin (Issue 2)
+    height: 16, // 14pt visual cell + 2pt vertical margin (Issue 2 bump #2)
   },
   timeLabelContainer: {
     width: TIME_COLUMN_WIDTH,
-    height: 14,
+    height: 16,
     justifyContent: 'center',
     alignItems: 'flex-end',
     overflow: 'visible', // allows time header texts to render without cropping

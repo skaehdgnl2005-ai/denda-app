@@ -36,6 +36,13 @@ export interface UseSweepGestureOptions {
   layout: SharedValue<GridLayout>;
   initialSelection?: Record<SlotKey, boolean>;
   onCommit: (slots: VoteSlot[]) => void;
+  /**
+   * drag begin/end 시 호출. caller가 ScrollView scrollEnabled를 toggle해서
+   * sweep 중 부모 ScrollView가 gesture를 가로채는 회귀를 차단 (2026-06-05 Issue 1).
+   * runOnJS bridge로 호출되므로 ~16ms overhead. 첫 touch와 첫 movement 사이에 React
+   * 재렌더가 끼어들 시간이 보통 있어서 충분히 빠름.
+   */
+  onDragStateChange?: (active: boolean) => void;
 }
 
 export interface UseSweepGestureResult {
@@ -51,7 +58,7 @@ export interface UseSweepGestureResult {
 }
 
 export function useSweepGesture(options: UseSweepGestureOptions): UseSweepGestureResult {
-  const { days, layout, initialSelection, onCommit } = options;
+  const { days, layout, initialSelection, onCommit, onDragStateChange } = options;
 
   const selection = useSharedValue<Record<SlotKey, boolean>>(initialSelection ?? {});
   const baseline = useSharedValue<Record<SlotKey, boolean>>(initialSelection ?? {});
@@ -64,6 +71,10 @@ export function useSweepGesture(options: UseSweepGestureOptions): UseSweepGestur
   // panGesture도 매 render마다 재생성 — gesture-handler가 동등성 비교로 처리.
   const jsCommit = (snapshot: Record<SlotKey, boolean>): void => {
     onCommit(selectionToVoteSlots(snapshot, days));
+  };
+
+  const jsSetDragActive = (active: boolean): void => {
+    if (onDragStateChange) onDragStateChange(active);
   };
 
   const panGesture = Gesture.Pan()
@@ -86,6 +97,8 @@ export function useSweepGesture(options: UseSweepGestureOptions): UseSweepGestur
       const add = baseline.value[startKey] !== true;
       toggleAdd.value = add;
       selection.value = applySweepToRecord(baseline.value, start, start, add);
+      // ScrollView가 가로채지 않게 즉시 비활성화 (Issue 1, 2026-06-05)
+      runOnJS(jsSetDragActive)(true);
     })
     .onUpdate((e: { x: number; y: number }) => {
       'worklet';
@@ -99,10 +112,20 @@ export function useSweepGesture(options: UseSweepGestureOptions): UseSweepGestur
     })
     .onEnd(() => {
       'worklet';
-      if (startCoord.value === null) return;
+      if (startCoord.value === null) {
+        // touch만 있고 drag 미달성한 경우에도 ScrollView 재활성 보장
+        runOnJS(jsSetDragActive)(false);
+        return;
+      }
       startCoord.value = null;
       currentCoord.value = null;
       runOnJS(jsCommit)(selection.value);
+      runOnJS(jsSetDragActive)(false);
+    })
+    .onFinalize(() => {
+      // gesture가 cancelled 등으로 끝나도 ScrollView 재활성 (safety net)
+      'worklet';
+      runOnJS(jsSetDragActive)(false);
     });
 
   return { panGesture, selection, scrollOffsetY, startCoord, currentCoord, toggleAdd };

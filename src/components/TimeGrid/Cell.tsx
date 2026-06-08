@@ -60,7 +60,7 @@ const CellComponent: React.FC<CellProps> = ({ state, count, isHeader, label, onP
   return (
     <Pressable
       onPress={onPress}
-      hitSlop={{ top: 16, bottom: 16 }} // expands 12pt height to 44pt touch target (Issue 2)
+      hitSlop={{ top: 15, bottom: 15 }} // expands 14pt height to 44pt touch target (Issue 2 bump #2)
       accessibilityRole="button"
       accessibilityLabel={getAccessibilityLabel()}
       testID={testID}
@@ -88,7 +88,7 @@ const CellComponent: React.FC<CellProps> = ({ state, count, isHeader, label, onP
 
 const styles = StyleSheet.create({
   cell: {
-    height: 12,
+    height: 14,
     flex: 1,
     marginHorizontal: 1,
     marginVertical: 1,
