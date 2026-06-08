@@ -170,9 +170,6 @@ const styles = StyleSheet.create({
   },
   dayHeaderCellContainer: {
     flex: 1,
-    // 셀(marginHorizontal:1)과 동일한 column 중앙 정렬을 위해 같은 마진 적용.
-    // 이전엔 헤더 라벨이 셀 column 중앙에서 1px씩 어긋나 보였음 (2026-06-08).
-    marginHorizontal: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },

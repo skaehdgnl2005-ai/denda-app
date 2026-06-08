@@ -60,7 +60,7 @@ const CellComponent: React.FC<CellProps> = ({ state, count, isHeader, label, onP
   return (
     <Pressable
       onPress={onPress}
-      hitSlop={{ top: 15, bottom: 15 }} // expands 14pt height to 44pt touch target (Issue 2 bump #2)
+      hitSlop={{ top: 14, bottom: 14 }} // 16pt 높이 + 14+14 hitSlop = 44pt 터치 (D9)
       accessibilityRole="button"
       accessibilityLabel={getAccessibilityLabel()}
       testID={testID}
@@ -88,11 +88,13 @@ const CellComponent: React.FC<CellProps> = ({ state, count, isHeader, label, onP
 
 const styles = StyleSheet.create({
   cell: {
-    height: 14,
+    // 2026-06-08: marginH/V:1 + borderRadius:2 조합이 sub-pixel rendering으로
+    // row마다 cell 가장자리가 1px씩 어긋나 zigzag로 보이던 회귀 해소.
+    // cells를 빼곡히 붙이고(margin 0) 직각으로(borderRadius 0) 그려 pixel-perfect.
+    // 셀 구분은 backgroundColor heat 색 차이로만.
+    height: 16,
     flex: 1,
-    marginHorizontal: 1,
-    marginVertical: 1,
-    borderRadius: 2, // smooth subtle corner
+    borderRadius: 0,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'visible', // allow check icon and text to overflow if needed

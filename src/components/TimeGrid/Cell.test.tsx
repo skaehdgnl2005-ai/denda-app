@@ -99,20 +99,20 @@ describe('Cell Component', () => {
     );
   });
 
-  test('defines hitSlop to reach 44pt touch target from 14pt visual height (Issue 2 bump #2)', () => {
+  test('defines hitSlop to reach 44pt touch target from 16pt visual height (alignment fix 2026-06-08)', () => {
     const { getByTestId } = render(
       <Cell state="empty" count={0} isHeader={false} testID="grid-cell" />,
       { wrapper },
     );
     const cell = getByTestId('grid-cell');
-    // 14pt visual + 15+15 hitSlop = 44pt total. D9 spec.
+    // 16pt visual + 14+14 hitSlop = 44pt total. D9 spec.
     const hitSlop = cell.props.hitSlop;
     expect(hitSlop).toBeDefined();
     if (hitSlop) {
-      expect(hitSlop.top).toBeGreaterThanOrEqual(15);
-      expect(hitSlop.bottom).toBeGreaterThanOrEqual(15);
-      // 14pt cell + top + bottom ≥ 44 (D9 touch target)
-      expect(14 + hitSlop.top + hitSlop.bottom).toBeGreaterThanOrEqual(44);
+      expect(hitSlop.top).toBeGreaterThanOrEqual(14);
+      expect(hitSlop.bottom).toBeGreaterThanOrEqual(14);
+      // 16pt cell + top + bottom ≥ 44 (D9 touch target)
+      expect(16 + hitSlop.top + hitSlop.bottom).toBeGreaterThanOrEqual(44);
     }
   });
 
