@@ -19,6 +19,14 @@ const kakaoPlugin: [string, unknown] | null = KAKAO_NATIVE_APP_KEY
     ]
   : null;
 
+// 네이버 지도 플러그인도 Kakao와 동일 — Maps Client ID(placeholder 아님) + MAP_ENABLED 일 때만
+// 포함. 키 없으면 미포함 → 현 빌드 무영향. 키 도착 시 prebuild에서 자동 주입(코드 변경 0). (D38)
+const NAVER_MAP_CLIENT_ID = process.env.EXPO_PUBLIC_NAVER_MAP_CLIENT_ID ?? '';
+const naverMapPlugin: [string, unknown] | null =
+  NAVER_MAP_CLIENT_ID && NAVER_MAP_CLIENT_ID !== 'your-naver-client-id'
+    ? ['@mj-studio/react-native-naver-map', { client_id: NAVER_MAP_CLIENT_ID }]
+    : null;
+
 export default ({ config: _ }: ConfigContext): ExpoConfig => ({
   name: 'denda',
   slug: 'denda',
@@ -82,6 +90,7 @@ export default ({ config: _ }: ConfigContext): ExpoConfig => ({
     'expo-router',
     'expo-secure-store',
     ...(kakaoPlugin ? [kakaoPlugin] : []),
+    ...(naverMapPlugin ? [naverMapPlugin] : []),
     // 카카오 SDK는 자체 Nexus 저장소 (devrepo.kakao.com)에서 제공 — settings.gradle에 추가
     './plugins/withKakaoMaven.js',
     // S15-deeplink (D28) — iOS 14+ ATT(App Tracking Transparency).

@@ -23,7 +23,7 @@
 | 결정일 | 2026-05-21 |
 | 마감 게이트 | **2026-05-28 (W1 deadline)** — Kakao 답변 미수신 시 즉시 Step 16 (backup providers) lane eager 활성 |
 | 의존 | OPEN: Kakao 디벨로퍼스 1:1 문의 2건 답변 |
-| 결과 영향 | S01 (Auth) baseline = D29 OIDC 표준 (Q-A1 closed). S10 (Map) baseline = Kakao Local API (Q-A2 답변 대기). Step 16은 lazy interface 추상화만. Apple 심사 시 Apple ID 추가는 Phase 3 |
+| 결과 영향 | S01 (Auth) baseline = D29 OIDC 표준 (Q-A1 closed). S10 (Map): Q-A2 "허용" 답변 수신(2026-06-01 → [D37](#d37--q-a2-카카오-local-api-약관-허용-답변-수신--kakaolocalprovider-평가-트랙)). 현 primary = D36 NaverSearchProvider, KakaoLocalProvider 평가 트랙 개시(우위 시 교체). Step 16은 lazy interface 추상화만. Apple 심사 시 Apple ID 추가는 Phase 3 |
 | 출처 | ENG_REVIEW §1.2 |
 
 ---
@@ -865,6 +865,36 @@ const BranchAttribution = lazy(() => import('@/lib/branch/attribution'));
 | 의존 | [D1](#d1--kakao-oauth--local-api-정책-verify-track--lazy-backup) (no-answer 액션 명시), [D18](#d18--좌표계-정규화-layer) (좌표 WGS84 정규화 — Naver는 Edge 측 mapx/mapy 변환), [Q-A2](OPEN_QUESTIONS.md#q-a2--kakao-local-api-약관-외부-지도-sdk-위-표시) (답변 미수신 → 본 fallback. 답변 수신 시 KakaoLocalProvider 추가 평가) |
 | 결과 영향 | (1) `supabase/functions/_lib/naver_local.ts` 신규: stripHtmlTags + normalizeNaverCoord(WGS84×10^7 가정) + isPlausibleKoreaWgs84(좌표 format mismatch 안전망) + parseNaverLocalResponse + buildPlaceSearchResults + fetchNaverLocal(fetch DI). (2) `supabase/functions/naver_local_search/index.ts` Edge: POST {query, display?} → auth.getUser(quota 보호) → NAVER_CLIENT_ID/SECRET env → fetch → PlaceSearchResult[]. rate_limit→429("잠시 후 다시"), 그 외 외부 오류→502. (3) `src/lib/places/PlaceSearchProvider.ts` 인터페이스 + `NaverSearchProvider.ts` 클라이언트(invoke). (4) **운영 prereq(별도 트랙)**: NAVER_CLIENT_ID/SECRET 등록 + Edge env set + live API로 좌표 format(WGS84×10^7 vs TM128) 검증(isPlausibleKoreaWgs84가 mismatch 시 마커 제외로 조기 감지) + 지역검색 display 최대 5 한계 수용. (5) S10(지도 화면)이 본 provider를 소비 — S10 unblock 시 viewport debounce/캐싱(D26) + Naver Maps SDK 렌더 wire-up. |
 | 출처 | 본 세션 (2026-05-27) — 사용자 "답변 안 옴 → fallback" 지시. D1 no-answer 액션 실행 |
+
+---
+
+## D37 — Q-A2 카카오 Local API 약관 허용 답변 수신 → KakaoLocalProvider 평가 트랙
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | Q-A2(네이버 지도 위 카카오 Local API 매장 데이터 표시) 카카오 디벨로퍼스 공식 답변 = **허용**(C.L 카카오 인증 계정, ≈2026-05-27 수신: "타사 API와 함께 사용 별도 제한 없음 / 서비스 이용 약관·운영 정책 준수 시 사용 가능 / 카카오맵 SDK 동반은 권고일 뿐 의무 아님"). [D1](#d1--kakao-oauth--local-api-정책-verify-track--lazy-backup) "허용 시" 경로 + [D36](#d36--s16-장소-검색-fallback--naversearchprovider-eager-q-a2-no-answer--edge-proxy) "답변 수신 시 KakaoLocalProvider 추가 평가" 발동. `KakaoLocalProvider`를 동일 `PlaceSearchProvider` 인터페이스 + Edge proxy(`kakao_local_search`, REST key는 Edge env — rule 7) 패턴으로 추가해 NaverSearchProvider와 데이터 quality(카테고리·POI 밀도·display 한계) 비교, **우위 시 primary 교체 / 열위 시 Naver 유지**. 비교 확정 전까지 NaverSearchProvider(D36) primary 유지. |
+| 근거 | (1) D1이 요구한 "Kakao 서면 답변" 충족 — 공식 인증 계정 서면. (2) D36 인터페이스 추상화로 provider 추가 매몰비용 0(caller 무변경). (3) Kakao Local은 stable place ID·카테고리 depth·display(최대 15/page + pagination)에서 네이버 지역검색(안정 ID 없음·display 최대 5)보다 구조적 우위 가능성 → 경험적 평가 가치. (4) 답변 #3 "가급적 카카오 지도와 같이"는 soft 권고지 의무 아님 → Naver Maps SDK 유지가 위반 아님. |
+| 대안 | (a) 즉시 Kakao primary 전환(비교 생략) — 거부: 경험적 검증 없이 커밋. (b) 기록만·Naver 영구 유지 — 거부: D1·D36 명시 평가 경로 포기 + Kakao 데이터 우위 가능성 미활용. (c) 출처표기·표시범위 요건 정책문서 선검증 후 기록 — 보류: 사용자 판단으로 생략(답변 캡처 증빙 보관). |
+| 소유자 | Founder |
+| 결정일 | 2026-06-01 |
+| 의존 | [Q-A2](OPEN_QUESTIONS.md#q-a2--kakao-local-api-약관-외부-지도-sdk-위-표시) (본 답변으로 closed), [D1](#d1--kakao-oauth--local-api-정책-verify-track--lazy-backup), [D36](#d36--s16-장소-검색-fallback--naversearchprovider-eager-q-a2-no-answer--edge-proxy) (인터페이스·Edge proxy·좌표 정규화 재사용 = 평가 트랙 전제), [D18](#d18--좌표계-정규화-layer) (Kakao 좌표 WGS84 정규화), rule 7 (Kakao REST key Edge only) |
+| 결과 영향 | (1) Q-A2 Closed by D37. (2) **신규 코드(평가 트랙·미착수)**: `supabase/functions/_lib/kakao_local.ts` + `kakao_local_search/index.ts` + `src/lib/places/KakaoLocalProvider.ts`(naver_local 미러, TDD). Kakao 키워드검색 `dapi.kakao.com/v2/local/search/keyword.json` — `Authorization: KakaoAK {KAKAO_REST_API_KEY}`, 응답 `documents[]`(x=lng/y=lat WGS84 decimal·stable `id`·`category_name`·`road_address_name`·`phone`). (3) **운영 prereq(별도 트랙·founder)**: NAVER_CLIENT_ID/SECRET는 **이미 Supabase Edge secret 등록 확인됨**(2026-06-01 `supabase secrets list` + placeholder 해시 불일치로 실값 검증 — SESSION_LOG·D36의 "미등록" 기재는 stale). 남은 운영 prereq는 **KAKAO_REST_API_KEY 등록**뿐 — 등록 즉시 live 데이터 quality 비교 가능. 비교 결과로 primary 확정(후속 D 또는 본 D37 갱신). (4) 답변 #2(출처표기 방식)는 직답 없이 정책문서로 갈음 → 미검증, 답변 캡처 증빙 보관. (5) S10·S16 provider 소비 코드 무변경(인터페이스 동일). |
+| 출처 | 본 세션 (2026-06-01) — 카카오 1:1 문의 답변 캡처(C.L 카카오, "5일 전"≈2026-05-27) |
+
+---
+
+## D38 — 지도 렌더 seam = MapHost 단일 경계 + MapScene 계약 + isMapAvailable() env 게이트
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | 네이티브 지도 렌더를 단일 경계 컴포넌트 `MapHost`로 격리. 화면은 순수 `MapScene`(markers/polylines/region) 데이터만 만들어 넘기고, `MapHost`만 `isMapAvailable()`로 분기해 `NaverMapScene`(lazy import — D25) 또는 `MapPlaceholder`를 렌더한다. `isMapAvailable()` = `EXPO_PUBLIC_MAP_ENABLED==='true'` && `EXPO_PUBLIC_NAVER_MAP_CLIENT_ID`가 placeholder 아님. `app.config.ts`의 네이버 플러그인은 키 있을 때만 포함(Kakao 조건부 플러그인 패턴 복제). → 네이버 Client ID 발급 + EAS 빌드 후 env만 켜면 **코드 변경 0으로 점등**(S1 설치+게이트). |
+| 근거 | (1) S10·S15 데이터·로직은 완성·테스트 통과인데 native 렌더만 EAS deferred → 키 없이 검증 가능한 "주변"을 지금 활성화하면서 점등 경로를 staging. (2) 4대 확장(동선·일정/제휴 마커/검색→확정/중간지점)이 동일 렌더 경로(MapScene) 공유 → 일관성·검증 표면 최대. (3) 기존 `MapViewMode` 주석이 의도한 "placeholder 1줄 교체"를 형식화. (4) lazy import로 native 모듈 평가를 지도 진입 시점까지 지연(D25). |
+| 대안 | (a) 화면별 인라인 조건부 — 거부: 2화면×4기능 렌더/마커 로직 중복·DESIGN 일관성 깨짐·재작업. (b) 렌더 전면 보류(리스트-only) — 거부: "키 오면 1-flip 점등" 불가(큰 빌드 회귀). (c) 패키지 비설치 간접화(S2) — 보류: 활성화가 1-flip 아님(설치+와이어링 필요). 속도 우선 방침으로 S1 채택. |
+| 소유자 | Founder |
+| 결정일 | 2026-06-08 |
+| 의존 | [D18](#d18--좌표계-정규화-layer)(좌표 정규화), [D25](#d25--cold-start-target--2초--lazy-loading)(lazy), [D36](#d36--s16-장소-검색-fallback--naversearchprovider-eager-q-a2-no-answer--edge-proxy)·[D37](#d37--q-a2-카카오-local-api-약관-허용-답변-수신--kakaolocalprovider-평가-트랙)(provider), S10·S15(데이터 레이어), [Q-B23](OPEN_QUESTIONS.md)(④ 멤버 위치), [Q-B13](OPEN_QUESTIONS.md#q-b13--제휴-마커-png-export)(② 마커 PNG) |
+| 결과 영향 | 신규 `src/lib/map/{mapScene,mapAvailability}.ts` + `src/components/map/{MapHost,MapPlaceholder,MapLoading,NaverMapScene}.tsx`(+테스트 14). `app/schedule/map.tsx` placeholder→MapHost(① 동선·일정 데이터 연결). `app.config.ts` 조건부 naver 플러그인 + `@mj-studio/react-native-naver-map@2.9.0` 설치. `.env.example` `EXPO_PUBLIC_MAP_ENABLED`. `tsconfig.json` `scripts` 제외(Deno). 설계: [2026-06-08-map-feature-activation-design.md](superpowers/specs/2026-06-08-map-feature-activation-design.md). 운영 prereq(별도 트랙): 네이버 Maps Client ID + Local ID/Secret 등록 + EAS 네이티브 빌드 + 실기기 60fps. ②(제휴 마커) partnership 데이터는 Phase 3(D3) → 시각 capability까지만. |
+| 출처 | 본 세션 (2026-06-08) — 지도 기능 활성화 브레인스토밍 + 통합 로드맵 spec |
 
 ---
 

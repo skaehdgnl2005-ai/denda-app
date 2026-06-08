@@ -14,6 +14,7 @@
     "postinstall": "patch-package"
   },
   "dependencies": {
+    "@mj-studio/react-native-naver-map": "^2.9.0",
     "@react-native-kakao/core": "^2.4.5",
     "@react-native-kakao/user": "^2.4.5",
     "@supabase/supabase-js": "^2.106.1",

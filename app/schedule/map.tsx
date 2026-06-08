@@ -15,8 +15,11 @@ import { useRouter } from 'expo-router';
 import { DateTime } from 'luxon';
 
 import { Icon } from '@/components/Icon';
+import { MapHost } from '@/components/map/MapHost';
+import { MapPlaceholder } from '@/components/map/MapPlaceholder';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
+import { toScheduleScene } from '@/lib/map/mapScene';
 import { fetchConfirmedGroupSchedules } from '@/lib/schedules/groupScheduleQueries';
 import {
   toScheduleMapPoints,
@@ -196,6 +199,7 @@ export default function ScheduleMapScreen(): React.JSX.Element {
         error,
         viewMode,
         visiblePoints,
+        onShowList: () => setViewMode('list'),
         colors,
         space,
         radius,
@@ -209,13 +213,14 @@ interface BodyArgs {
   error: string | null;
   viewMode: ViewMode;
   visiblePoints: ScheduleMapPoint[];
+  onShowList: () => void;
   colors: ReturnType<typeof useTheme>['colors'];
   space: ReturnType<typeof useTheme>['space'];
   radius: ReturnType<typeof useTheme>['radius'];
 }
 
 function renderBody(args: BodyArgs): React.JSX.Element {
-  const { isLoading, error, viewMode, visiblePoints, colors, space, radius } = args;
+  const { isLoading, error, viewMode, visiblePoints, onShowList, colors, space, radius } = args;
 
   if (isLoading) {
     return (
@@ -239,35 +244,13 @@ function renderBody(args: BodyArgs): React.JSX.Element {
     );
   }
   if (viewMode === 'map') {
+    // 지도 렌더 단일 경계(D38). 키+EAS 빌드 도착 시 코드 변경 없이 점등.
+    // 점등 전엔 "리스트로 보기" 유도형 placeholder(fallback).
     return (
-      <View
-        style={[styles.center, { paddingHorizontal: space[6] }]}
-        testID="schedule-map-placeholder"
-      >
-        <View
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: radius.full,
-            backgroundColor: colors.surface[3],
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: space[3],
-          }}
-        >
-          <Icon name="지도" color={colors.text.secondary} size={26} />
-        </View>
-        <Body variant="bold" color={colors.text.primary} style={{ marginBottom: space[1] }}>
-          지도 모드는 준비 중이에요
-        </Body>
-        <Caption
-          variant="default"
-          color={colors.text.tertiary}
-          style={{ textAlign: 'center', lineHeight: 18 }}
-        >
-          정식 앱 빌드가 준비되면{'\n'}모임 일정을 지도 위에 표시해드릴게요.
-        </Caption>
-      </View>
+      <MapHost
+        scene={toScheduleScene(visiblePoints)}
+        fallback={<MapPlaceholder mode="schedule" onShowList={onShowList} />}
+      />
     );
   }
   if (visiblePoints.length === 0) {

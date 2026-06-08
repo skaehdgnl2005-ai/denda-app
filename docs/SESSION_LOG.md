@@ -25,6 +25,18 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S-MAP M0+① — 지도 렌더 활성화 기반(MapHost) + 동선·일정 지도 (2026-06-08) — PARTIAL
+- Depends: D38(신규), S10·S15(데이터 레이어 ✅), D18, D25, Q-B23(신규 close)·Q-B13
+- Changes:
+  - 신규 `src/lib/map/{mapScene,mapAvailability}.ts(+.test)` — `MapScene` 계약 + `toScheduleScene` selector + `isMapAvailable` env 게이트
+  - 신규 `src/components/map/{MapHost,MapPlaceholder,MapLoading,NaverMapScene}.tsx`(+MapHost/MapPlaceholder test) — 단일 경계 + lazy(D25) + "리스트로 보기" 유도 placeholder
+  - `app/schedule/map.tsx` 지도 모드 placeholder → `<MapHost scene={toScheduleScene(visiblePoints)} fallback={MapPlaceholder}>` (① 동선·일정 데이터 연결, 기존 `schedule-map-placeholder` testID 유지)
+  - `@mj-studio/react-native-naver-map@2.9.0` 설치 + `app.config.ts` 조건부 naver 플러그인(`client_id`, Kakao 패턴) + `.env.example` `EXPO_PUBLIC_MAP_ENABLED` + `tsconfig.json` `scripts` 제외(Deno)
+  - 신규 결정 [D38](DECISIONS.md) + [Q-B23](OPEN_QUESTIONS.md) close + 설계 spec `docs/superpowers/specs/2026-06-08-map-feature-activation-design.md`
+- Tests: Jest 933 passed / 1 skipped (신규 14: mapScene 4 + mapAvailability 4 + MapHost 3 + MapPlaceholder 3), typecheck 0, lint 0 errors (31 warnings 모두 기존 untracked `scripts/` Deno)
+- Next: M2 검색→장소 확정(Gate #2) / M3 중간지점+출발지 입력(Q-B23) / M4 제휴 마커 시각(Q-B13, Phase 3 경계)
+- Notes: 별도 feat 브랜치 커밋(이전 세션 미ship 더미와 분리). 네이티브 실렌더·60fps는 EAS 운영 트랙(네이버 Client ID 발급 + 빌드) — env 키 + 빌드로 **코드 변경 0 점등**. ②는 partnership=Phase 3(D3)라 시각 capability까지만. NaverMapScene은 게이트 뒤 lazy라 jest에서 패키지 stub mock + 동기 분기 검증(실 native 렌더는 EAS).
+
 ## S17 — QA + Regression Test Set (코딩 트랙) (2026-05-28) — PARTIAL
 - Depends: Lane A~D 코딩 부분 모두 mature ✅ (DONE 12 + Lane E 7 + IN_PROGRESS 5의 코딩 부분 완성). 운영 트랙(EAS·실기기)은 의존 외.
 - Done (코딩 트랙):

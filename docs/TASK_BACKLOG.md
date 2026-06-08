@@ -213,6 +213,20 @@
 - **Files**: ✅ `src/lib/schedules/{scheduleMapPoint,polyline,timeRangeFilter,groupScheduleQueries}.ts`, ✅ `src/lib/places/MapViewMode.ts`, ✅ `app/schedule/map.tsx`(리스트/지도 토글 + 시간 범위 picker), ✅ `app/(tabs)/index.tsx`(홈 진입 버튼) / ⏸️ native `<MapView mode>` 렌더 — EAS 운영 트랙
 - **Notes**: D2에서 founder가 keep. P5 (B standalone 외부 확장) 검증 가치. S10과 같은 PARTIAL 패턴 — 데이터·로직 레이어 closure → native UI는 EAS Build 운영 트랙. native 합류 시 `app/(tabs)/map.tsx`(또는 새 calendar route)에서 `<MapView mode={mode}>` props로 `useMapSearch` 결과 / `fetchConfirmedGroupSchedules + toScheduleMapPoints + buildPolylineSegments + filterByKstDateRange` 결과 분기만 하면 됨
 
+### S-MAP — 지도 렌더 활성화 (MapHost seam) + 4대 확장
+
+- **Status**: M0+① DONE (2026-06-08) / M2·M3·M4 TODO | **Owner**: Mobile | **Lane**: B
+- **Depends**: [D38](DECISIONS.md#d38--지도-렌더-seam--maphost-단일-경계--mapscene-계약--ismapavailable-env-게이트), S10·S15(데이터 레이어 ✅), D18, D25, Q-B23, Q-B13
+- **설계**: [docs/superpowers/specs/2026-06-08-map-feature-activation-design.md](superpowers/specs/2026-06-08-map-feature-activation-design.md)
+- **Acceptance (M0+① ✅)**:
+  - ✅ `MapScene` 계약 + `toScheduleScene` selector + `isMapAvailable` env 게이트 + `MapHost`/`MapPlaceholder`/`MapLoading`/`NaverMapScene` (+테스트 14)
+  - ✅ `@mj-studio/react-native-naver-map@2.9.0` 설치 + `app.config.ts` 조건부 플러그인(Kakao 패턴, `client_id`) + `.env` `EXPO_PUBLIC_MAP_ENABLED`
+  - ✅ `app/schedule/map.tsx` placeholder→MapHost (① 동선·일정 데이터 연결, 기존 testID 유지)
+  - ✅ jest 933 / typecheck 0 / lint 0 errors
+  - ⏸️ 네이티브 실렌더·60fps·마커/폴리라인 visual — EAS 운영 트랙(네이버 Client ID 발급 + 빌드)
+- **남은 마일스톤**: M2 검색→장소 확정(Gate #2) / M3 중간지점+출발지 입력(Q-B23) / M4 제휴 마커 시각(Q-B13, ②는 partnership=Phase 3 경계라 시각 capability까지만)
+- **Notes**: 활성화 = env 키 + EAS 빌드로 **코드 변경 0 점등**. 별도 feat 브랜치 커밋(이전 세션 미ship 더미와 분리).
+
 ---
 
 ## Lane C — Web Guest
@@ -483,7 +497,7 @@
 
 이 12개는 Sprint 1 시작 전 완료. **태스크 코드 부여 X (인프라 셋업)**.
 
-- [ ] **Kakao Local API 정책 답변 1건** (Q-A2 — D1 W1 deadline) **CRITICAL BLOCKER**. Q-A1 (auth)는 [D29](DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede) closed.
+- [x] **Kakao Local API 정책 답변 1건** (Q-A2) ✅ "허용" 답변 수신 (2026-06-01, [D37](DECISIONS.md#d37--q-a2-카카오-local-api-약관-허용-답변-수신--kakaolocalprovider-평가-트랙)) → KakaoLocalProvider 평가 트랙(S16 Phase b). Q-A1 (auth)는 [D29](DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede) closed.
 - [ ] **Kakao OIDC + Supabase Auth provider 활성화** ([D29](DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede)) — 카카오 portal: 앱 설정 → 카카오 로그인 → OpenID Connect 활성화 ON + `profile_nickname` 동의항목 필수. Supabase dashboard: Authentication → Providers → Kakao Enable + REST API key. 스모크 테스트로 1회 로그인 → `auth.users` 행 생성 확인
 - [x] 새 Supabase project 생성 + RLS skeleton (S00 prep) — schema·RLS·scaffolding 코드 완료 (deploy는 사용자)
 - [ ] Naver Map SDK key 발급
