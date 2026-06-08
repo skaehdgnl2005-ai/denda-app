@@ -881,6 +881,8 @@ const BranchAttribution = lazy(() => import('@/lib/branch/attribution'));
 | 결과 영향 | (1) Q-A2 Closed by D37. (2) **신규 코드(평가 트랙·미착수)**: `supabase/functions/_lib/kakao_local.ts` + `kakao_local_search/index.ts` + `src/lib/places/KakaoLocalProvider.ts`(naver_local 미러, TDD). Kakao 키워드검색 `dapi.kakao.com/v2/local/search/keyword.json` — `Authorization: KakaoAK {KAKAO_REST_API_KEY}`, 응답 `documents[]`(x=lng/y=lat WGS84 decimal·stable `id`·`category_name`·`road_address_name`·`phone`). (3) **운영 prereq(별도 트랙·founder)**: NAVER_CLIENT_ID/SECRET는 **이미 Supabase Edge secret 등록 확인됨**(2026-06-01 `supabase secrets list` + placeholder 해시 불일치로 실값 검증 — SESSION_LOG·D36의 "미등록" 기재는 stale). 남은 운영 prereq는 **KAKAO_REST_API_KEY 등록**뿐 — 등록 즉시 live 데이터 quality 비교 가능. 비교 결과로 primary 확정(후속 D 또는 본 D37 갱신). (4) 답변 #2(출처표기 방식)는 직답 없이 정책문서로 갈음 → 미검증, 답변 캡처 증빙 보관. (5) S10·S16 provider 소비 코드 무변경(인터페이스 동일). |
 | 출처 | 본 세션 (2026-06-01) — 카카오 1:1 문의 답변 캡처(C.L 카카오, "5일 전"≈2026-05-27) |
 
+> ⚠️ **보류 by [D39](#d39--장소-검색-primary--naversearchprovider-확정-kakao-local-보류-카카오맵-심사-반려) (2026-06-08)**: 카카오맵 `OPEN_MAP_AND_LOCAL` 제품 심사 반려 + 출시 우선 → 본 "평가 트랙(우위 시 primary 교체)" 비활성, NaverSearchProvider primary 확정. Kakao 코드는 dormant 보존. Q-A2 ToS "허용"은 유효 — 막힌 건 제품 심사 게이트(별개).
+
 ---
 
 ## D38 — 지도 렌더 seam = MapHost 단일 경계 + MapScene 계약 + isMapAvailable() env 게이트
@@ -895,6 +897,21 @@ const BranchAttribution = lazy(() => import('@/lib/branch/attribution'));
 | 의존 | [D18](#d18--좌표계-정규화-layer)(좌표 정규화), [D25](#d25--cold-start-target--2초--lazy-loading)(lazy), [D36](#d36--s16-장소-검색-fallback--naversearchprovider-eager-q-a2-no-answer--edge-proxy)·[D37](#d37--q-a2-카카오-local-api-약관-허용-답변-수신--kakaolocalprovider-평가-트랙)(provider), S10·S15(데이터 레이어), [Q-B23](OPEN_QUESTIONS.md)(④ 멤버 위치), [Q-B13](OPEN_QUESTIONS.md#q-b13--제휴-마커-png-export)(② 마커 PNG) |
 | 결과 영향 | 신규 `src/lib/map/{mapScene,mapAvailability}.ts` + `src/components/map/{MapHost,MapPlaceholder,MapLoading,NaverMapScene}.tsx`(+테스트 14). `app/schedule/map.tsx` placeholder→MapHost(① 동선·일정 데이터 연결). `app.config.ts` 조건부 naver 플러그인 + `@mj-studio/react-native-naver-map@2.9.0` 설치. `.env.example` `EXPO_PUBLIC_MAP_ENABLED`. `tsconfig.json` `scripts` 제외(Deno). 설계: [2026-06-08-map-feature-activation-design.md](superpowers/specs/2026-06-08-map-feature-activation-design.md). 운영 prereq(별도 트랙): 네이버 Maps Client ID + Local ID/Secret 등록 + EAS 네이티브 빌드 + 실기기 60fps. ②(제휴 마커) partnership 데이터는 Phase 3(D3) → 시각 capability까지만. |
 | 출처 | 본 세션 (2026-06-08) — 지도 기능 활성화 브레인스토밍 + 통합 로드맵 spec |
+
+---
+
+## D39 — 장소 검색 primary = NaverSearchProvider 확정 (Kakao Local 보류, 카카오맵 심사 반려)
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | 장소 검색 데이터 소스 primary = **NaverSearchProvider 확정**(Phase 1+2). [D37](#d37--q-a2-카카오-local-api-약관-허용-답변-수신--kakaolocalprovider-평가-트랙)의 "KakaoLocalProvider 평가 트랙(우위 시 primary 교체)"은 **보류** — 카카오맵 `OPEN_MAP_AND_LOCAL` 제품 심사 **반려** + 출시 우선순위. KakaoLocalProvider·`kakao_local`·`kakao_local_search` 코드는 **dormant**(삭제 X — `PlaceSearchProvider` 인터페이스 뒤 보존, 추후 카카오맵 승인 시 provider 주입 교체로 무비용 재활성). |
+| 근거 | (1) 카카오맵 제품 심사 반려로 Kakao Local 즉시 사용 불가(403 `App disabled OPEN_MAP_AND_LOCAL service`). 재도전은 승인 불확실 + 출시 지연. (2) Naver raw API 검증 완료 — 6쿼리 5/5, 카테고리·주소 채움 100%(2026-06-08 `compare-place-providers`). 출시 데이터 품질 충분. (3) D36 인터페이스 추상화로 Kakao 코드 보존 비용 0 → 폐기보다 dormant가 합리적(재평가 옵션 유지). (4) 출시 timeline > 데이터 소스 최적화(founder 판단). |
+| 대안 | (a) 카카오맵 심사 재도전(스크린샷 보강) — 거부: 출시 지연 + 승인 불확실. (b) Kakao 코드 삭제 — 거부: 인터페이스 뒤 보존이 무비용, 재활성 옵션 상실. (c) Naver+Kakao 병행 — 거부: 미승인 Kakao는 호출 불가(403), 무의미. |
+| 소유자 | Founder |
+| 결정일 | 2026-06-08 |
+| 의존 | [D36](#d36--s16-장소-검색-fallback--naversearchprovider-eager-q-a2-no-answer--edge-proxy)(NaverSearchProvider + 인터페이스), [D37](#d37--q-a2-카카오-local-api-약관-허용-답변-수신--kakaolocalprovider-평가-트랙)(평가 트랙 — 본 결정으로 보류), [Q-A2](OPEN_QUESTIONS.md#q-a2--kakao-local-api-약관-외부-지도-sdk-위-표시)(ToS "허용"은 유효, 제품 심사는 별개 게이트), [D38](#d38--지도-렌더-seam--maphost-단일-경계--mapscene-계약--ismapavailable-env-게이트)(MapHost provider 소비) |
+| 결과 영향 | (1) **출시 prereq**: `naver_local_search` Edge 함수 **배포 필요**(현재 미배포) — NAVER_CLIENT_ID/SECRET은 등록 완료(검증됨). 배포 즉시 앱 장소 검색 동작. (2) Kakao 자산 dormant: `src/lib/places/KakaoLocalProvider.ts`, `supabase/functions/_lib/kakao_local.ts`, `supabase/functions/kakao_local_search/`(ACTIVE 배포돼 있으나 호출 시 403 → 미사용). Supabase `KAKAO_REST_API_KEY` secret 유지 무해. (3) S10·S20·MapHost(D38) provider = NaverSearchProvider 주입, caller 무변경. (4) Kakao 자산은 TDD green 상태로 보존 — 재활성 시 인터페이스 동일이라 즉시 평가 가능. |
+| 출처 | 본 세션 (2026-06-08) — 카카오맵 제품 심사 반려 + founder "출시 우선, Naver로 간다" 결정 |
 
 ---
 

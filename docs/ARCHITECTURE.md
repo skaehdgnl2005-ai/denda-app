@@ -137,7 +137,8 @@ session JWT 발급 + 클라이언트 SecureStore 저장
 
 ### 3.2. Kakao Local API (장소 검색)
 
-→ 의존: [Q-A2](OPEN_QUESTIONS.md#q-a2--kakao-local-api-약관-외부-지도-sdk-위-표시) (D1)
+→ [Q-A2](OPEN_QUESTIONS.md#q-a2--kakao-local-api-약관-외부-지도-sdk-위-표시) ✅ 허용 (Closed by [D37](DECISIONS.md#d37--q-a2-카카오-local-api-약관-허용-답변-수신--kakaolocalprovider-평가-트랙), 2026-06-01) — 현 primary는 D36 NaverSearchProvider, KakaoLocalProvider 평가 트랙
+> ⚠️ proxy 충돌 정리됨([Q-B8](OPEN_QUESTIONS.md#q-b8--카카오-local-api-server-proxy-도입-여부) 참조): **key-secrecy proxy는 rule 7로 강제**(Kakao Local REST key = Edge only) → Kakao Local은 `kakao_local_search` Edge proxy 경유 필수(Naver `naver_local_search`와 동형). 아래 D26 "client debounce"·Q-B8 "cost-proxy 미도입"은 throttling/비용 proxy 얘기로 key 경로와 별개. D37 결과영향 #2 참조.
 
 - 모든 호출에 `?x={lng}&y={lat}` (WGS84) 명시 — [D18](DECISIONS.md#d18--좌표계-정규화-layer)
 - `coords/normalize.ts` 단일 진입점 통과
