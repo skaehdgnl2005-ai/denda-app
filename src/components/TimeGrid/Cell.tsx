@@ -66,7 +66,7 @@ const CellComponent: React.FC<CellProps> = ({ state, count, isHeader, label, onP
         styles.cell,
         {
           backgroundColor,
-          borderColor: colors.border.subtle,
+          borderColor: colors.border.strong,
           opacity: pressed ? 0.8 : 1,
         },
       ]}
@@ -97,8 +97,9 @@ const styles = StyleSheet.create({
     height: 16,
     flex: 1,
     borderRadius: 0,
-    borderRightWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    // hairlineWidth(~0.5dp) + subtle 색은 너무 흐려서 격자 부재로 보임 — 1pt + strong으로 강화.
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'visible',
