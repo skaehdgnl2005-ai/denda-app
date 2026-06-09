@@ -91,6 +91,29 @@ describe('PlaceActionSheet', () => {
     });
   });
 
+  it('동기 더블탭(같은 tick) → onReservationPress 1번만 (Gate #2 click 정확도)', async () => {
+    // 같은 tick에 두 번 press — useState busy 가드만으로는 stale closure로 둘 다 통과할 수 있다.
+    // ref 동기 가드 + native disabled 로 두 번째를 즉시 차단해야 한다 (1 event만 로그).
+    const onReservationPress = jest.fn().mockImplementation(() => new Promise<void>(() => {}));
+    const { getByTestId } = renderSheet({ onReservationPress });
+    const cta = getByTestId('reservation-cta');
+    await act(async () => {
+      fireEvent.press(cta);
+      fireEvent.press(cta);
+    });
+    expect(onReservationPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('inflight 중 reservation-cta·share-cta 비활성(accessibilityState.disabled) — 가짜 affordance 차단', async () => {
+    const onReservationPress = jest.fn().mockImplementation(() => new Promise<void>(() => {}));
+    const { getByTestId } = renderSheet({ onReservationPress });
+    await act(async () => {
+      fireEvent.press(getByTestId('reservation-cta'));
+    });
+    expect(getByTestId('reservation-cta').props.accessibilityState.disabled).toBe(true);
+    expect(getByTestId('share-cta').props.accessibilityState.disabled).toBe(true);
+  });
+
   it('"예약하기" 실패 → 한국어 에러 메시지 노출 + sheet 유지', async () => {
     const onReservationPress = jest
       .fn()

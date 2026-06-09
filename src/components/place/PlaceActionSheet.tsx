@@ -12,7 +12,7 @@
 //   - inflight = ActivityIndicator (CTA disable + 더블 탭 방어)
 //   - 친근체 micro-copy (founder review 대기 — Q-B12 closure 시 본문 교체 가능)
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@/design/theme';
@@ -59,6 +59,9 @@ export const PlaceActionSheet: React.FC<PlaceActionSheetProps> = ({
   const { colors, space, radius, shadow } = useTheme();
   const [busy, setBusy] = useState<BusyState>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // 동기 lock — busy useState는 비동기라 같은 tick 더블탭에 stale closure로 둘 다 통과할 수 있다.
+  // ref로 두 번째 press를 즉시 차단해 "예약하기" click(Gate #2)을 정확히 1회만 로그한다.
+  const lockRef = useRef(false);
 
   if (!visible) return null;
 
@@ -73,7 +76,8 @@ export const PlaceActionSheet: React.FC<PlaceActionSheetProps> = ({
   };
 
   const handleReservation = async (): Promise<void> => {
-    if (isBusy) return;
+    if (lockRef.current || isBusy) return;
+    lockRef.current = true;
     setBusy('reservation');
     setErrorMsg(null);
     try {
@@ -84,11 +88,14 @@ export const PlaceActionSheet: React.FC<PlaceActionSheetProps> = ({
       const message = err instanceof Error ? err.message : '예약을 기록하지 못했어요.';
       setErrorMsg(message);
       setBusy('idle');
+    } finally {
+      lockRef.current = false;
     }
   };
 
   const handleShare = async (): Promise<void> => {
-    if (isBusy) return;
+    if (lockRef.current || isBusy) return;
+    lockRef.current = true;
     setBusy('share');
     setErrorMsg(null);
     try {
@@ -99,6 +106,8 @@ export const PlaceActionSheet: React.FC<PlaceActionSheetProps> = ({
       const message = err instanceof Error ? err.message : '공유에 실패했어요.';
       setErrorMsg(message);
       setBusy('idle');
+    } finally {
+      lockRef.current = false;
     }
   };
 
@@ -197,6 +206,7 @@ export const PlaceActionSheet: React.FC<PlaceActionSheetProps> = ({
                 accessibilityRole="button"
                 accessibilityLabel="예약하기"
                 accessibilityState={{ disabled: isBusy, busy: busy === 'reservation' }}
+                disabled={isBusy}
                 onPress={handleReservation}
                 style={({ pressed }) => [
                   styles.cta,
@@ -227,6 +237,7 @@ export const PlaceActionSheet: React.FC<PlaceActionSheetProps> = ({
                 accessibilityRole="button"
                 accessibilityLabel="장소만 정하기"
                 accessibilityState={{ disabled: isBusy, busy: busy === 'share' }}
+                disabled={isBusy}
                 onPress={handleShare}
                 style={({ pressed }) => [
                   styles.cta,

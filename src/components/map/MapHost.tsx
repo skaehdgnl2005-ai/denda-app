@@ -18,15 +18,17 @@ interface MapHostProps {
   scene: MapScene;
   /** 미제공 시 기본 MapPlaceholder(mode). 화면이 "리스트로 보기" 유도를 주입할 수 있다. */
   fallback?: ReactNode;
+  /** 마커 onPress → actionId (③ 검색→확정 통일). 점등(NaverMapScene) 시에만 활성. */
+  onMarkerPress?: (actionId: string) => void;
 }
 
-export function MapHost({ scene, fallback }: MapHostProps): React.JSX.Element {
+export function MapHost({ scene, fallback, onMarkerPress }: MapHostProps): React.JSX.Element {
   if (!isMapAvailable()) {
     return <>{fallback ?? <MapPlaceholder mode={scene.mode} />}</>;
   }
   return (
     <Suspense fallback={<MapLoading />}>
-      <NaverMapScene scene={scene} />
+      <NaverMapScene scene={scene} onMarkerPress={onMarkerPress} />
     </Suspense>
   );
 }

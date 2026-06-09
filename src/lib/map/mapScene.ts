@@ -6,6 +6,7 @@
 
 import type { Wgs84Coord } from '@/lib/coords/normalize';
 import type { MapViewMode } from '@/lib/places/MapViewMode';
+import type { PlaceSearchResult } from '@/lib/places/PlaceSearchProvider';
 import { buildPolylineSegments, type PolylineSegment } from '@/lib/schedules/polyline';
 import type { ScheduleMapPoint } from '@/lib/schedules/scheduleMapPoint';
 
@@ -55,4 +56,24 @@ export function toScheduleScene(points: ScheduleMapPoint[]): MapScene {
     segments.length > 0 ? [{ segments, style: 'dashed-brand' }] : [];
 
   return { mode: 'schedule', markers, polylines };
+}
+
+/**
+ * ③ 검색→장소 확정 — PlaceSearchResult[] → MapScene (place 마커).
+ *
+ * `actionId = providerPlaceId` — 리스트 keyExtractor·마커 onPress가 같은 식별자를 쓴다.
+ * 화면은 actionId로 결과를 resolve(findResultByActionId)해 동일 확정 액션으로 수렴시킨다.
+ * 검색 마커는 동선이 아니므로 폴리라인 없음. 제휴 강조(emphasized)는 Phase 3(D3) 경계 →
+ * 미설정 (M4 시각 capability에서 다룸).
+ */
+export function toSearchScene(results: PlaceSearchResult[]): MapScene {
+  const markers: MapMarker[] = results.map((r) => ({
+    id: r.providerPlaceId,
+    coord: { lat: r.lat, lng: r.lng },
+    kind: 'place',
+    label: r.name,
+    actionId: r.providerPlaceId,
+  }));
+
+  return { mode: 'search', markers, polylines: [] };
 }

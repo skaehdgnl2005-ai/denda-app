@@ -25,6 +25,18 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S-MAP M2 — 검색→장소 확정 (Gate #2 click 정확도) + 마커 actionId 통일 (2026-06-09) — DONE
+- Depends: D38·S-MAP M0+①(✅), S20(place-search/persist/setConfirmedPlace ✅), S08(place.tsx/PlaceActionSheet/logReservationClick ✅), D18·D25(✅) — 모두 충족
+- Changes:
+  - 신규 `src/lib/places/usePlaceConfirmAction.ts`(+78) + `.test.tsx`(+110, Jest 7) — **단일 확정 액션 훅(persist→setConfirmedPlace→onConfirmed) + useRef 동기 lock(같은 tick 더블탭 → 정확히 1 event)** + `findResultByActionId`(마커 actionId=providerPlaceId → 결과 resolve)
+  - `src/lib/map/mapScene.ts`(+24) + `.test.ts`(+57, Jest 5) — `toSearchScene(results)` selector(mode='search', place 마커, actionId=providerPlaceId, 폴리라인 0, ②제휴=Phase 3라 emphasized 미설정)
+  - `src/components/place/PlaceActionSheet.tsx`(+14/-6) + `.test.tsx`(+27, Jest 2) — Gate #2 "예약하기" 클릭 idempotency 강화: **useRef 동기 가드 + Pressable `disabled` prop**(네이티브 게이팅). red 단계서 동기 더블탭 = `onReservationPress` 2회 호출 확인 → 1회로 수정
+  - `src/components/map/NaverMapScene.tsx`(+11/-6) + `MapHost.tsx`(+5) — `onMarkerPress?(actionId)` wire(마커 `onTap`→actionId). 점등 시에만 활성(staging)
+  - `app/group/[id]/place-search.tsx`(rewrite) + `tests/screens/group/place-search.test.tsx`(+57, Jest 1) — 훅 적용 + `MapHost(toSearchScene(results), onMarkerPress=handleMarkerAction, fallback=리스트)`. **리스트 카드 탭과 (점등 시) 마커 onPress가 같은 requestConfirm으로 수렴**(MapHost stub mock으로 화면 레벨 통일 검증). 기존 testID·9 테스트 유지
+- Tests: Jest **948 passed / 1 skipped**(933→+15: mapScene 5 + 훅 7 + PlaceActionSheet 2 + place-search 1), typecheck 0, eslint 0 errors(src+app). design-guard 핵심 4(DESIGN 토큰·RLS·KST·secret) CLEAR — 신규 hex 0 / `new Date()` 0 / 영문 라벨 0 / secret 클라 expose 0
+- Next: M3(중간지점+출발지 입력 Q-B23) → M4(제휴 마커 시각 Q-B13, Phase 3 경계)
+- Notes: branch `feat/map-maphost-m0` 연속(이전 세션 미ship 더미 미접촉). 키 없이 mock 검증(isMapAvailable=false 기본) — 라이브 검색·네이티브 마커 렌더는 EAS 운영 트랙(env 키+빌드로 코드 변경 0 점등). **핵심 발견**: 기존 useState busy 가드는 같은-tick 동기 더블탭에 stale closure로 둘 다 통과(Gate #2 클릭 2회 로그 가능) → useRef 동기 lock으로 해소. 확정 commit 단일화(usePlaceConfirmAction)로 리스트·마커 진입 모두 1 event 보장. S-MAP 전체는 M3·M4 잔여로 IN_PROGRESS 유지.
+
 ## S-MAP M0+① — 지도 렌더 활성화 기반(MapHost) + 동선·일정 지도 (2026-06-08) — PARTIAL
 - Depends: D38(신규), S10·S15(데이터 레이어 ✅), D18, D25, Q-B23(신규 close)·Q-B13
 - Changes:

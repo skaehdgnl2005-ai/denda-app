@@ -18,9 +18,14 @@ import type { MapScene } from '@/lib/map/mapScene';
 
 interface NaverMapSceneProps {
   scene: MapScene;
+  /** 마커 onPress → actionId로 화면이 확정/상세 라우팅 (③ 검색→확정 통일, 리스트 탭과 동일 액션). */
+  onMarkerPress?: (actionId: string) => void;
 }
 
-export default function NaverMapScene({ scene }: NaverMapSceneProps): React.JSX.Element {
+export default function NaverMapScene({
+  scene,
+  onMarkerPress,
+}: NaverMapSceneProps): React.JSX.Element {
   const { colors } = useTheme();
 
   return (
@@ -38,17 +43,21 @@ export default function NaverMapScene({ scene }: NaverMapSceneProps): React.JSX.
           />
         )),
       )}
-      {scene.markers.map((m) => (
-        <NaverMapMarkerOverlay
-          key={m.id}
-          latitude={m.coord.lat}
-          longitude={m.coord.lng}
-          caption={
-            m.label !== undefined ? { text: m.label, color: colors.text.primary } : undefined
-          }
-          tintColor={m.emphasized === true ? colors.brand[500] : colors.brand[600]}
-        />
-      ))}
+      {scene.markers.map((m) => {
+        const { actionId } = m;
+        return (
+          <NaverMapMarkerOverlay
+            key={m.id}
+            latitude={m.coord.lat}
+            longitude={m.coord.lng}
+            caption={
+              m.label !== undefined ? { text: m.label, color: colors.text.primary } : undefined
+            }
+            tintColor={m.emphasized === true ? colors.brand[500] : colors.brand[600]}
+            onTap={actionId !== undefined ? () => onMarkerPress?.(actionId) : undefined}
+          />
+        );
+      })}
     </NaverMapView>
   );
 }

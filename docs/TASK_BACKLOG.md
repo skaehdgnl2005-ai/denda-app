@@ -215,7 +215,7 @@
 
 ### S-MAP — 지도 렌더 활성화 (MapHost seam) + 4대 확장
 
-- **Status**: M0+① DONE (2026-06-08) / M2·M3·M4 TODO | **Owner**: Mobile | **Lane**: B
+- **Status**: M0+①·M2 DONE (M2 2026-06-09) / M3·M4 TODO | **Owner**: Mobile | **Lane**: B
 - **Depends**: [D38](DECISIONS.md#d38--지도-렌더-seam--maphost-단일-경계--mapscene-계약--ismapavailable-env-게이트), S10·S15(데이터 레이어 ✅), D18, D25, Q-B23, Q-B13
 - **설계**: [docs/superpowers/specs/2026-06-08-map-feature-activation-design.md](superpowers/specs/2026-06-08-map-feature-activation-design.md)
 - **Acceptance (M0+① ✅)**:
@@ -224,7 +224,13 @@
   - ✅ `app/schedule/map.tsx` placeholder→MapHost (① 동선·일정 데이터 연결, 기존 testID 유지)
   - ✅ jest 933 / typecheck 0 / lint 0 errors
   - ⏸️ 네이티브 실렌더·60fps·마커/폴리라인 visual — EAS 운영 트랙(네이버 Client ID 발급 + 빌드)
-- **남은 마일스톤**: M2 검색→장소 확정(Gate #2) / M3 중간지점+출발지 입력(Q-B23) / M4 제휴 마커 시각(Q-B13, ②는 partnership=Phase 3 경계라 시각 capability까지만)
+- **Acceptance (M2 ✅ 2026-06-09)**:
+  - ✅ `usePlaceConfirmAction` 훅(단일 확정 액션 + useRef 동기 lock) + `findResultByActionId` — 같은 tick 더블탭 → persist·setConfirmedPlace·navigate 정확히 1회 (Gate #1·#2 click 정확도)
+  - ✅ `toSearchScene(results)` selector — ③ actionId=providerPlaceId 계약 (폴리라인 0, ②제휴=Phase 3라 emphasized 미설정)
+  - ✅ `PlaceActionSheet` "예약하기"(Gate #2 실측 클릭) idempotency 강화 — useRef 가드 + Pressable `disabled`(네이티브 게이팅). red서 동기 더블탭 2회 호출 확인 → 1회
+  - ✅ `NaverMapScene`/`MapHost` `onMarkerPress(actionId)` wire + `place-search.tsx` MapHost(searchScene) — 리스트 탭·마커 onPress 동일 confirm 수렴 (점등 시 staging)
+  - ✅ jest 948 / typecheck 0 / eslint 0. 키 없이 mock 검증(isMapAvailable=false)
+- **남은 마일스톤**: M3 중간지점+출발지 입력(Q-B23) / M4 제휴 마커 시각(Q-B13, ②는 partnership=Phase 3 경계라 시각 capability까지만)
 - **Notes**: 활성화 = env 키 + EAS 빌드로 **코드 변경 0 점등**. 별도 feat 브랜치 커밋(이전 세션 미ship 더미와 분리).
 
 ---

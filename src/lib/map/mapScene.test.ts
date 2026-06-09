@@ -1,5 +1,6 @@
-import { toScheduleScene } from './mapScene';
+import { toScheduleScene, toSearchScene } from './mapScene';
 import type { ScheduleMapPoint } from '@/lib/schedules/scheduleMapPoint';
+import type { PlaceSearchResult } from '@/lib/places/PlaceSearchProvider';
 
 function pt(order: number, lat: number, lng: number): ScheduleMapPoint {
   return {
@@ -43,6 +44,57 @@ describe('toScheduleScene', () => {
 
   test('빈 입력 → 빈 scene', () => {
     const scene = toScheduleScene([]);
+    expect(scene.markers).toHaveLength(0);
+    expect(scene.polylines).toHaveLength(0);
+  });
+});
+
+function result(name: string, lat: number, lng: number): PlaceSearchResult {
+  return {
+    providerPlaceId: `naver:${name}:${lat}:${lng}`,
+    name,
+    category: '한식',
+    address: `서울 ${name}`,
+    lat,
+    lng,
+    phone: null,
+    source: 'naver',
+  };
+}
+
+describe('toSearchScene (③ 검색→확정 마커 actionId 계약)', () => {
+  test('mode=search + 결과마다 place 마커(label=name, actionId=providerPlaceId, coord)', () => {
+    const scene = toSearchScene([result('한솥', 37.58, 127.03), result('김밥천국', 37.59, 127.02)]);
+    expect(scene.mode).toBe('search');
+    expect(scene.markers).toHaveLength(2);
+    expect(scene.markers[0]).toMatchObject({
+      id: 'naver:한솥:37.58:127.03',
+      kind: 'place',
+      label: '한솥',
+      actionId: 'naver:한솥:37.58:127.03',
+    });
+    expect(scene.markers[0]?.coord).toEqual({ lat: 37.58, lng: 127.03 });
+  });
+
+  test('actionId === providerPlaceId (리스트 keyExtractor·마커 onPress 단일 식별자)', () => {
+    const r = result('스타벅스', 37.5, 127.0);
+    const scene = toSearchScene([r]);
+    expect(scene.markers[0]?.actionId).toBe(r.providerPlaceId);
+  });
+
+  test('검색 마커는 폴리라인 없음 (동선 아님)', () => {
+    const scene = toSearchScene([result('한솥', 37.58, 127.03), result('김밥천국', 37.59, 127.02)]);
+    expect(scene.polylines).toHaveLength(0);
+  });
+
+  test('② 제휴=Phase 3 경계 → emphasized 미설정 (시각 강조 없음)', () => {
+    const scene = toSearchScene([result('한솥', 37.58, 127.03)]);
+    expect(scene.markers[0]?.emphasized).toBeUndefined();
+  });
+
+  test('빈 결과 → 빈 scene', () => {
+    const scene = toSearchScene([]);
+    expect(scene.mode).toBe('search');
     expect(scene.markers).toHaveLength(0);
     expect(scene.polylines).toHaveLength(0);
   });

@@ -37,6 +37,38 @@ jest.mock('@/lib/groups/setConfirmedPlace', () => ({
   setConfirmedPlace: (...args: unknown[]) => mockSetConfirmedPlace(...args),
 }));
 
+// MapHost stub — 점등(native) 없이 마커 onPress(actionId) 통일을 검증하기 위해 fallback(리스트)을
+// 그대로 렌더하고, scene.markers마다 onMarkerPress를 호출하는 Pressable을 노출한다.
+/* eslint-disable @typescript-eslint/no-require-imports -- jest.mock 팩토리 hoisting */
+jest.mock('@/components/map/MapHost', () => {
+  const ReactMod = require('react');
+  const { Pressable } = require('react-native');
+  return {
+    MapHost: ({
+      scene,
+      onMarkerPress,
+      fallback,
+    }: {
+      scene: { markers: { id: string; actionId?: string }[] };
+      onMarkerPress?: (actionId: string) => void;
+      fallback?: React.ReactNode;
+    }) =>
+      ReactMod.createElement(
+        ReactMod.Fragment,
+        null,
+        fallback,
+        scene.markers.map((m) =>
+          ReactMod.createElement(Pressable, {
+            key: m.id,
+            testID: `marker-${m.actionId}`,
+            onPress: () => m.actionId !== undefined && onMarkerPress?.(m.actionId),
+          }),
+        ),
+      ),
+  };
+});
+/* eslint-enable @typescript-eslint/no-require-imports */
+
 const sampleResult: PlaceSearchResult = {
   providerPlaceId: 'naver:한솥도시락 안암점:37.123:127.456',
   name: '한솥도시락 안암점',
@@ -189,5 +221,27 @@ describe('PlaceSearchScreen', () => {
     const { getByTestId } = render(<PlaceSearchScreen />, { wrapper });
     fireEvent.press(getByTestId('back-button'));
     expect(mockBack).toHaveBeenCalled();
+  });
+
+  test('지도 마커 onPress(actionId) → 리스트 탭과 동일 확정 액션 (M2 통일)', async () => {
+    mockState.results = [sampleResult];
+    mockState.query = '한솥';
+    mockPersistPlace.mockResolvedValue('place-uuid');
+    mockSetConfirmedPlace.mockResolvedValue(undefined);
+
+    const alertSpy = autoConfirmAlert('확정');
+    const { getByTestId } = render(<PlaceSearchScreen />, { wrapper });
+
+    // 마커 actionId = providerPlaceId → findResultByActionId → requestConfirm → confirm.
+    await act(async () => {
+      fireEvent.press(getByTestId(`marker-${sampleResult.providerPlaceId}`));
+    });
+
+    await waitFor(() => {
+      expect(mockPersistPlace).toHaveBeenCalledWith(sampleResult);
+      expect(mockSetConfirmedPlace).toHaveBeenCalledWith('g-1', 'place-uuid');
+      expect(mockReplace).toHaveBeenCalledWith('/group/g-1/place?placeId=place-uuid');
+    });
+    alertSpy.mockRestore();
   });
 });
