@@ -27,14 +27,10 @@ const CellComponent: React.FC<CellProps> = ({ state, count, isHeader, label, onP
     );
   }
 
-  // Map state to background color
+  // Map state to background color.
+  // 모든 cell의 outer box layout은 동일 (height 16 + right/bottom hairline divider만).
+  // self 강조는 inner absolute View ring으로 — outer box layout을 깨지 않아 정렬 유지.
   let backgroundColor: string = colors.heat[0]; // default 'empty' or 'heat-0'
-  // 격자 divider: 모든 cell의 right+bottom에 hairline (border.subtle). self는 4면 보라 2pt.
-  let borderColor: string = colors.border.subtle;
-  let borderRightWidth: number = StyleSheet.hairlineWidth;
-  let borderBottomWidth: number = StyleSheet.hairlineWidth;
-  let borderTopWidth = 0;
-  let borderLeftWidth = 0;
 
   if (state === 'heat-1') {
     backgroundColor = colors.heat[1];
@@ -46,11 +42,6 @@ const CellComponent: React.FC<CellProps> = ({ state, count, isHeader, label, onP
     backgroundColor = colors.heat[4];
   } else if (state === 'self') {
     backgroundColor = colors.brand[50];
-    borderColor = colors.brand[500];
-    borderTopWidth = 2;
-    borderRightWidth = 2;
-    borderBottomWidth = 2;
-    borderLeftWidth = 2;
   }
 
   // Accessibility Label
@@ -75,22 +66,24 @@ const CellComponent: React.FC<CellProps> = ({ state, count, isHeader, label, onP
         styles.cell,
         {
           backgroundColor,
-          borderColor,
-          borderTopWidth,
-          borderRightWidth,
-          borderBottomWidth,
-          borderLeftWidth,
+          borderColor: colors.border.subtle,
           opacity: pressed ? 0.8 : 1,
         },
       ]}
     >
       {state === 'self' && (
-        <View style={styles.selfContent}>
-          <Icon name="확정" size={10} color={colors.brand[500]} />
-          <Caption variant="micro" tabularNums color={colors.brand[500]} style={styles.countText}>
-            {count.toString()}
-          </Caption>
-        </View>
+        <>
+          <View
+            style={[styles.selfRing, { borderColor: colors.brand[500] }]}
+            pointerEvents="none"
+          />
+          <View style={styles.selfContent}>
+            <Icon name="확정" size={10} color={colors.brand[500]} />
+            <Caption variant="micro" tabularNums color={colors.brand[500]} style={styles.countText}>
+              {count.toString()}
+            </Caption>
+          </View>
+        </>
       )}
     </Pressable>
   );
@@ -98,16 +91,25 @@ const CellComponent: React.FC<CellProps> = ({ state, count, isHeader, label, onP
 
 const styles = StyleSheet.create({
   cell: {
-    // 2026-06-08: marginH/V:1 + borderRadius:2 조합이 sub-pixel rendering으로
-    // row마다 cell 가장자리가 1px씩 어긋나 zigzag로 보이던 회귀 해소.
-    // cells를 빼곡히 붙이고(margin 0) 직각으로(borderRadius 0) 그려 pixel-perfect.
-    // 셀 구분은 backgroundColor heat 색 차이로만.
+    // 2026-06-08: 모든 cells가 동일한 outer box layout — height 16 + right/bottom
+    // hairline divider만. self 강조는 inner selfRing absolute View로 옮겨
+    // outer borderWidth가 cells마다 다르지 않도록 (정렬 회귀 해소).
     height: 16,
     flex: 1,
     borderRadius: 0,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     justifyContent: 'center',
     alignItems: 'center',
-    overflow: 'visible', // allow check icon and text to overflow if needed
+    overflow: 'visible',
+  },
+  selfRing: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    borderWidth: 2,
   },
   headerCell: {
     height: 44,

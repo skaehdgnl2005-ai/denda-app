@@ -75,16 +75,13 @@ describe('Cell Component', () => {
     );
     const cell = getByTestId('grid-cell');
 
-    // Self state should have brand-50 background and brand-500 4-side 2pt border
+    // Self state should have brand-50 background. Outer border is same hairline as
+    // other cells (격자 divider 유지). brand-500 강조 ring은 inner absolute View로
+    // 분리되어 outer box layout을 깨지 않음 (2026-06-08 정렬 회귀 fix).
     expect(cell.props.style).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           backgroundColor: tokens.light.brand[50],
-          borderColor: tokens.light.brand[500],
-          borderTopWidth: 2,
-          borderRightWidth: 2,
-          borderBottomWidth: 2,
-          borderLeftWidth: 2,
         }),
       ]),
     );
