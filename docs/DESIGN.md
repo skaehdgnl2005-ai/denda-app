@@ -473,12 +473,14 @@ hover (X):      모바일이라 없음
 ### 10.2. 제휴 마커
 
 ```
-shape:    PNG 래스터 (Naver SDK 제약)
+shape:    children 커스텀 뷰 (RN View, NaverMapMarkerOverlay children) — D40, PNG 래스터 대체
 size:     비제휴 마커의 1.4배 (1.5배 너무 큼)
 color:    brand-500 (다크: brand-500 다크)
-inner:    2pt 흰 stroke (다크: 0F0F12 stroke)
+inner:    2pt 흰 stroke (다크: 0F0F12 stroke) — surface-0 토큰으로 자동 (라이트 흰/다크 0F0F12)
 state - selected: scale 1.15 (medium duration, emphasized easing)
 ```
+
+> **D40 (2026-06-09)**: 마커는 PNG 에셋(Q-B13) 대신 `MapMarkerView`(brand-500 원 + 흰 inner stroke + order 숫자)를 `NaverMapMarkerOverlay`의 children으로 넘겨 렌더. 네이티브가 RN 뷰를 래스터화 → 색·크기·stroke를 DESIGN 토큰으로 직접 제어, PNG 불필요. ("Naver SDK SVG 불가"는 유효하나 children 래스터화로 우회.)
 
 ### 10.3. 예약 바텀시트 (5.7)
 

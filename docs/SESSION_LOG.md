@@ -25,6 +25,19 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S-MAP M4-marker — 지도 마커 보라톤 커스텀 뷰 (PNG 대체, D40) (2026-06-09) — DONE
+- Depends: D38·M4(✅), DESIGN §10.2/§10.5/§12.6, Q-B13(본 작업으로 close) — 충족
+- 배경: M4 후속 실기기 검증 중 마커가 **teal**로 렌더됨 발견 — 네이버 기본 `image={{symbol:'green'}}`라 tintColor 미적용. founder "PNG 구하지 말고 보라톤 맞는 걸로 만들어줘".
+- Changes:
+  - src/components/map/MapMarkerView.tsx (신규, +56) — `NaverMapMarkerOverlay` children 커스텀 뷰. brand-500 원 + 흰 inner stroke(surface-0, 다크 0F0F12 자동) 2pt + order 숫자(§10.5) + 제휴 1.4× 강조(§10.2, markerVisual). 색 토큰만.
+  - src/components/map/MapMarkerView.test.tsx (신규, Jest 5) — brand-500 fill / 흰 stroke / 원형 / 제휴 1.4× / order 숫자 / hex 0
+  - src/components/map/NaverMapScene.tsx (+13/-14) — children에 MapMarkerView wire(tintColor/image/width/height 제거), anchor 0.5/0.5 중심, order는 caption 생략(숫자 원 안)/place·제휴는 장소명 caption
+  - docs/DECISIONS.md (D40 신규), docs/DESIGN.md (§10.2 "PNG 래스터"→children 뷰), docs/OPEN_QUESTIONS.md (Q-B13 close), .claude/rules/design.md (커스텀 아이콘 6→5, 제휴 마커 PNG 제거)
+- Tests: Jest **1000 + 1 skip** (995→+5), typecheck 0, eslint 0
+- 검증: 에뮬레이터 실기기 — `naver_local_search` Edge 배포 후 place-search "starbucks" 검색 → 보라 마커(흰 ring) 렌더 확인(teal 제거). 네이티브 빌드 불필요(JS Fast Refresh).
+- Next: 마커 비주얼 완료. 출시 준비(S17 QA / 안암) 또는 추가 폴리시.
+- Notes: **Q-B13 제휴 마커 PNG 의존 제거** — 디자인 자산 1건 닫힘. D40으로 DESIGN §10.2 "PNG 래스터(Naver SDK 제약)" 가정 무효화(children 래스터화 우회). design-guard CRITICAL 4 CLEAR(신규 hex 0 / new Date() 0 / RLS 0 / secret 0). branch `feat/map-maphost-m0` 연속.
+
 ## S-MAP M4 — 제휴 마커 시각 capability (② emphasized 마커 + 제휴 배지, Q-B13) (2026-06-09) — DONE
 - Depends: D38·S-MAP M0+①·M2·M3(✅), D3(partnerships only schema — 데이터 연동은 Phase 3 경계), D5(Purple Discipline — 제휴 강조 정당), Q-B13(PNG 에셋 = 점등 운영 트랙) — 모두 충족
 - Changes:

@@ -915,6 +915,21 @@ const BranchAttribution = lazy(() => import('@/lib/branch/attribution'));
 
 ---
 
+## D40 — 지도 마커 = NaverMapMarkerOverlay children 커스텀 뷰 (PNG 래스터 대체)
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | 네이버 지도 마커를 **PNG 래스터 에셋 대신 `NaverMapMarkerOverlay`의 children(RN 커스텀 뷰)로 렌더**한다. `MapMarkerView`(brand-500 원 + 흰 inner stroke 2pt + order 숫자)를 children으로 넘기면 네이티브가 래스터화 → 색·크기·stroke를 DESIGN 토큰으로 직접 제어. DESIGN §10.2의 "PNG 래스터(Naver SDK 제약)" 가정을 **무효화** — `@mj-studio/react-native-naver-map`은 children 마커를 지원. |
+| 근거 | (1) 기본 `image={{symbol:'green'}}` 프리셋이라 tintColor로도 브랜드 보라톤이 안 나옴(실기기서 teal 확인). (2) children 뷰 = DESIGN 토큰 직접 적용 → brand-500/흰 stroke/숫자 배지를 코드로 정확히 구현(§10.5·§10.2·§12.6). (3) **PNG 에셋(Q-B13) 의존 제거** — 디자인 1.5x/2x/3x export 대기 없이 출시 가능, 다크모드 stroke(surface-0)도 토큰으로 자동. (4) 실기기 검증 완료(2026-06-09 에뮬레이터 — starbucks 검색 → 보라 마커 렌더). |
+| 대안 | (a) PNG 래스터 에셋(원안 §10.2) — 거부: 에셋 export 대기 + 동적 숫자 배지 불가 + 다크모드 별도 에셋 + Q-B13 블로커. (b) tintColor on symbol — 거부: symbol 프리셋 색만(보라 없음), 실기기서 미적용 확인. (c) `image={require(png)}` — 거부: (a)와 동일 + 동적성 상실. |
+| 소유자 | Founder (2026-06-09 "PNG 구하지 말고 보라톤 맞는 걸로 만들어줘") |
+| 결정일 | 2026-06-09 |
+| 의존 | [D38](#d38--지도-렌더-seam--maphost-단일-경계--mapscene-계약--ismapavailable-env-게이트)(MapHost/NaverMapScene seam), [Q-B13](OPEN_QUESTIONS.md#q-b13--제휴-마커-png-export)(본 결정으로 close — PNG 불필요), DESIGN §10.2/§10.5/§12.6(토큰 적용) |
+| 결과 영향 | (1) `src/components/map/MapMarkerView.tsx`(신규) + `NaverMapScene.tsx`(children wire, tintColor/image/width/height 제거). (2) **Q-B13 close** — 제휴 마커 PNG export 불필요(디자인 자산 1건 제거). (3) DESIGN §10.2 "PNG 래스터" → "children 커스텀 뷰(토큰)" 갱신. (4) rules/design.md 6 커스텀 아이콘 목록서 "제휴 마커 PNG" 제거. (5) order 마커 숫자(§10.5) + 제휴 1.4× 강조(§10.2) 모두 코드로 구현 — 점등 시 코드 변경 0. (6) inner stroke = surface-0(라이트 흰/다크 0F0F12) 토큰으로 다크모드 §10.2 자동 충족. |
+| 출처 | 본 세션 (2026-06-09) — S-MAP M4 후속 실기기 검증 중 teal 마커 발견 → founder "PNG 없이 보라톤" 지시 → @mj-studio children 마커 지원 확인 |
+
+---
+
 ## 향후 결정 추가 템플릿
 
 새 결정을 추가할 때 다음 형식을 복사:

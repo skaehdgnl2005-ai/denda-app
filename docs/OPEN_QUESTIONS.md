@@ -164,7 +164,7 @@
 - **질문**: 제휴 마커 1.5x/2x/3x PNG (Naver SDK SVG 불가 — D8 명시)
 - **소유자**: Design
 - **마감**: Sprint 0
-- **상태**: 미export
+- **상태**: ✅ **Closed by [D40](DECISIONS.md#d40--지도-마커--navermapmarkeroverlay-children-커스텀-뷰-png-래스터-대체) (2026-06-09)** — PNG 불필요. `@mj-studio/react-native-naver-map`이 children 커스텀 뷰 마커를 지원 → `MapMarkerView`(brand-500 + 흰 stroke + 숫자)를 DESIGN 토큰으로 직접 렌더. "Naver SDK SVG 불가"는 맞으나 children 래스터화로 우회(PNG도 SVG도 불필요). 실기기 검증 완료.
 
 ### Q-B14 — 3-슬라이드 온보딩 모션
 - **출처**: DESIGN §14 D-ONBOARD-MOTION
