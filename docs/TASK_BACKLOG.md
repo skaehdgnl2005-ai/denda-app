@@ -215,7 +215,7 @@
 
 ### S-MAP — 지도 렌더 활성화 (MapHost seam) + 4대 확장
 
-- **Status**: M0+①·M2·M3 DONE (M3 2026-06-09) / M4 TODO | **Owner**: Mobile | **Lane**: B
+- **Status**: **DONE** (M0+①·M2·M3·M4 전부 2026-06-09 — 코딩 트랙 종착, 운영 트랙[키·EAS·에셋]만 잔여) | **Owner**: Mobile | **Lane**: B
 - **Depends**: [D38](DECISIONS.md#d38--지도-렌더-seam--maphost-단일-경계--mapscene-계약--ismapavailable-env-게이트), S10·S15(데이터 레이어 ✅), D18, D25, Q-B23, Q-B13
 - **설계**: [docs/superpowers/specs/2026-06-08-map-feature-activation-design.md](superpowers/specs/2026-06-08-map-feature-activation-design.md)
 - **Acceptance (M0+① ✅)**:
@@ -238,8 +238,15 @@
   - ✅ PIPA: privacy.tsx §1 "기기 내 보관(서버 미전송)" 1줄
   - ✅ jest 978 / typecheck 0 / eslint 0. design-guard CRITICAL 4 CLEAR
   - ⏸️ 네이티브 핀(중간점·출발지) 렌더 — EAS 운영 트랙(키 없이 MapHost fallback로 검증)
-- **남은 마일스톤**: M4 제휴 마커 시각(Q-B13, ②는 partnership=Phase 3 경계라 시각 capability까지만)
-- **Notes**: 활성화 = env 키 + EAS 빌드로 **코드 변경 0 점등**. 별도 feat 브랜치 커밋(이전 세션 미ship 더미와 분리).
+- **Acceptance (M4 ✅ 2026-06-09)**:
+  - ✅ `markerStyle.ts` — 순수 `markerVisual(marker, {selected})` → `{emphasized, sizeScale(§10.2 제휴 1.4×·selected 1.15×), innerStroke, accessibilityLabel}`. 색은 렌더러 토큰 책임(데이터에 색 없음, §12.6 3중 신호 중 크기·stroke·a11y)
+  - ✅ `partnership.ts` — `isResultPartner(result)` **stub(항상 false)** = ② 제휴 데이터 seam. 🔒 실 partnership 데이터 연동·스키마는 Phase 3(D3) 경계 → 미작성. Phase 3에서 이 함수만 교체 → 코드 변경 0 점등
+  - ✅ `PartnerBadge.tsx` — "제휴" pill(brand-50 tint + BadgeCheck 아이콘 + 라벨 = §12.6 3중 신호, accessibilityLabel="제휴 식당"). 리스트/카드 재사용
+  - ✅ `toSearchScene(results, {isPartner})` — 제휴 강조 capability 주입(제휴 시 kind='partner'+emphasized). 기본(opts 없음) 무강조 = 기존 계약(actionId=providerPlaceId, 폴리라인 0)·테스트 호환
+  - ✅ wire — NaverMapScene(markerVisual: 1.4× width/height + brand-500) + PlaceActionSheet(isPartnership→배지 카드) + place-search(리스트 행 배지 + searchScene isPartner 동일 seam) + Icon('제휴'→BadgeCheck lucide 2px)
+  - ✅ jest 995 / typecheck 0 / eslint 0. design-guard CRITICAL 4 CLEAR. @reviewer CLEARED(Phase 3 경계 PASS)
+  - ⏸️ 네이티브 제휴 마커 PNG inner stroke(Q-B13 에셋) + 실데이터(Phase 3, Gate #2 ≥25% 후) — 점등 운영 트랙
+- **Notes**: 활성화 = env 키 + EAS 빌드로 **코드 변경 0 점등**. 별도 feat 브랜치 커밋(이전 세션 미ship 더미와 분리). 4대 확장(①동선·일정 / ③검색→확정 / ④중간지점 / ②제휴) 코딩 트랙 전부 종착.
 
 ---
 

@@ -87,9 +87,27 @@ describe('toSearchScene (③ 검색→확정 마커 actionId 계약)', () => {
     expect(scene.polylines).toHaveLength(0);
   });
 
-  test('② 제휴=Phase 3 경계 → emphasized 미설정 (시각 강조 없음)', () => {
+  test('기본(데이터 stub) → emphasized 미설정 — ② 제휴 데이터 연동은 Phase 3(D3) 경계', () => {
     const scene = toSearchScene([result('한솥', 37.58, 127.03)]);
     expect(scene.markers[0]?.emphasized).toBeUndefined();
+    expect(scene.markers[0]?.kind).toBe('place');
+  });
+
+  test('isPartner 예측 주입(M4 시각 capability) → 해당 마커만 kind=partner + emphasized=true', () => {
+    // 데이터 소스가 아니라 "강조 capability" — 호출자가 제휴 판정을 주입한다.
+    // Phase 1+2 화면은 stub(항상 false)을 주입하므로 경계 유지, 시각 분기만 검증.
+    const scene = toSearchScene([result('또띠아', 37.58, 127.03), result('김밥천국', 37.59, 127.02)], {
+      isPartner: (r) => r.name === '또띠아',
+    });
+    expect(scene.markers[0]).toMatchObject({ kind: 'partner', emphasized: true });
+    expect(scene.markers[1]?.kind).toBe('place');
+    expect(scene.markers[1]?.emphasized).toBeUndefined();
+  });
+
+  test('isPartner 주입해도 actionId=providerPlaceId 계약 유지 (마커 onPress 통일)', () => {
+    const r = result('또띠아', 37.58, 127.03);
+    const scene = toSearchScene([r], { isPartner: () => true });
+    expect(scene.markers[0]?.actionId).toBe(r.providerPlaceId);
   });
 
   test('빈 결과 → 빈 scene', () => {

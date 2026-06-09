@@ -24,9 +24,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { Icon } from '@/components/Icon';
 import { MapHost } from '@/components/map/MapHost';
+import { PartnerBadge } from '@/components/place/PartnerBadge';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { toSearchScene } from '@/lib/map/mapScene';
+import { isResultPartner } from '@/lib/places/partnership';
 import type { PlaceSearchResult } from '@/lib/places/PlaceSearchProvider';
 import { findResultByActionId, usePlaceConfirmAction } from '@/lib/places/usePlaceConfirmAction';
 import { useMapSearch } from '@/lib/places/useMapSearch';
@@ -64,7 +66,11 @@ export default function PlaceSearchScreen(): React.JSX.Element {
     if (result) requestConfirm(result);
   };
 
-  const searchScene = useMemo(() => toSearchScene(results), [results]);
+  // 마커 강조도 리스트 배지와 같은 seam(isResultPartner)을 공유 — Phase 1+2 stub은 무강조.
+  const searchScene = useMemo(
+    () => toSearchScene(results, { isPartner: isResultPartner }),
+    [results],
+  );
 
   const trimmedQuery = query.trim();
   const showEmpty = trimmedQuery.length > 0 && !isLoading && results.length === 0 && error === null;
@@ -94,6 +100,12 @@ export default function PlaceSearchScreen(): React.JSX.Element {
         >
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View style={{ flex: 1 }}>
+              {/* ② 제휴 배지 — stub(isResultPartner) 뒤 시각 capability. Phase 1+2는 항상 false. */}
+              {isResultPartner(item) ? (
+                <View style={{ marginBottom: space[1] }}>
+                  <PartnerBadge />
+                </View>
+              ) : null}
               <Body variant="bold" color={colors.text.primary} numberOfLines={1}>
                 {item.name}
               </Body>

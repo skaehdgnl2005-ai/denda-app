@@ -58,22 +58,41 @@ export function toScheduleScene(points: ScheduleMapPoint[]): MapScene {
   return { mode: 'schedule', markers, polylines };
 }
 
+interface SearchSceneOptions {
+  /**
+   * ② 제휴 마커 시각 capability (M4) — 결과별 제휴 여부 판정을 호출자가 주입한다.
+   * 제휴면 kind='partner' + emphasized=true → 렌더러가 §10.2 강조(1.4×·brand-500·stroke).
+   *
+   * 🔒 데이터 소스가 아니라 "강조 capability"다. 실제 partnership 데이터 연동은 Phase 3(D3)
+   * 경계 → Phase 1+2 화면은 stub(`isResultPartner`, 항상 false)을 주입해 경계를 유지한다.
+   * 미지정 시 모든 마커 비강조 (기존 계약 유지).
+   */
+  isPartner?: (result: PlaceSearchResult) => boolean;
+}
+
 /**
  * ③ 검색→장소 확정 — PlaceSearchResult[] → MapScene (place 마커).
  *
  * `actionId = providerPlaceId` — 리스트 keyExtractor·마커 onPress가 같은 식별자를 쓴다.
  * 화면은 actionId로 결과를 resolve(findResultByActionId)해 동일 확정 액션으로 수렴시킨다.
- * 검색 마커는 동선이 아니므로 폴리라인 없음. 제휴 강조(emphasized)는 Phase 3(D3) 경계 →
- * 미설정 (M4 시각 capability에서 다룸).
+ * 검색 마커는 동선이 아니므로 폴리라인 없음. 제휴 강조는 opts.isPartner(M4) 주입 시에만.
  */
-export function toSearchScene(results: PlaceSearchResult[]): MapScene {
-  const markers: MapMarker[] = results.map((r) => ({
-    id: r.providerPlaceId,
-    coord: { lat: r.lat, lng: r.lng },
-    kind: 'place',
-    label: r.name,
-    actionId: r.providerPlaceId,
-  }));
+export function toSearchScene(
+  results: PlaceSearchResult[],
+  options: SearchSceneOptions = {},
+): MapScene {
+  const isPartner = options.isPartner ?? ((): boolean => false);
+  const markers: MapMarker[] = results.map((r) => {
+    const partner = isPartner(r);
+    return {
+      id: r.providerPlaceId,
+      coord: { lat: r.lat, lng: r.lng },
+      kind: partner ? 'partner' : 'place',
+      label: r.name,
+      actionId: r.providerPlaceId,
+      ...(partner ? { emphasized: true } : {}),
+    };
+  });
 
   return { mode: 'search', markers, polylines: [] };
 }

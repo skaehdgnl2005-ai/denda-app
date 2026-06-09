@@ -37,6 +37,12 @@ jest.mock('@/lib/groups/setConfirmedPlace', () => ({
   setConfirmedPlace: (...args: unknown[]) => mockSetConfirmedPlace(...args),
 }));
 
+// 제휴 판정 seam — Phase 1+2는 stub(false). 테스트에서 capability 점등을 검증하기 위해 제어 가능 mock.
+let mockIsPartner = false;
+jest.mock('@/lib/places/partnership', () => ({
+  isResultPartner: () => mockIsPartner,
+}));
+
 // MapHost stub — 점등(native) 없이 마커 onPress(actionId) 통일을 검증하기 위해 fallback(리스트)을
 // 그대로 렌더하고, scene.markers마다 onMarkerPress를 호출하는 Pressable을 노출한다.
 /* eslint-disable @typescript-eslint/no-require-imports -- jest.mock 팩토리 hoisting */
@@ -99,6 +105,7 @@ describe('PlaceSearchScreen', () => {
     mockSetQuery.mockReset();
     mockPersistPlace.mockReset();
     mockSetConfirmedPlace.mockReset();
+    mockIsPartner = false;
     mockState = {
       query: '',
       setQuery: mockSetQuery,
@@ -221,6 +228,21 @@ describe('PlaceSearchScreen', () => {
     const { getByTestId } = render(<PlaceSearchScreen />, { wrapper });
     fireEvent.press(getByTestId('back-button'));
     expect(mockBack).toHaveBeenCalled();
+  });
+
+  test('제휴 배지 — 기본 stub(데이터 미연동) → 리스트 행에 미노출 (② Phase 3 경계 유지)', () => {
+    mockState.results = [sampleResult];
+    mockState.query = '한솥';
+    const { queryByTestId } = render(<PlaceSearchScreen />, { wrapper });
+    expect(queryByTestId('partner-badge')).toBeNull();
+  });
+
+  test('제휴 capability — isResultPartner=true 시 리스트 행에 제휴 배지 (M4 시각 capability wired)', () => {
+    mockIsPartner = true;
+    mockState.results = [sampleResult];
+    mockState.query = '한솥';
+    const { getByTestId } = render(<PlaceSearchScreen />, { wrapper });
+    expect(getByTestId('partner-badge')).toBeTruthy();
   });
 
   test('지도 마커 onPress(actionId) → 리스트 탭과 동일 확정 액션 (M2 통일)', async () => {

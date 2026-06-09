@@ -178,4 +178,14 @@ describe('PlaceActionSheet', () => {
     expect(getByTestId('reservation-cta').props.accessibilityRole).toBe('button');
     expect(getByTestId('share-cta').props.accessibilityRole).toBe('button');
   });
+
+  it('isPartnership=true → 제휴 배지 노출 (M4 시각 capability — 카드)', () => {
+    const { getByTestId } = renderSheet({ isPartnership: true });
+    expect(getByTestId('partner-badge')).toBeTruthy();
+  });
+
+  it('isPartnership=false → 제휴 배지 미노출', () => {
+    const { queryByTestId } = renderSheet({ isPartnership: false });
+    expect(queryByTestId('partner-badge')).toBeNull();
+  });
 });

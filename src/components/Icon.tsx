@@ -24,6 +24,7 @@ import {
   CreditCard,
   ArrowLeftRight,
   Moon,
+  BadgeCheck,
   LucideProps,
 } from 'lucide-react-native';
 import { useTheme } from '@/design/theme';
@@ -53,6 +54,7 @@ export const iconMap = {
   결제: CreditCard,
   환불: ArrowLeftRight,
   '다크/라이트': Moon,
+  제휴: BadgeCheck,
 } as const;
 
 export type IconName = keyof typeof iconMap;

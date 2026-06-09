@@ -15,6 +15,7 @@
 import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, View } from 'react-native';
 
+import { PartnerBadge } from '@/components/place/PartnerBadge';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 
@@ -30,7 +31,7 @@ export interface PlaceActionSheetProps {
   onClose: () => void;
   place: PlaceSheetPlace;
   groupName: string;
-  /** DESIGN §10.2 강조와 별개 — 추후 chip 노출 위치 wire-up. 현재는 props 보관만 */
+  /** 제휴 식당 여부 (places.partnership_id 기존 스키마 플래그). true면 §10.2 제휴 배지 노출 (M4 시각 capability). */
   isPartnership: boolean;
   /**
    * "예약하기" press. caller가 내부에서 `logReservationClick({groupId, placeId, partnershipId})` 호출.
@@ -51,7 +52,8 @@ export const PlaceActionSheet: React.FC<PlaceActionSheetProps> = ({
   visible,
   onClose,
   place,
-  // groupName, isPartnership는 caller의 onReservationPress/onSharePress가 사용 — 본 component는 prop으로 보관만
+  // groupName는 caller의 onReservationPress/onSharePress가 사용 — 본 component는 prop으로 보관만
+  isPartnership,
   onReservationPress,
   onSharePress,
   testID,
@@ -155,6 +157,12 @@ export const PlaceActionSheet: React.FC<PlaceActionSheetProps> = ({
           </View>
 
           <View style={{ paddingHorizontal: space[4] }}>
+            {isPartnership ? (
+              <View style={{ marginBottom: space[2] }}>
+                <PartnerBadge />
+              </View>
+            ) : null}
+
             <Title level="h2" color={colors.text.primary}>
               {place.name}
             </Title>

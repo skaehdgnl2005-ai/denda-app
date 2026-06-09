@@ -27,9 +27,12 @@
 - **미ship**: `/ship-task` 미실행 (SESSION_LOG·PROGRESS·TASK_BACKLOG promote 대기)
 - **⚠️ 본 빌드와 무관한 기존 실패**: `tests/screens/schedule/map.test.tsx` 2건(S15 async point 렌더) — import 커플링 0, 별도 조사 대상 (2026-06-08 확인: 현재 6/6 green, 해소됨)
 
-### S-MAP M0+① — 지도 렌더 활성화 기반(MapHost) + 동선·일정 지도
+### S-MAP — 지도 렌더 활성화(MapHost) + 4대 확장 — 코딩 트랙 완료 (운영 트랙만 잔여)
 
-- **상태**: M0+①·M2·M3 DONE · **M4만 TODO** (별도 feat 브랜치 `feat/map-maphost-m0`)
-- **한 일**: MapScene 계약 + MapHost 단일 경계(`isMapAvailable` env 게이트 + lazy NaverMapScene, D25) + MapPlaceholder("리스트로 보기" 유도) + `@mj-studio/react-native-naver-map@2.9.0` 설치 + `app.config.ts` 조건부 플러그인(Kakao 패턴) + `app/schedule/map.tsx` placeholder→MapHost. [D38](DECISIONS.md#d38--지도-렌더-seam--maphost-단일-경계--mapscene-계약--ismapavailable-env-게이트)
-- **활성화 게이트(사용자/운영)**: 네이버 Maps Client ID 발급 → `.env` `EXPO_PUBLIC_NAVER_MAP_CLIENT_ID` + `EXPO_PUBLIC_MAP_ENABLED=true` → `expo prebuild && expo run:android` → **코드 변경 0으로 점등**.
-- **다음**: **M4(제휴 마커 시각 capability, Q-B13 — ②partnership=Phase 3(D3) 경계라 시각 capability + 리스트 배지까지만, 데이터 연동 금지)**. M3(중간지점+출발지 입력 Q-B23) DONE 2026-06-09 / M2(검색→확정·Gate #2) DONE 2026-06-09. 설계: `docs/superpowers/specs/2026-06-08-map-feature-activation-design.md`
+- **상태**: **M0+①·M2·M3·M4 전부 DONE** (2026-06-09). 4대 확장 시각·로직 레이어 완성 → SESSION_LOG promote 완료. 별도 feat 브랜치 `feat/map-maphost-m0` (미push/미PR).
+- **운영 트랙만 잔여 (사용자/운영, 코드 변경 0 점등)**:
+  - 네이버 Maps Client ID 발급 → `.env` `EXPO_PUBLIC_NAVER_MAP_CLIENT_ID` + `EXPO_PUBLIC_MAP_ENABLED=true` → `expo prebuild && expo run:android` → 네이티브 마커·폴리라인·중간점·제휴 강조 실렌더 + 60fps
+  - `supabase functions deploy naver_local_search` (라이브 장소 검색)
+  - 제휴 마커 PNG 1.5x/2x/3x 에셋(Q-B13, 디자인) → 제휴 inner stroke 점등
+  - ② 제휴 **실데이터**는 Phase 3(D3, Gate #2 ≥25% 통과 후) — 현재 `isResultPartner` stub
+- 설계 SSoT: `docs/superpowers/specs/2026-06-08-map-feature-activation-design.md` · [D38](DECISIONS.md#d38--지도-렌더-seam--maphost-단일-경계--mapscene-계약--ismapavailable-env-게이트)

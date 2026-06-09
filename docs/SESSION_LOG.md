@@ -25,6 +25,27 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S-MAP M4 — 제휴 마커 시각 capability (② emphasized 마커 + 제휴 배지, Q-B13) (2026-06-09) — DONE
+- Depends: D38·S-MAP M0+①·M2·M3(✅), D3(partnerships only schema — 데이터 연동은 Phase 3 경계), D5(Purple Discipline — 제휴 강조 정당), Q-B13(PNG 에셋 = 점등 운영 트랙) — 모두 충족
+- Changes:
+  - src/lib/map/markerStyle.ts (신규, +59) — 순수 `markerVisual(marker, {selected})` → `{emphasized, sizeScale, innerStroke, accessibilityLabel}`. DESIGN §10.2(제휴 1.4× / selected 1.15×) + §12.6 3중 신호(색은 렌더러, 크기·stroke·a11y는 여기). 색 0(토큰은 렌더러 책임)
+  - src/lib/map/markerStyle.test.ts (신규, Jest 6)
+  - src/lib/places/partnership.ts (신규, +18) — `isResultPartner(result)` **stub(항상 false)** = ② 제휴 데이터 seam. Phase 3에서 이 함수만 교체 → 배지·마커 코드 변경 0 점등
+  - src/lib/places/partnership.test.ts (신규, Jest 1)
+  - src/components/place/PartnerBadge.tsx (신규, +47) — "제휴" pill(brand-50 tint + BadgeCheck 아이콘 + 라벨 = §12.6 3중 신호, accessibilityLabel="제휴 식당"). 리스트/카드 재사용
+  - src/components/place/PartnerBadge.test.tsx (신규, Jest 4)
+  - src/lib/map/mapScene.ts (+39/-16) — `toSearchScene(results, {isPartner})` 예측 주입 capability(제휴 시 kind='partner'+emphasized=true). 기본(opts 없음)은 무강조 = 기존 계약·테스트 호환(actionId=providerPlaceId, 폴리라인 0 유지)
+  - src/lib/map/mapScene.test.ts (+20, Jest +2)
+  - src/components/map/NaverMapScene.tsx (+16/-2) — markerVisual wire(emphasized → width/height 1.4× + tintColor brand-500). inner stroke·order 배지 PNG는 Q-B13 점등 트랙(TODO)
+  - src/components/place/PlaceActionSheet.tsx (+12/-2) — isPartnership=true → 타이틀 위 PartnerBadge 렌더(카드). "보관만" 주석 해소
+  - src/components/place/PlaceActionSheet.test.tsx (+10, Jest +2)
+  - src/components/Icon.tsx (+2) — '제휴'→BadgeCheck(lucide 2px) 추가
+  - app/group/[id]/place-search.tsx (+14) — 리스트 행 isResultPartner(stub) 시 PartnerBadge + searchScene에 isPartner=isResultPartner 주입(마커·배지 동일 seam 공유)
+  - tests/screens/group/place-search.test.tsx (+22, Jest +2 — stub false→배지 미노출[경계] / mock true→배지 점등[capability wired])
+- Tests: Jest **995 passed + 1 skip** (978→+17: markerStyle 6 + partnership 1 + PartnerBadge 4 + mapScene 2 + PlaceActionSheet 2 + place-search 2), typecheck 0, eslint 0
+- Next: **S-MAP 전체 acceptance 완료** — 별도 잔여 마일스톤 없음. 운영 트랙(네이버 키 발급 → EAS 빌드 → 네이티브 마커 실렌더 + Q-B13 제휴 PNG 에셋)만 남음. 실데이터 점등은 Phase 3(D3·Gate #2 ≥25% 통과 후)
+- Notes: ② Phase 3 경계 엄수 — **데이터 소스 stub(isResultPartner=false)**, 새 partnership 스키마/fetch/집계 0(D3 기존 스키마만). design-guard CRITICAL 4 CLEAR(신규 hex 0 / `new Date()` 0 / RLS·마이그레이션 0 / secret 클라 expose 0). @reviewer CLEARED(Phase 3 경계 + Critical 4 PASS, 권고 R1 rgba backdrop·R2 gap:8은 S08 기존 코드 + 대체 토큰 부재[임의 토큰 금지]라 미수정). 시각 capability는 마커(렌더러)·배지(리스트/카드) 두 표면 모두 점등 준비 — 데이터 seam만 Phase 3 대기. branch `feat/map-maphost-m0` 연속.
+
 ## S-MAP M3 — 멤버 중간지점 추천 (출발지 입력 + 최근 2개 + 근처 추천, Q-B23) (2026-06-09) — DONE
 - Depends: D38·S-MAP M0+①·M2(✅), D18(좌표 정규화·haversine ✅), D25(lazy ✅), Q-B23(close ✅) — 모두 충족
 - Changes:
