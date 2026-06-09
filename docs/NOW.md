@@ -29,8 +29,7 @@
 
 ### S-MAP M0+① — 지도 렌더 활성화 기반(MapHost) + 동선·일정 지도
 
-- **상태**: M0+① DONE (2026-06-08, 별도 feat 브랜치 커밋) · M2~M4 TODO
-- **한 일**: MapScene 계약 + MapHost 단일 경계(`isMapAvailable` env 게이트 + lazy NaverMapScene, D25) + MapPlaceholder("리스트로 보기" 유도) + `@mj-studio/react-native-naver-map@2.9.0` 설치 + `app.config.ts` 조건부 플러그인(Kakao 패턴) + `app/schedule/map.tsx` placeholder→MapHost. jest 933 / typecheck 0 / lint 0. [D38](DECISIONS.md#d38--지도-렌더-seam--maphost-단일-경계--mapscene-계약--ismapavailable-env-게이트)
+- **상태**: M0+①·M2·M3 DONE · **M4만 TODO** (별도 feat 브랜치 `feat/map-maphost-m0`)
+- **한 일**: MapScene 계약 + MapHost 단일 경계(`isMapAvailable` env 게이트 + lazy NaverMapScene, D25) + MapPlaceholder("리스트로 보기" 유도) + `@mj-studio/react-native-naver-map@2.9.0` 설치 + `app.config.ts` 조건부 플러그인(Kakao 패턴) + `app/schedule/map.tsx` placeholder→MapHost. [D38](DECISIONS.md#d38--지도-렌더-seam--maphost-단일-경계--mapscene-계약--ismapavailable-env-게이트)
 - **활성화 게이트(사용자/운영)**: 네이버 Maps Client ID 발급 → `.env` `EXPO_PUBLIC_NAVER_MAP_CLIENT_ID` + `EXPO_PUBLIC_MAP_ENABLED=true` → `expo prebuild && expo run:android` → **코드 변경 0으로 점등**.
-- **다음**: M3(중간지점+출발지 입력 Q-B23) → M4(제휴 마커 Q-B13). **M2(검색→확정·Gate #2 click 정확도 + 마커 actionId 통일) DONE 2026-06-09**. 설계: `docs/superpowers/specs/2026-06-08-map-feature-activation-design.md`
-- **▶ 다음 세션 시작점**: `docs/superpowers/specs/2026-06-08-map-m2-handoff.md` (현재 상태·진입법·주의)
+- **다음**: **M4(제휴 마커 시각 capability, Q-B13 — ②partnership=Phase 3(D3) 경계라 시각 capability + 리스트 배지까지만, 데이터 연동 금지)**. M3(중간지점+출발지 입력 Q-B23) DONE 2026-06-09 / M2(검색→확정·Gate #2) DONE 2026-06-09. 설계: `docs/superpowers/specs/2026-06-08-map-feature-activation-design.md`

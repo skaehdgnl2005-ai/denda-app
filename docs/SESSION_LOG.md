@@ -25,6 +25,21 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S-MAP M3 — 멤버 중간지점 추천 (출발지 입력 + 최근 2개 + 근처 추천, Q-B23) (2026-06-09) — DONE
+- Depends: D38·S-MAP M0+①·M2(✅), D18(좌표 정규화·haversine ✅), D25(lazy ✅), Q-B23(close ✅) — 모두 충족
+- Changes:
+  - `src/lib/map/midpoint.ts`(+신규) + `.test.ts`(11 Jest) — `computeMidpoint`(산술 중심, 빈 배열 throw, normalizeWgs84 통과) + `maxDistanceMeters`(haversine 재사용) + `sortByDistanceTo<T>`(중간점 가까운 순, 원본 불변) + `toMidpointScene`(member/midpoint 마커, mode='midpoint', 폴리라인 0, midpoint=emphasized) + `OriginPoint` 타입
+  - `src/lib/map/recentOrigins.ts`(+신규) + `.test.ts`(7 Jest) — DI storage(RecentOriginsStorage) + `mergeRecent`(MRU·좌표 dedup·상위 2개) + `loadRecentOrigins`(깨진 JSON·잘못된 shape/좌표 안전 필터) + `saveRecentOrigin` — 온디바이스 로컬, 서버 미전송(PIPA 경량)
+  - `src/lib/map/recentOriginsStorage.ts`(+신규) — expo-secure-store 어댑터(native import 격리, auth/setup 패턴)
+  - `src/components/map/OriginInput.tsx`(+신규) + `.test.tsx`(4 Jest) — 자동완성(useMapSearch 재사용) + 최근 2개 칩 + 결과 tap→onSelect({label,coord}). §17 brand fill 0
+  - `src/lib/places/MapViewMode.ts`('midpoint' 추가) + `src/components/map/MapPlaceholder.tsx`(midpoint COPY/testID) + `.test.tsx`(+1)
+  - `app/group/[id]/midpoint.tsx`(+신규) + `tests/screens/group/midpoint.test.tsx`(6 Jest) — 출발지 추가 → 2곳+ 중간점 → 근처 추천(sortByDistanceTo) → Alert 확인 → usePlaceConfirmAction(M2 재사용) 확정. MapHost(midpoint scene + place 마커, fallback=추천 리스트). 마커 onPress↔리스트 탭 통일
+  - `app/group/[id]/index.tsx`(중간지점 진입 버튼, host+확정+장소미정, secondary) + `tests/screens/group/confirm.test.tsx`(+1)
+  - `app/(auth)/privacy.tsx`(§1 "마. 기기 내 보관(서버 미전송)" — 출발지 온디바이스 보관 1줄, PIPA)
+- Tests: Jest 978 passed + 1 skip (948→+30), typecheck 0, eslint 0. design-guard CRITICAL 4 CLEAR(hex 0 / new Date() 0 / RLS·스키마 0 / secret 클라 expose 0)
+- Next: S-MAP M4 — 제휴 마커 시각 capability(emphasized 마커 + 리스트 배지). 단 ②partnership=Phase 3(D3) 경계 → 데이터 연동 금지, 시각 capability + PNG(Q-B13) 대기. S-MAP 전체는 M4 잔여로 IN_PROGRESS 유지
+- Notes: ④ Q-B23 충실 — 출발지 직접 입력 + 최근 2개 칩 + 온디바이스 저장(SecureStore), 중간점 계산도 클라. 네이티브 핀 렌더(중간점·출발지)는 EAS 운영 트랙(키 없이 MapHost fallback로 검증, isMapAvailable=false). 추천은 키워드 검색 후 중간점 거리순 재정렬(NaverSearchProvider는 좌표 nearby 미지원 — 베타 충분). branch `feat/map-maphost-m0` 연속. typedRoutes는 expo 재생성으로 `/group/[id]/midpoint` 반영됨(object form push로 호환).
+
 ## S-MAP M2 — 검색→장소 확정 (Gate #2 click 정확도) + 마커 actionId 통일 (2026-06-09) — DONE
 - Depends: D38·S-MAP M0+①(✅), S20(place-search/persist/setConfirmedPlace ✅), S08(place.tsx/PlaceActionSheet/logReservationClick ✅), D18·D25(✅) — 모두 충족
 - Changes:

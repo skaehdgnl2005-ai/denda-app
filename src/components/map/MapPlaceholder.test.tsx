@@ -29,4 +29,11 @@ describe('MapPlaceholder', () => {
     });
     expect(getByTestId('map-pending-notice')).toBeTruthy();
   });
+
+  test('midpoint 모드 → midpoint-map-placeholder testID', () => {
+    const { getByTestId } = render(<MapPlaceholder mode="midpoint" />, {
+      wrapper: ThemeProvider,
+    });
+    expect(getByTestId('midpoint-map-placeholder')).toBeTruthy();
+  });
 });

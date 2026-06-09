@@ -215,7 +215,7 @@
 
 ### S-MAP — 지도 렌더 활성화 (MapHost seam) + 4대 확장
 
-- **Status**: M0+①·M2 DONE (M2 2026-06-09) / M3·M4 TODO | **Owner**: Mobile | **Lane**: B
+- **Status**: M0+①·M2·M3 DONE (M3 2026-06-09) / M4 TODO | **Owner**: Mobile | **Lane**: B
 - **Depends**: [D38](DECISIONS.md#d38--지도-렌더-seam--maphost-단일-경계--mapscene-계약--ismapavailable-env-게이트), S10·S15(데이터 레이어 ✅), D18, D25, Q-B23, Q-B13
 - **설계**: [docs/superpowers/specs/2026-06-08-map-feature-activation-design.md](superpowers/specs/2026-06-08-map-feature-activation-design.md)
 - **Acceptance (M0+① ✅)**:
@@ -230,7 +230,15 @@
   - ✅ `PlaceActionSheet` "예약하기"(Gate #2 실측 클릭) idempotency 강화 — useRef 가드 + Pressable `disabled`(네이티브 게이팅). red서 동기 더블탭 2회 호출 확인 → 1회
   - ✅ `NaverMapScene`/`MapHost` `onMarkerPress(actionId)` wire + `place-search.tsx` MapHost(searchScene) — 리스트 탭·마커 onPress 동일 confirm 수렴 (점등 시 staging)
   - ✅ jest 948 / typecheck 0 / eslint 0. 키 없이 mock 검증(isMapAvailable=false)
-- **남은 마일스톤**: M3 중간지점+출발지 입력(Q-B23) / M4 제휴 마커 시각(Q-B13, ②는 partnership=Phase 3 경계라 시각 capability까지만)
+- **Acceptance (M3 ✅ 2026-06-09)**:
+  - ✅ `midpoint.ts` — `computeMidpoint`(산술 중심·빈 배열 throw·normalizeWgs84 통과) + `maxDistanceMeters`·`sortByDistanceTo`(haversine 재사용) + `toMidpointScene`(member/midpoint 마커, mode='midpoint', 폴리라인 0)
+  - ✅ `recentOrigins.ts` + `recentOriginsStorage.ts` — 출발지 온디바이스 로컬 저장(서버 미전송, MRU 상위 2개, SecureStore 어댑터·native 격리). Q-B23 충실
+  - ✅ `OriginInput.tsx` — 자동완성(useMapSearch 재사용) + 최근 2개 칩
+  - ✅ `app/group/[id]/midpoint.tsx` — 출발지 2곳+ → 중간점 → 근처 추천(거리순) → usePlaceConfirmAction(M2 재사용) 확정. MapHost 마커↔리스트 통일 + group 진입 버튼(secondary)
+  - ✅ PIPA: privacy.tsx §1 "기기 내 보관(서버 미전송)" 1줄
+  - ✅ jest 978 / typecheck 0 / eslint 0. design-guard CRITICAL 4 CLEAR
+  - ⏸️ 네이티브 핀(중간점·출발지) 렌더 — EAS 운영 트랙(키 없이 MapHost fallback로 검증)
+- **남은 마일스톤**: M4 제휴 마커 시각(Q-B13, ②는 partnership=Phase 3 경계라 시각 capability까지만)
 - **Notes**: 활성화 = env 키 + EAS 빌드로 **코드 변경 0 점등**. 별도 feat 브랜치 커밋(이전 세션 미ship 더미와 분리).
 
 ---

@@ -99,6 +99,13 @@ export default function PrivacyScreen() {
             ※ 원본 IP·User-Agent는 저장하지 않으며, 해시값은 친구가 보낸 초대 링크를 클릭한 사람을
             가입 후 24시간 이내 자동으로 모임에 합류시키기 위해서만 사용합니다.
           </Caption>
+
+          <SubHeading text="마. 기기 내 보관 (서버 미전송)" colors={colors} space={space} />
+          <Bullet
+            text="중간지점 찾기에 입력한 출발지는 기기에만 저장되며 서버로 전송되지 않습니다"
+            colors={colors}
+            space={space}
+          />
         </Section>
 
         <Section title="2. 개인정보의 이용 목적" colors={colors} space={space}>

@@ -401,6 +401,32 @@ export default function GroupConfirmScreen(): React.JSX.Element {
               장소 정하기
             </Body>
           </Pressable>
+          {/* S-MAP M3: 출발지 중간지점으로 장소 찾기 (secondary — §17 brand fill 1개 유지). */}
+          <Pressable
+            onPress={() =>
+              router.push({ pathname: '/group/[id]/midpoint', params: { id: groupId } })
+            }
+            accessibilityRole="button"
+            accessibilityLabel="중간지점으로 찾기"
+            testID="midpoint-entry-button"
+            style={({ pressed }) => ({
+              marginTop: space[2],
+              borderRadius: radius.md,
+              padding: space[4],
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: colors.surface[1],
+              borderWidth: 1,
+              borderColor: colors.border.subtle,
+              opacity: pressed ? 0.85 : 1,
+            })}
+          >
+            <Icon name="장소" color={colors.text.secondary} size={18} />
+            <Body color={colors.text.primary} style={{ marginLeft: space[2] }}>
+              중간지점으로 찾기
+            </Body>
+          </Pressable>
         </View>
       ) : null}
 

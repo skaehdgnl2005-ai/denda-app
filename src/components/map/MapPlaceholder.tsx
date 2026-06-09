@@ -27,10 +27,20 @@ const COPY: Record<MapViewMode, { title: string; body: string }> = {
     title: '지도는 준비 중이에요',
     body: '정식 앱 빌드가 준비되면\n검색한 장소를 지도 위에 표시해드릴게요.',
   },
+  midpoint: {
+    title: '지도는 준비 중이에요',
+    body: '정식 앱 빌드가 준비되면\n출발지와 중간지점을 지도 위에 표시해드릴게요.',
+  },
+};
+
+const TEST_IDS: Record<MapViewMode, string> = {
+  schedule: 'schedule-map-placeholder',
+  search: 'map-pending-notice',
+  midpoint: 'midpoint-map-placeholder',
 };
 
 function defaultTestID(mode: MapViewMode): string {
-  return mode === 'schedule' ? 'schedule-map-placeholder' : 'map-pending-notice';
+  return TEST_IDS[mode];
 }
 
 export function MapPlaceholder({
