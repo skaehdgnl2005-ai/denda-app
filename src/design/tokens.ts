@@ -30,7 +30,7 @@ export const tokens = {
       brand: '#7C3AED',
       'on-brand': '#FFFFFF',
     },
-    heat: ['#F3F4F6', '#EDE9FE', '#C4B5FD', '#8B5CF6', '#7C3AED'],
+    heat: ['#F9FAFB', '#EDE9FE', '#C4B5FD', '#8B5CF6', '#7C3AED'],
     semantic: {
       success: {
         bg: '#ECFDF5',

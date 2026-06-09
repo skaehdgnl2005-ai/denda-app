@@ -214,7 +214,7 @@ info-bg:        rgba(59, 130, 246, 0.12)   info-fg:     #60A5FA   info-solid:   
 ### 4.1. 라이트 모드 ramp
 
 ```
-heat-0 (없음, 0%):   #F3F4F6   neutral surface-3 — "선택된 상태가 아니라 빈 슬롯"임을 명시
+heat-0 (없음, 0%):   #F9FAFB   neutral 연한 회색 (= surface-2 톤) — "선택된 상태가 아니라 빈 슬롯"임을 명시
 heat-1 (소수, ~25%): #EDE9FE   brand-100
 heat-2 (절반, ~50%): #C4B5FD   brand-300
 heat-3 (대부분, ~75%): #8B5CF6  (사이 톤)
@@ -659,7 +659,7 @@ export const tokens = {
     surface: { 0: '#FFFFFF', 1: '#FFFFFF', 2: '#F9FAFB', 3: '#F3F4F6' },
     border: { subtle: '#E5E7EB', strong: '#D1D5DB', focus: '#7C3AED' },
     text: { primary: '#111827', secondary: '#4B5563', tertiary: '#6B7280', /* ... */ },
-    heat: ['#F3F4F6', '#EDE9FE', '#C4B5FD', '#8B5CF6', '#7C3AED'],
+    heat: ['#F9FAFB', '#EDE9FE', '#C4B5FD', '#8B5CF6', '#7C3AED'],
     semantic: { success: { bg: '#ECFDF5', fg: '#047857', solid: '#10B981' } /* ... */ },
   },
   dark: { /* ... */ },
