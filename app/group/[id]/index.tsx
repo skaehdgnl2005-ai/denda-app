@@ -25,6 +25,7 @@ import { SelectionOverlay } from '@/components/TimeGrid/SelectionOverlay';
 import { VoteGuide } from '@/components/TimeGrid/VoteGuide';
 import { FirstTimeModal } from '@/components/calendar/FirstTimeModal';
 import { ConfirmedTimeCard } from '@/components/group/ConfirmedTimeCard';
+import { ConfirmSlotSheet } from '@/components/group/ConfirmSlotSheet';
 import { HostConfirmButton } from '@/components/group/HostConfirmButton';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
@@ -37,7 +38,7 @@ import {
 } from '@/lib/calendar/setup';
 import { confirmGroup } from '@/lib/groups/confirm';
 import { fetchGroupForConfirm, fetchUserVotes, type GroupForConfirm } from '@/lib/groups/queries';
-import { selectionToConfirmRange } from '@/lib/groups/selectionToConfirmRange';
+import { recommendSlots, type RecommendedSlot } from '@/lib/groups/recommendSlots';
 import { useHeatmapSubscription } from '@/lib/heatmap/useHeatmapSubscription';
 import type { GridLayout } from '@/lib/heatmap/coords';
 import type { SlotKey } from '@/lib/heatmap/types';
@@ -73,6 +74,8 @@ export default function GroupConfirmScreen(): React.JSX.Element {
   const [selectionRecord, setSelectionRecord] = useState<Record<SlotKey, boolean>>({});
   const [inflight, setInflight] = useState(false);
   const [showFirstTimeModal, setShowFirstTimeModal] = useState(false);
+  const [showConfirmSheet, setShowConfirmSheet] = useState(false);
+  const [recommendations, setRecommendations] = useState<RecommendedSlot[]>([]);
 
   // S06: 첫 Google/Apple sign-in callback — lazy 구성 (expo-* 패키지 미설치 환경에서 페이지
   // 진입 시점 throw 방지). createGoogleCalendarProvider/createAppleCalendarProvider는 호출 시
@@ -202,22 +205,26 @@ export default function GroupConfirmScreen(): React.JSX.Element {
     [scrollOffsetY],
   );
 
-  const handleConfirm = async (): Promise<void> => {
+  // 모임 확정 = 투표(여러 날짜)와 분리. 히트맵 집계에서 "가장 많은 인원이 가능한" 단일 날짜
+  // 연속 구간 1~3순위를 뽑아 시트로 제시 → 호스트가 하나를 골라 확정한다 (selectionRecord 미사용).
+  const handleConfirm = (): void => {
     if (!group || inflight) return;
-    const range = selectionToConfirmRange(selectionRecord);
-    if (!range.ok) {
-      Alert.alert('확인', range.error);
-      return;
-    }
+    setRecommendations(recommendSlots(cells, group.dates));
+    setShowConfirmSheet(true);
+  };
+
+  const handleSelectRecommendation = async (rec: RecommendedSlot): Promise<void> => {
+    if (!group || inflight) return;
     setInflight(true);
     try {
       const result = await confirmGroup({
         groupId,
-        dayIndex: range.dayIndex,
-        startMinute: range.startMinute,
-        endMinute: range.endMinute,
+        dayIndex: rec.dayIndex,
+        startMinute: rec.startMinute,
+        endMinute: rec.endMinute,
         confirmedPlaceId: null,
       });
+      setShowConfirmSheet(false);
       if (result.alreadyConfirmed) {
         Alert.alert('알림', '이미 확정된 모임이에요.');
       } else if (result.f5Dispatch.rejected > 0) {
@@ -471,6 +478,15 @@ export default function GroupConfirmScreen(): React.JSX.Element {
           />
         </View>
       ) : null}
+
+      <ConfirmSlotSheet
+        visible={showConfirmSheet}
+        recommendations={recommendations}
+        onSelect={handleSelectRecommendation}
+        onClose={() => setShowConfirmSheet(false)}
+        inflight={inflight}
+        testID="confirm-slot-sheet"
+      />
 
       {userId ? (
         <FirstTimeModal

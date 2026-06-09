@@ -1,5 +1,4 @@
 import React from 'react';
-import { Alert } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import GroupConfirmScreen from '../../../app/group/[id]/index';
@@ -38,12 +37,25 @@ jest.mock('@/lib/votes/api', () => ({
   commitVoteDiff: jest.fn().mockResolvedValue(undefined),
 }));
 
-// useHeatmapSubscription을 stub — supabase channel 회피
+// useHeatmapSubscription을 stub — supabase channel 회피.
+// mockCells를 가변으로 두어 추천(recommendSlots) 입력을 테스트별로 제어한다.
+let mockCells: { state: string; count: number }[][] = [];
+function makeEmptyCells(): { state: string; count: number }[][] {
+  return Array.from({ length: 60 }, () =>
+    Array.from({ length: 7 }, () => ({ state: 'heat-0', count: 0 })),
+  );
+}
+function setCell(
+  cells: { state: string; count: number }[][],
+  col: number,
+  row: number,
+  count: number,
+): void {
+  cells[row]![col] = { state: 'heat-2', count };
+}
 jest.mock('@/lib/heatmap/useHeatmapSubscription', () => ({
   useHeatmapSubscription: () => ({
-    cells: Array.from({ length: 60 }, () =>
-      Array.from({ length: 7 }, () => ({ state: 'heat-0', count: 0 })),
-    ),
+    cells: mockCells,
     isConnected: true,
     status: 'connected',
   }),
@@ -81,6 +93,7 @@ describe('GroupConfirmScreen', () => {
     mockConfirmGroup.mockReset();
     mockFetchUserVotes.mockReset();
     mockFetchUserVotes.mockResolvedValue([]);
+    mockCells = makeEmptyCells();
   });
 
   test('초기 loading 메시지 → group fetch 후 이름 노출', async () => {
@@ -159,7 +172,7 @@ describe('GroupConfirmScreen', () => {
     expect(queryByTestId('host-confirm-button')).toBeNull();
   });
 
-  test('호스트가 선택 없이 확정 버튼 누름 → "시간을 먼저 선택해주세요" alert', async () => {
+  test('투표 없음 → 확정 버튼 누르면 추천 시트 빈 상태 노출 (alert 아님)', async () => {
     mockFetchGroup.mockResolvedValue({
       id: VALID_GROUP_ID,
       hostId: HOST_ID,
@@ -171,12 +184,52 @@ describe('GroupConfirmScreen', () => {
       confirmedEndAt: null,
       confirmedPlaceId: null,
     });
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    // mockCells 기본값 = 전부 0 → recommendSlots 빈 배열
+    const { findByTestId, findByText } = render(<GroupConfirmScreen />, { wrapper });
+    fireEvent.press(await findByTestId('host-confirm-button'));
+    expect(await findByText(/아직 추천할 시간이 없어요/)).toBeTruthy();
+    expect(mockConfirmGroup).not.toHaveBeenCalled();
+  });
+
+  test('히트맵에 표가 있으면 → 확정 버튼 → 추천 목록 → 선택 시 confirmGroup 호출', async () => {
+    mockFetchGroup.mockResolvedValue({
+      id: VALID_GROUP_ID,
+      hostId: HOST_ID,
+      name: 'x',
+      dates: ['2026-06-01', '2026-06-02'],
+      memberCount: 3,
+      confirmedAt: null,
+      confirmedStartAt: null,
+      confirmedEndAt: null,
+      confirmedPlaceId: null,
+    });
+    // col0 rows0-1 count=2 (09:00~09:30) → 단일 추천
+    setCell(mockCells, 0, 0, 2);
+    setCell(mockCells, 0, 1, 2);
+    mockConfirmGroup.mockResolvedValue({
+      ok: true,
+      confirmedAt: '2026-06-01T00:00:00.000Z',
+      alreadyConfirmed: false,
+      f5Dispatch: { fulfilled: 3, rejected: 0 },
+    });
+
     const { findByTestId } = render(<GroupConfirmScreen />, { wrapper });
-    const btn = await findByTestId('host-confirm-button');
-    fireEvent.press(btn);
-    expect(alertSpy).toHaveBeenCalledWith(expect.any(String), expect.stringContaining('시간'));
-    alertSpy.mockRestore();
+    fireEvent.press(await findByTestId('host-confirm-button'));
+
+    const row = await findByTestId('confirm-slot-sheet-slot-0');
+    fireEvent.press(row);
+
+    await waitFor(() =>
+      expect(mockConfirmGroup).toHaveBeenCalledWith(
+        expect.objectContaining({
+          groupId: VALID_GROUP_ID,
+          dayIndex: 0,
+          startMinute: 540,
+          endMinute: 570,
+          confirmedPlaceId: null,
+        }),
+      ),
+    );
   });
 
   test('S20: 호스트 + 확정 + 장소 미정 → "장소 정하기" 버튼 → place-search push', async () => {
