@@ -93,6 +93,8 @@ export default ({ config: _ }: ConfigContext): ExpoConfig => ({
     ...(naverMapPlugin ? [naverMapPlugin] : []),
     // 카카오 SDK는 자체 Nexus 저장소 (devrepo.kakao.com)에서 제공 — settings.gradle에 추가
     './plugins/withKakaoMaven.js',
+    // 네이버 지도 SDK도 자체 저장소(repository.map.naver.com)에서 제공 — 키 있을 때만 추가
+    ...(naverMapPlugin ? ['./plugins/withNaverMaven.js'] : []),
     // S15-deeplink (D28) — iOS 14+ ATT(App Tracking Transparency).
     // 자체 deferred deep link fingerprint(IP/UA 해시) 매칭이 Apple 정의상 "tracking"에 해당 →
     // 첫 launch 시 ATT 프롬프트 의무. 거부해도 매칭은 server-side에서 동작(IDFA 미사용)하지만
