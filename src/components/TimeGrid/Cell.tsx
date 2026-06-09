@@ -29,8 +29,12 @@ const CellComponent: React.FC<CellProps> = ({ state, count, isHeader, label, onP
 
   // Map state to background color
   let backgroundColor: string = colors.heat[0]; // default 'empty' or 'heat-0'
-  let borderColor = 'transparent';
-  let borderWidth = 0;
+  // 격자 divider: 모든 cell의 right+bottom에 hairline (border.subtle). self는 4면 보라 2pt.
+  let borderColor: string = colors.border.subtle;
+  let borderRightWidth: number = StyleSheet.hairlineWidth;
+  let borderBottomWidth: number = StyleSheet.hairlineWidth;
+  let borderTopWidth = 0;
+  let borderLeftWidth = 0;
 
   if (state === 'heat-1') {
     backgroundColor = colors.heat[1];
@@ -43,7 +47,10 @@ const CellComponent: React.FC<CellProps> = ({ state, count, isHeader, label, onP
   } else if (state === 'self') {
     backgroundColor = colors.brand[50];
     borderColor = colors.brand[500];
-    borderWidth = 2;
+    borderTopWidth = 2;
+    borderRightWidth = 2;
+    borderBottomWidth = 2;
+    borderLeftWidth = 2;
   }
 
   // Accessibility Label
@@ -69,7 +76,10 @@ const CellComponent: React.FC<CellProps> = ({ state, count, isHeader, label, onP
         {
           backgroundColor,
           borderColor,
-          borderWidth,
+          borderTopWidth,
+          borderRightWidth,
+          borderBottomWidth,
+          borderLeftWidth,
           opacity: pressed ? 0.8 : 1,
         },
       ]}

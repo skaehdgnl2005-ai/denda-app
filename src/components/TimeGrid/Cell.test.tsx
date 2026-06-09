@@ -75,13 +75,16 @@ describe('Cell Component', () => {
     );
     const cell = getByTestId('grid-cell');
 
-    // Self state should have brand-50 background and brand-500 border
+    // Self state should have brand-50 background and brand-500 4-side 2pt border
     expect(cell.props.style).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           backgroundColor: tokens.light.brand[50],
           borderColor: tokens.light.brand[500],
-          borderWidth: 2,
+          borderTopWidth: 2,
+          borderRightWidth: 2,
+          borderBottomWidth: 2,
+          borderLeftWidth: 2,
         }),
       ]),
     );
