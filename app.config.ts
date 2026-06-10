@@ -49,6 +49,12 @@ export default ({ config: _ }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: false,
     bundleIdentifier: 'com.denda.app',
+    // TestFlight/App Store 제출 시 "수출 규정(암호화)" 문답 자동 면제.
+    // 표준 HTTPS(Supabase)·expo-crypto 해시만 사용 → Apple 면제 대상.
+    // ITSAppUsesNonExemptEncryption=false 를 Info.plist에 주입 (매 빌드 수동 문답 제거).
+    config: {
+      usesNonExemptEncryption: false,
+    },
     // S15-deeplink — D28 자체 deferred deep link Universal Links.
     // AASA 파일은 web-guest/public/.well-known/apple-app-site-association에서 호스팅.
     // Apple 캐시 24-48h — TestFlight build로 실제 device 검증 의무.
