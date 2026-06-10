@@ -1,0 +1,19 @@
+diff --git a/node_modules/expo-modules-autolinking/scripts/ios/project_integrator.rb b/node_modules/expo-modules-autolinking/scripts/ios/project_integrator.rb
+index 1111111..2222222 100644
+--- a/node_modules/expo-modules-autolinking/scripts/ios/project_integrator.rb
++++ b/node_modules/expo-modules-autolinking/scripts/ios/project_integrator.rb
+@@ -140,7 +140,13 @@ module Expo
+           core_pod_target = target.pod_targets.find { |pod_target| pod_target.name == 'ExpoModulesCore' }
+           core_src_root = Expo::PrecompiledModules.package_root_for('ExpoModulesCore') ||
+             File.realpath(core_pod_target.sandbox.pod_dir(core_pod_target.root_spec.name).to_s)
+-          macros_plugin_dir = File.join(core_src_root, 'node_modules', '@expo', 'expo-modules-macros-plugin', 'apple')
++          # The macros plugin may be hoisted to the top-level node_modules (npm/yarn dedupe)
++          # instead of nested under expo-modules-core. Pick whichever path actually has the tool.
++          macros_plugin_candidates = [
++            File.join(core_src_root, 'node_modules', '@expo', 'expo-modules-macros-plugin', 'apple'),
++            File.join(core_src_root, '..', '@expo', 'expo-modules-macros-plugin', 'apple'),
++          ]
++          macros_plugin_dir = macros_plugin_candidates.find { |dir| File.exist?(File.join(dir, 'ExpoModulesMacros-tool')) } || macros_plugin_candidates.first
+           macro_flags = "-Xfrontend -load-plugin-executable -Xfrontend \"#{macros_plugin_dir}/ExpoModulesMacros-tool#ExpoModulesMacros\""
+         end
+
