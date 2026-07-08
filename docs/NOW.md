@@ -16,10 +16,22 @@
 
 - **상태**: **Wave 0 ✅ DONE (2026-07-08, ship)**. 플랜 승인(스코프 Wave 0~2), 결정 4건: R1=①Lucide 합성 FAB / R2=①벨 제거 / W1-14=풀 구현(front+삭제 RPC) / overlay 토큰 승인.
 - **SSoT**: `docs/superpowers/specs/2026-07-08-ui-polish-design.md` (+ audit findings). 계통 원인 C1(프리미티브 부재)·C2(상태=시스템 Alert 15파일)·C3(모션·reduce-motion 0) 근본 해결.
-- **Wave 0 완료**: 프리미티브 6종(Button·Toast·ConfirmSheet·EmptyState·ScreenHeader·Spinner) + useReducedMotion·easing 헬퍼 + overlay 토큰 + messages.ts. 전부 TDD. 다중 에이전트 리뷰 11건 확정→전부 수정. Jest 1067 pass / tsc 0 / eslint 0.
-- **다음 단계**: **Wave 1 (P0 출시 차단급)** — 여정 3모먼트(모임 확정·장소 확정·"예약하기") Alert 제거, Alert 15파일→0(Toast/ConfirmSheet/인라인+mapError), 상태 디자인(홈·친구·지도·상세 에러 위장 해제+Skeleton), 스플래시/약관/**W1-14 회원탈퇴 풀 구현(front+삭제 RPC)**, useKakaoInvite 연결.
-- **불가침**: D12 시간 그리드 worklet diff 0 · Phase 3 코드 0 · DESIGN 토큰 외 시각 결정 0 · Gate #1·#2 로깅 1회성 불변.
+- **Wave 0 ✅ 완료·ship** (28ffaaa): 프리미티브 6종(Button·Toast·ConfirmSheet·EmptyState·ScreenHeader·Spinner) + useReducedMotion·easing 헬퍼 + overlay 토큰 + messages.ts. 전부 TDD. 다중 에이전트 리뷰 11건 확정→전부 수정.
+- **Wave 1 진행 중** — ✅ **여정 3모먼트 완료·ship** (가장 중요 P0, Gate #1·#2 클라이맥스):
+  - W1-2 장소 확정(place-search·midpoint): Alert 확인 → ConfirmSheet + error Toast (78a5c05)
+  - W1-3 "예약하기"(place): Alert → success Toast + loading/error 프리미티브 (78a5c05)
+  - W1-1 모임 확정(group index): Alert 5곳 제거 → ConfirmedTimeCard 등장 모먼트(emphasized) + Toast, 로드에러 EmptyState (384dc77)
+- **Wave 1 잔여 (다음 세션)**:
+  - W1-4~6 Alert 나머지 →0: friends/index·requests·search(~20곳), everytime(6), _layout 자동합류, InviteCodeModal, login, new.tsx, invite
+  - W1-7~9 상태 디자인: 홈(fetch 실패 위장+useFocusEffect refetch+RefreshControl), 친구(위장+Skeleton), 지도(죽은 카드 Pressable화+Skeleton)
+  - W1-11~13 스플래시 다크 flash, privacy 뒤로 화살표, 약관 전문 화면
+  - **W1-14 회원 탈퇴 풀 구현** (프론트 2단 ConfirmSheet + Supabase 삭제 RPC/Edge — 백엔드 포함, @reviewer 강화)
+  - W1-15 검색 카톡초대 no-op → useKakaoInvite
+  - 이후 **Wave 2** (셸·그리드 시각·화면 마감, FAB=Lucide 합성, 벨 제거)
+- **패턴 확립**: Alert→Toast(useToast, 성공/안내) · Alert 확인→ConfirmSheet · raw e.message→mapError · 에러 위장→EmptyState error variant · 로딩→Spinner/Skeleton. 스크린 테스트는 SafeAreaProvider+ThemeProvider+ToastProvider 래퍼 필요.
+- **불가침**: D12 worklet diff 0 · Phase 3 코드 0 · DESIGN 토큰 외 시각 결정 0 · Gate #1·#2 로깅 1회성 불변.
 - **⚠️ 미결**: `supabase/config.toml` PG 15→17 무관 변경 커밋 제외 유지(사용자 결정 대기).
+- **상태**: Jest **1067 pass** / tsc 0 / eslint 0. branch `feat/map-maphost-m0` (미push).
 - **마지막 update**: 2026-07-08
 
 ### S16 Phase b — KakaoLocalProvider (Q-A2 허용 → D37)

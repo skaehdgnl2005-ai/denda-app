@@ -25,6 +25,17 @@ STATUS는 다음 중 하나:
 
 ---
 
+## UI-W1 여정 3모먼트 — Gate #1·#2 클라이맥스 Alert 제거 (2026-07-08) — DONE
+- Depends: UI-W0(✅ 프리미티브), DESIGN §6.5·§11.3
+- 배경: 핵심 여정(모임 확정→장소 확정→"예약하기")의 클라이맥스가 전부 시스템 Alert. Gate 측정의 바로 그 순간이 무표정. Wave 1 최우선 P0.
+- Changes:
+  - **W1-2 장소 확정** (78a5c05): `place-search.tsx`·`midpoint.tsx` — Alert('~으로 정할까요?') → `ConfirmSheet`(장소명+주소+[다음에 정할게요/이곳으로 확정]), 확정 실패 → error `Toast`. usePlaceConfirmAction ref lock·마커/리스트 단일 requestConfirm·Gate #1 신호 불변. 테스트 place-search 12·midpoint ConfirmSheet 흐름 재작성
+  - **W1-3 "예약하기"** (78a5c05): `place.tsx` — Alert → success `Toast`(Q-B12 카피). logReservationClick 1회성(Gate #2) 불변. 로딩→`Spinner`, 에러→`EmptyState` error variant(raw 위장 해제), 장소없음→EmptyState. messages.reservationReady 정렬
+  - **W1-1 모임 확정** (384dc77): `group/[id]/index.tsx` — Alert 5곳 제거. 성공 = `ConfirmedTimeCard` 등장 자체가 피드백(§6.5 duration-long + emphasized entrance 애니 추가, reduce-motion 정적) + 보조 success Toast. 부분실패 병기·이미확정 안내·확정실패 error Toast(시트 유지 재시도)·투표저장 실패 mapError Toast. 로드에러(W1-10) → EmptyState error + 다시시도(reloadKey refetch)
+- Tests: place 7·place-search 12·midpoint·confirm 15 green (SafeArea+Toast wrapper). 전체 Jest 1067 pass, typecheck 0, eslint 0
+- Next: Wave 1 잔여 — W1-4~6(Alert 나머지), W1-7~9(홈·친구·지도 상태), W1-11~14(스플래시·약관·**탈퇴 RPC**), W1-15
+- Notes: Alert→Toast/ConfirmSheet 전환 패턴 확립(스크린 테스트 = SafeAreaProvider+ThemeProvider+ToastProvider 래퍼). Gate 로깅·확정 idempotency·D12 worklet·Phase 3 경계 전부 불변. branch `feat/map-maphost-m0` 연속.
+
 ## UI-W0 — 디자인 시스템 프리미티브 (UI Polish Wave 0) (2026-07-08) — DONE
 - Depends: DESIGN §6·§10·§11·§12·§17 (기준선 ✅), UI 폴리시 플랜 승인(2026-07-08)
 - 배경: 앱 전 화면 "기초적으로 안 다듬어진" 인상 → 감사 결과 계통 원인 C1(공용 프리미티브 부재). Wave 0은 후속 웨이브의 선행 기반. 전부 TDD.
