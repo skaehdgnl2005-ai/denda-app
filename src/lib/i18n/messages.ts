@@ -26,7 +26,8 @@ export const messages = {
     blocked: '차단했어요.',
     reported: '신고를 접수했어요.',
     placeConfirmed: '장소를 정했어요!',
-    reservationReady: '식당에 알릴 준비가 됐어요!',
+    // Q-B12 closure 시 확정 문구 — 그때까지 기존 카피 유지
+    reservationReady: '식당에 알릴 준비가 됐어요. 곧 안내를 보낼게요.',
     copied: '복사했어요!',
   },
 

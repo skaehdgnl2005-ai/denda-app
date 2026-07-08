@@ -1,10 +1,23 @@
 import React from 'react';
-import { Alert } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import PlaceSearchScreen from '../../../app/group/[id]/place-search';
 import { ThemeProvider } from '@/design/theme';
+import { ToastProvider } from '@/components/Toast';
 import type { PlaceSearchResult } from '@/lib/places/PlaceSearchProvider';
+
+const METRICS = {
+  frame: { x: 0, y: 0, width: 390, height: 844 },
+  insets: { top: 47, left: 0, right: 0, bottom: 34 },
+};
+const wrapper = ({ children }: { children: React.ReactNode }): React.JSX.Element => (
+  <SafeAreaProvider initialMetrics={METRICS}>
+    <ThemeProvider>
+      <ToastProvider>{children}</ToastProvider>
+    </ThemeProvider>
+  </SafeAreaProvider>
+);
 
 const mockReplace = jest.fn();
 const mockBack = jest.fn();
@@ -86,20 +99,7 @@ const sampleResult: PlaceSearchResult = {
   source: 'naver',
 };
 
-function autoConfirmAlert(text: '확정' | '취소'): jest.SpyInstance {
-  return jest.spyOn(Alert, 'alert').mockImplementation(((
-    _title: string,
-    _message?: string,
-    buttons?: readonly { text: string; onPress?: () => void }[],
-  ) => {
-    const btn = buttons?.find((b) => b.text === text);
-    btn?.onPress?.();
-  }) as typeof Alert.alert);
-}
-
 describe('PlaceSearchScreen', () => {
-  const wrapper = ThemeProvider;
-
   beforeEach(() => {
     jest.clearAllMocks();
     mockSetQuery.mockReset();
@@ -121,30 +121,26 @@ describe('PlaceSearchScreen', () => {
     expect(mockSetQuery).toHaveBeenCalledWith('안암 한식');
   });
 
-  test('결과 리스트 렌더 + 카드 tap → 확인 단계 (Alert) 표시', () => {
+  test('결과 리스트 렌더 + 카드 tap → 확인 ConfirmSheet 표시 (장소명 포함)', () => {
     mockState.results = [sampleResult];
     mockState.query = '한솥';
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    const { getByTestId } = render(<PlaceSearchScreen />, { wrapper });
+    const { getByTestId, getByText } = render(<PlaceSearchScreen />, { wrapper });
     fireEvent.press(getByTestId('place-result-0'));
-    expect(alertSpy).toHaveBeenCalled();
-    // 확인 단계의 title/message 가 장소 이름을 포함
-    const args = alertSpy.mock.calls[0] ?? [];
-    expect(String(args[0] ?? '') + String(args[1] ?? '')).toContain('한솥도시락 안암점');
-    alertSpy.mockRestore();
+    // ConfirmSheet 타이틀(장소명 + "여기로 정할까요?")
+    expect(getByText(/한솥도시락 안암점, 여기로 정할까요/)).toBeTruthy();
+    expect(getByTestId('place-confirm-confirm')).toBeTruthy();
   });
 
-  test('Alert 확정 → persistPlace + setConfirmedPlace + place 라우트 replace', async () => {
+  test('확정 → persistPlace + setConfirmedPlace + place 라우트 replace', async () => {
     mockState.results = [sampleResult];
     mockState.query = '한솥';
     mockPersistPlace.mockResolvedValue('place-uuid');
     mockSetConfirmedPlace.mockResolvedValue(undefined);
 
-    const alertSpy = autoConfirmAlert('확정');
     const { getByTestId } = render(<PlaceSearchScreen />, { wrapper });
-
+    fireEvent.press(getByTestId('place-result-0'));
     await act(async () => {
-      fireEvent.press(getByTestId('place-result-0'));
+      fireEvent.press(getByTestId('place-confirm-confirm'));
     });
 
     await waitFor(() => {
@@ -152,54 +148,36 @@ describe('PlaceSearchScreen', () => {
       expect(mockSetConfirmedPlace).toHaveBeenCalledWith('g-1', 'place-uuid');
       expect(mockReplace).toHaveBeenCalledWith('/group/g-1/place?placeId=place-uuid');
     });
-    alertSpy.mockRestore();
   });
 
-  test('Alert 취소 → persistPlace 미호출, navigation 없음', () => {
+  test('취소(다음에 정할게요) → persistPlace 미호출, navigation 없음', () => {
     mockState.results = [sampleResult];
     mockState.query = '한솥';
-    const alertSpy = autoConfirmAlert('취소');
     const { getByTestId } = render(<PlaceSearchScreen />, { wrapper });
     fireEvent.press(getByTestId('place-result-0'));
+    fireEvent.press(getByTestId('place-confirm-cancel'));
     expect(mockPersistPlace).not.toHaveBeenCalled();
     expect(mockSetConfirmedPlace).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
-    alertSpy.mockRestore();
   });
 
-  test('persistPlace 실패 → 에러 Alert, setConfirmedPlace 미호출, navigation 없음', async () => {
+  test('persistPlace 실패 → 에러 토스트, setConfirmedPlace 미호출, navigation 없음', async () => {
     mockState.results = [sampleResult];
     mockState.query = '한솥';
     mockPersistPlace.mockRejectedValue(
       new Error('장소를 저장하지 못했어요. 잠시 후 다시 시도해주세요.'),
     );
 
-    // 첫 alert(확인 단계)는 자동 확정, 두 번째 alert(에러 토스트)는 무시.
-    let callIdx = 0;
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(((
-      _title: string,
-      _message?: string,
-      buttons?: readonly { text: string; onPress?: () => void }[],
-    ) => {
-      if (callIdx === 0) {
-        callIdx++;
-        buttons?.find((b) => b.text === '확정')?.onPress?.();
-      }
-    }) as typeof Alert.alert);
-
-    const { getByTestId } = render(<PlaceSearchScreen />, { wrapper });
+    const { getByTestId, findByText } = render(<PlaceSearchScreen />, { wrapper });
+    fireEvent.press(getByTestId('place-result-0'));
     await act(async () => {
-      fireEvent.press(getByTestId('place-result-0'));
+      fireEvent.press(getByTestId('place-confirm-confirm'));
     });
 
-    await waitFor(() => {
-      expect(mockPersistPlace).toHaveBeenCalled();
-      // 두 번째 alert (에러) 호출됐는지
-      expect(alertSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
-    });
+    // 에러가 시스템 Alert이 아닌 디자인 시스템 토스트로 표출
+    expect(await findByText(/저장하지 못했어요/)).toBeTruthy();
     expect(mockSetConfirmedPlace).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
-    alertSpy.mockRestore();
   });
 
   test('isLoading=true → 로딩 표시', () => {
@@ -251,12 +229,12 @@ describe('PlaceSearchScreen', () => {
     mockPersistPlace.mockResolvedValue('place-uuid');
     mockSetConfirmedPlace.mockResolvedValue(undefined);
 
-    const alertSpy = autoConfirmAlert('확정');
     const { getByTestId } = render(<PlaceSearchScreen />, { wrapper });
 
-    // 마커 actionId = providerPlaceId → findResultByActionId → requestConfirm → confirm.
+    // 마커 actionId = providerPlaceId → findResultByActionId → requestConfirm → 동일 ConfirmSheet.
+    fireEvent.press(getByTestId(`marker-${sampleResult.providerPlaceId}`));
     await act(async () => {
-      fireEvent.press(getByTestId(`marker-${sampleResult.providerPlaceId}`));
+      fireEvent.press(getByTestId('place-confirm-confirm'));
     });
 
     await waitFor(() => {
@@ -264,6 +242,5 @@ describe('PlaceSearchScreen', () => {
       expect(mockSetConfirmedPlace).toHaveBeenCalledWith('g-1', 'place-uuid');
       expect(mockReplace).toHaveBeenCalledWith('/group/g-1/place?placeId=place-uuid');
     });
-    alertSpy.mockRestore();
   });
 });

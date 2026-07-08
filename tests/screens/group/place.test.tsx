@@ -1,9 +1,23 @@
 import React from 'react';
-import { Alert } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import GroupPlaceScreen from '../../../app/group/[id]/place';
 import { ThemeProvider } from '@/design/theme';
+import { ToastProvider } from '@/components/Toast';
+import { messages } from '@/lib/i18n/messages';
+
+const METRICS = {
+  frame: { x: 0, y: 0, width: 390, height: 844 },
+  insets: { top: 47, left: 0, right: 0, bottom: 34 },
+};
+const wrapper = ({ children }: { children: React.ReactNode }): React.JSX.Element => (
+  <SafeAreaProvider initialMetrics={METRICS}>
+    <ThemeProvider>
+      <ToastProvider>{children}</ToastProvider>
+    </ThemeProvider>
+  </SafeAreaProvider>
+);
 
 const VALID_GROUP_ID = '11111111-2222-3333-4444-555555555555';
 const VALID_PLACE_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
@@ -42,8 +56,6 @@ jest.mock('@/lib/share/kakaoShare', () => ({
 }));
 
 describe('GroupPlaceScreen', () => {
-  const wrapper = ThemeProvider;
-
   beforeEach(() => {
     jest.clearAllMocks();
     mockParams = { id: VALID_GROUP_ID, placeId: VALID_PLACE_ID };
@@ -76,24 +88,26 @@ describe('GroupPlaceScreen', () => {
     });
   }
 
-  test('초기 loading → fetch 후 sheet 노출', async () => {
+  test('초기 loading → Spinner → fetch 후 sheet 노출', async () => {
     mockHappyFetch();
-    const { getByText, findByText } = render(<GroupPlaceScreen />, { wrapper });
-    expect(getByText('장소를 불러오는 중...')).toBeTruthy();
+    const { getByTestId, findByText } = render(<GroupPlaceScreen />, { wrapper });
+    expect(getByTestId('place-loading')).toBeTruthy();
     expect(await findByText('한솥도시락 안암점')).toBeTruthy();
   });
 
-  test('placeId param 누락 → "장소 정보가 없어요" 안내', () => {
+  test('placeId param 누락 → EmptyState "장소 정보가 없어요"', () => {
     mockParams = { id: VALID_GROUP_ID };
     const { getByText } = render(<GroupPlaceScreen />, { wrapper });
-    expect(getByText('장소 정보가 없어요.')).toBeTruthy();
+    expect(getByText('장소 정보가 없어요')).toBeTruthy();
   });
 
-  test('fetch error → 한국어 에러 메시지 노출', async () => {
+  test('fetch error → raw 메시지 대신 EmptyState error variant (위장 해제 §11.3)', async () => {
     mockFetchGroup.mockRejectedValue(new Error('모임을 찾을 수 없어요.'));
     mockFetchPlace.mockResolvedValue({});
-    const { findByText } = render(<GroupPlaceScreen />, { wrapper });
-    expect(await findByText('모임을 찾을 수 없어요.')).toBeTruthy();
+    const { findByTestId, queryByText } = render(<GroupPlaceScreen />, { wrapper });
+    expect(await findByTestId('place-error')).toBeTruthy();
+    // raw 기술 메시지는 사용자에게 노출하지 않는다
+    expect(queryByText('모임을 찾을 수 없어요.')).toBeNull();
   });
 
   test('"예약하기" press → logReservationClick({groupId, placeId, partnershipId}) 호출', async () => {
@@ -103,9 +117,8 @@ describe('GroupPlaceScreen', () => {
       eventId: 'evt',
       duplicated: false,
     });
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 
-    const { findByTestId } = render(<GroupPlaceScreen />, { wrapper });
+    const { findByTestId, findByText } = render(<GroupPlaceScreen />, { wrapper });
     const cta = await findByTestId('reservation-cta');
     await act(async () => {
       fireEvent.press(cta);
@@ -118,8 +131,8 @@ describe('GroupPlaceScreen', () => {
         partnershipId: VALID_PARTNERSHIP_ID,
       }),
     );
-    expect(alertSpy).toHaveBeenCalled();
-    alertSpy.mockRestore();
+    // Alert 대신 success 토스트 (Gate #2 클라이맥스)
+    expect(await findByText(messages.success.reservationReady)).toBeTruthy();
   });
 
   test('"장소만 정하기" press → sharePlaceToKakao + native share api 호출', async () => {
@@ -150,7 +163,6 @@ describe('GroupPlaceScreen', () => {
       eventId: 'evt',
       duplicated: false,
     });
-    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 
     const { findByTestId } = render(<GroupPlaceScreen />, { wrapper });
     const cta = await findByTestId('reservation-cta');
@@ -185,7 +197,6 @@ describe('GroupPlaceScreen', () => {
       eventId: 'evt',
       duplicated: false,
     });
-    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 
     const { findByTestId } = render(<GroupPlaceScreen />, { wrapper });
     const cta = await findByTestId('reservation-cta');

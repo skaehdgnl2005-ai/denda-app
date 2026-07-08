@@ -14,13 +14,15 @@
 // 한국어 only · DESIGN 토큰 · §17 anti-AI-feel (brand-500 fill 0 — tap이 action).
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
+import { ConfirmSheet } from '@/components/ConfirmSheet';
 import { Icon } from '@/components/Icon';
 import { MapHost } from '@/components/map/MapHost';
 import { OriginInput } from '@/components/map/OriginInput';
+import { useToast } from '@/components/Toast';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import {
@@ -98,26 +100,23 @@ export default function MidpointScreen(): React.JSX.Element {
     return { ...base, markers: [...base.markers, ...placeMarkers] };
   }, [origins, midpoint, recommended]);
 
+  const toast = useToast();
+  const [pending, setPending] = useState<PlaceSearchResult | null>(null);
+
   const { confirm, inflight } = usePlaceConfirmAction(groupId, {
     onConfirmed: (placeId) => router.replace(`/group/${groupId}/place?placeId=${placeId}`),
-    onError: (message) => Alert.alert('장소 확정 실패', message),
+    onError: (message) => {
+      setPending(null);
+      toast.show({ message, variant: 'error' });
+    },
   });
 
   const requestConfirm = useCallback(
     (result: PlaceSearchResult): void => {
       if (inflight) return;
-      Alert.alert(`${result.name}으로 정할까요?`, result.address ?? result.category ?? '', [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '확정',
-          style: 'default',
-          onPress: () => {
-            void confirm(result);
-          },
-        },
-      ]);
+      setPending(result);
     },
-    [confirm, inflight],
+    [inflight],
   );
 
   const handleMarkerAction = useCallback(
@@ -295,6 +294,21 @@ export default function MidpointScreen(): React.JSX.Element {
 
       {/* 점등 전: fallback(추천 리스트). 점등 시: place 마커 onPress → handleMarkerAction(리스트와 동일). */}
       <MapHost scene={scene} onMarkerPress={handleMarkerAction} fallback={recoList} />
+
+      {/* 장소 확정 확인 (Gate #1 신호) — 시스템 Alert 대신 ConfirmSheet */}
+      <ConfirmSheet
+        visible={pending !== null}
+        onClose={() => setPending(null)}
+        title={pending ? `${pending.name}, 여기로 정할까요?` : ''}
+        message={pending?.address ?? pending?.category ?? undefined}
+        confirmLabel="이곳으로 확정"
+        cancelLabel="다음에 정할게요"
+        loading={inflight}
+        onConfirm={() => {
+          if (pending) void confirm(pending);
+        }}
+        testID="mid-confirm"
+      />
     </SafeAreaView>
   );
 }

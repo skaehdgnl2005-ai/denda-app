@@ -17,14 +17,16 @@
 // S10 무접촉: NaverSearchProvider/useMapSearch 만 재사용. 한국어 only · DESIGN 토큰 ·
 // §17 anti-AI-feel (brand-500 fill CTA 0개 — 카드 tap = action).
 
-import React, { useMemo } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
+import { ConfirmSheet } from '@/components/ConfirmSheet';
 import { Icon } from '@/components/Icon';
 import { MapHost } from '@/components/map/MapHost';
 import { PartnerBadge } from '@/components/place/PartnerBadge';
+import { useToast } from '@/components/Toast';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { toSearchScene } from '@/lib/map/mapScene';
@@ -40,25 +42,22 @@ export default function PlaceSearchScreen(): React.JSX.Element {
   const { colors, space, radius } = useTheme();
 
   const { query, setQuery, results, isLoading, error } = useMapSearch();
+  const toast = useToast();
+  const [pending, setPending] = useState<PlaceSearchResult | null>(null);
 
   const { confirm, inflight } = usePlaceConfirmAction(groupId, {
     onConfirmed: (placeId) => router.replace(`/group/${groupId}/place?placeId=${placeId}`),
-    onError: (message) => Alert.alert('장소 확정 실패', message),
+    onError: (message) => {
+      setPending(null);
+      toast.show({ message, variant: 'error' });
+    },
   });
 
-  // 리스트 탭과 (점등 시) 마커 onPress가 호출하는 단일 확정 액션 (Alert 확인 → idempotent commit).
+  // 리스트 탭과 (점등 시) 마커 onPress가 호출하는 단일 확정 액션 — ConfirmSheet 확인 단계
+  // (오탭 방지 + Gate #1 신호 의도성). 확정 commit은 usePlaceConfirmAction ref lock으로 1회.
   const requestConfirm = (result: PlaceSearchResult): void => {
     if (inflight) return;
-    Alert.alert(`${result.name}으로 정할까요?`, result.address ?? result.category ?? '', [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '확정',
-        style: 'default',
-        onPress: () => {
-          void confirm(result);
-        },
-      },
-    ]);
+    setPending(result);
   };
 
   const handleMarkerAction = (actionId: string): void => {
@@ -206,6 +205,21 @@ export default function PlaceSearchScreen(): React.JSX.Element {
 
       {/* 점등 전: fallback(리스트). 점등 시: 마커 onPress → handleMarkerAction → requestConfirm (리스트와 동일). */}
       <MapHost scene={searchScene} onMarkerPress={handleMarkerAction} fallback={resultsList} />
+
+      {/* 장소 확정 확인 (Gate #1 신호) — 시스템 Alert 대신 ConfirmSheet */}
+      <ConfirmSheet
+        visible={pending !== null}
+        onClose={() => setPending(null)}
+        title={pending ? `${pending.name}, 여기로 정할까요?` : ''}
+        message={pending?.address ?? pending?.category ?? undefined}
+        confirmLabel="이곳으로 확정"
+        cancelLabel="다음에 정할게요"
+        loading={inflight}
+        onConfirm={() => {
+          if (pending) void confirm(pending);
+        }}
+        testID="place-confirm"
+      />
     </SafeAreaView>
   );
 }

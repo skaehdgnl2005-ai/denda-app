@@ -15,15 +15,18 @@
 // S10 BLOCKED 동안에도 본 화면 standalone 진입 가능 (dev/QA).
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
+import { EmptyState } from '@/components/EmptyState';
 import { PlaceActionSheet } from '@/components/place/PlaceActionSheet';
+import { Spinner } from '@/components/Spinner';
+import { useToast } from '@/components/Toast';
 import { useTheme } from '@/design/theme';
-import { Body } from '@/design/typography';
 import { logReservationClick } from '@/lib/analytics/click_through';
 import { fetchGroupForConfirm, type GroupForConfirm } from '@/lib/groups/queries';
+import { messages } from '@/lib/i18n/messages';
 import { fetchPlace, type Place } from '@/lib/places/queries';
 import { createNativeShareApi, sharePlaceToKakao } from '@/lib/share/kakaoShare';
 
@@ -33,6 +36,7 @@ export default function GroupPlaceScreen(): React.JSX.Element {
   const placeId = params.placeId ?? '';
   const router = useRouter();
   const { colors, space } = useTheme();
+  const toast = useToast();
 
   const [group, setGroup] = useState<GroupForConfirm | null>(null);
   const [place, setPlace] = useState<Place | null>(null);
@@ -61,14 +65,15 @@ export default function GroupPlaceScreen(): React.JSX.Element {
 
   const handleReservation = useCallback(async (): Promise<void> => {
     if (!group || !place) return;
+    // Gate #2 측정 — logReservationClick은 1회성 idempotent (변경 금지).
     await logReservationClick({
       groupId: group.id,
       placeId: place.id,
       partnershipId: place.partnershipId,
     });
-    // micro-copy founder review 대기 (Q-B12 closure 시 본문 1줄 fix)
-    Alert.alert('알림', '식당에 알릴 준비가 됐어요. 곧 안내를 보낼게요.');
-  }, [group, place]);
+    // Gate #2 클라이맥스 — 시스템 Alert 대신 success 토스트 (§11.3, Q-B12 카피).
+    toast.show({ message: messages.success.reservationReady, variant: 'success' });
+  }, [group, place, toast]);
 
   const handleShare = useCallback(async (): Promise<void> => {
     if (!group || !place) return;
@@ -80,7 +85,13 @@ export default function GroupPlaceScreen(): React.JSX.Element {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface[0] }]}>
         <View style={[styles.centered, { padding: space[4] }]}>
-          <Body color={colors.text.secondary}>장소 정보가 없어요.</Body>
+          <EmptyState
+            icon="장소"
+            title="장소 정보가 없어요"
+            body="이전 화면에서 장소를 다시 선택해주세요"
+            cta={{ label: '돌아가기', onPress: () => router.back() }}
+            testID="place-none"
+          />
         </View>
       </SafeAreaView>
     );
@@ -90,7 +101,13 @@ export default function GroupPlaceScreen(): React.JSX.Element {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface[0] }]}>
         <View style={[styles.centered, { padding: space[4] }]}>
-          <Body color={colors.text.secondary}>{loadError}</Body>
+          <EmptyState
+            variant="error"
+            title="장소를 불러오지 못했어요"
+            body="잠시 후 다시 시도해볼게요"
+            cta={{ label: '돌아가기', onPress: () => router.back() }}
+            testID="place-error"
+          />
         </View>
       </SafeAreaView>
     );
@@ -99,8 +116,8 @@ export default function GroupPlaceScreen(): React.JSX.Element {
   if (!group || !place) {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface[0] }]}>
-        <View style={[styles.centered, { padding: space[4] }]}>
-          <Body color={colors.text.tertiary}>장소를 불러오는 중...</Body>
+        <View style={[styles.centered, { padding: space[4] }]} testID="place-loading">
+          <Spinner />
         </View>
       </SafeAreaView>
     );

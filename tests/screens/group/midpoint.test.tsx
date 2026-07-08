@@ -1,12 +1,25 @@
 // S-MAP M3 — 중간지점 화면: 출발지 추가 → 중간점 계산 → 근처 추천 → 확정(M2 재사용).
 
 import React from 'react';
-import { Alert } from 'react-native';
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import MidpointScreen from '../../../app/group/[id]/midpoint';
 import { ThemeProvider } from '@/design/theme';
+import { ToastProvider } from '@/components/Toast';
 import type { PlaceSearchResult } from '@/lib/places/PlaceSearchProvider';
+
+const METRICS = {
+  frame: { x: 0, y: 0, width: 390, height: 844 },
+  insets: { top: 47, left: 0, right: 0, bottom: 34 },
+};
+const wrapper = ({ children }: { children: React.ReactNode }): React.JSX.Element => (
+  <SafeAreaProvider initialMetrics={METRICS}>
+    <ThemeProvider>
+      <ToastProvider>{children}</ToastProvider>
+    </ThemeProvider>
+  </SafeAreaProvider>
+);
 
 const mockReplace = jest.fn();
 const mockBack = jest.fn();
@@ -118,19 +131,7 @@ const farResult: PlaceSearchResult = {
   source: 'naver',
 };
 
-function autoConfirmAlert(text: '확정' | '취소'): jest.SpyInstance {
-  return jest.spyOn(Alert, 'alert').mockImplementation(((
-    _t: string,
-    _m?: string,
-    buttons?: readonly { text: string; onPress?: () => void }[],
-  ) => {
-    buttons?.find((b) => b.text === text)?.onPress?.();
-  }) as typeof Alert.alert);
-}
-
 describe('MidpointScreen', () => {
-  const wrapper = ThemeProvider;
-
   beforeEach(() => {
     jest.clearAllMocks();
     mockLoadRecent.mockResolvedValue([]);
@@ -173,20 +174,20 @@ describe('MidpointScreen', () => {
     expect(within(getByTestId('reco-result-0')).getByText('가까운식당')).toBeTruthy();
   });
 
-  test('추천 결과 tap → Alert 확정 → persist + setConfirmedPlace + place 라우트', async () => {
+  test('추천 결과 tap → ConfirmSheet 확정 → persist + setConfirmedPlace + place 라우트', async () => {
     mockState.results = [nearResult];
     mockState.query = '식당';
     mockPersistPlace.mockResolvedValue('place-uuid');
     mockSetConfirmedPlace.mockResolvedValue(undefined);
-    const alertSpy = autoConfirmAlert('확정');
 
     const { getByTestId } = render(<MidpointScreen />, { wrapper });
     await act(async () => {
       fireEvent.press(getByTestId('add-origin-a'));
       fireEvent.press(getByTestId('add-origin-b'));
     });
+    fireEvent.press(getByTestId('reco-result-0'));
     await act(async () => {
-      fireEvent.press(getByTestId('reco-result-0'));
+      fireEvent.press(getByTestId('mid-confirm-confirm'));
     });
 
     await waitFor(() => {
@@ -194,7 +195,6 @@ describe('MidpointScreen', () => {
       expect(mockSetConfirmedPlace).toHaveBeenCalledWith('g-1', 'place-uuid');
       expect(mockReplace).toHaveBeenCalledWith('/group/g-1/place?placeId=place-uuid');
     });
-    alertSpy.mockRestore();
   });
 
   test('지도 place 마커 onPress(actionId) → 리스트 탭과 동일 확정 (M2 통일)', async () => {
@@ -202,22 +202,21 @@ describe('MidpointScreen', () => {
     mockState.query = '식당';
     mockPersistPlace.mockResolvedValue('place-uuid');
     mockSetConfirmedPlace.mockResolvedValue(undefined);
-    const alertSpy = autoConfirmAlert('확정');
 
     const { getByTestId } = render(<MidpointScreen />, { wrapper });
     await act(async () => {
       fireEvent.press(getByTestId('add-origin-a'));
       fireEvent.press(getByTestId('add-origin-b'));
     });
+    fireEvent.press(getByTestId(`marker-${nearResult.providerPlaceId}`));
     await act(async () => {
-      fireEvent.press(getByTestId(`marker-${nearResult.providerPlaceId}`));
+      fireEvent.press(getByTestId('mid-confirm-confirm'));
     });
 
     await waitFor(() => {
       expect(mockPersistPlace).toHaveBeenCalledWith(nearResult);
       expect(mockReplace).toHaveBeenCalledWith('/group/g-1/place?placeId=place-uuid');
     });
-    alertSpy.mockRestore();
   });
 
   test('뒤로 가기 → router.back()', async () => {
