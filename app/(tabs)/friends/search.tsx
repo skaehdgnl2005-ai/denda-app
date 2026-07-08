@@ -1,23 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import {
-  FlatList,
-  Pressable,
-  StyleSheet,
-  TextInput,
-  View,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
+import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { Icon } from '@/components/Icon';
+import { Skeleton } from '@/components/Skeleton';
+import { useToast } from '@/components/Toast';
 import { FriendUser, friendsApi } from '@/lib/friends/api';
+import { mapError, messages } from '@/lib/i18n/messages';
+import { useKakaoInvite } from '@/lib/share/useKakaoInvite';
 
 export default function FriendsSearchScreen() {
   const { colors, space, radius } = useTheme();
   const router = useRouter();
+  const { show: showToast } = useToast();
+  const handleInvite = useKakaoInvite();
 
   const [query, setQuery] = useState<string>('');
   const [debouncedQuery, setDebouncedQuery] = useState<string>('');
@@ -50,23 +48,25 @@ export default function FriendsSearchScreen() {
         setResults(searchResults);
       } catch (e) {
         console.error(e);
-        Alert.alert('오류', '검색에 실패했습니다.');
+        const { silent, message } = mapError(e);
+        if (!silent) showToast({ message, variant: 'error' });
       } finally {
         setLoading(false);
       }
     };
 
     performSearch();
-  }, [debouncedQuery]);
+  }, [debouncedQuery, showToast]);
 
   const handleSendRequest = async (userId: string) => {
     try {
       await friendsApi.sendRequest(userId);
       setSentUserIds((prev) => [...prev, userId]);
-      Alert.alert('알림', '친구 요청을 보냈습니다.');
+      showToast({ message: messages.success.requestSent, variant: 'success' });
     } catch (e) {
       console.error(e);
-      Alert.alert('오류', '친구 요청을 보내지 못했습니다.');
+      const { silent, message } = mapError(e);
+      if (!silent) showToast({ message, variant: 'error' });
     }
   };
 
@@ -179,9 +179,7 @@ export default function FriendsSearchScreen() {
         친구를 더 빠르게 찾는 방법
       </Caption>
       <Pressable
-        onPress={() => {
-          /* TODO S07-카톡 초대 — 카카오 공유 SDK 연동 */
-        }}
+        onPress={handleInvite}
         accessibilityRole="button"
         accessibilityLabel="카카오톡으로 친구 초대"
         style={({ pressed }) => ({
@@ -282,10 +280,12 @@ export default function FriendsSearchScreen() {
         </View>
       </View>
 
-      {/* Results Section */}
+      {/* Results Section — 로딩=Skeleton(§11.1 스피너 스펙 준수) */}
       {loading ? (
-        <View style={styles.loadingContainer} testID="search-loading-indicator">
-          <ActivityIndicator color={colors.brand[500]} size="large" />
+        <View testID="search-loading" style={{ paddingHorizontal: space[4], paddingTop: space[2] }}>
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} height={72} style={{ marginBottom: space[3] }} />
+          ))}
         </View>
       ) : debouncedQuery.trim() ? (
         <FlatList
@@ -349,11 +349,6 @@ const styles = StyleSheet.create({
     height: '100%',
     fontSize: 16,
     fontFamily: 'PretendardVariable',
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   listContent: {
     paddingBottom: 24,

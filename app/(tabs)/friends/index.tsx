@@ -15,15 +15,14 @@ import { submitReport } from '@/lib/reports/api';
 import { type ReportReasonKey } from '@/lib/reports/reasons';
 import { mapError, messages } from '@/lib/i18n/messages';
 import { useAuth } from '@/lib/auth/setup';
-import { createNativeShareApi } from '@/lib/share/kakaoShare';
-import { shareInviteToKakao } from '@/lib/share/inviteShare';
+import { useKakaoInvite } from '@/lib/share/useKakaoInvite';
 
 export default function FriendsIndexScreen() {
   const { colors, space } = useTheme();
   const router = useRouter();
   const toast = useToast();
   const reporterId = useAuth((s) => s.session?.user.id ?? null);
-  const myNickname = useAuth((s) => s.session?.user.nickname ?? '');
+  const handleKakaoInvite = useKakaoInvite();
 
   const [friends, setFriends] = useState<FriendUser[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -101,19 +100,6 @@ export default function FriendsIndexScreen() {
       await submitReport({ reporterId, targetUserId, reason, detail });
       setSheetVisible(false);
       toast.show({ message: messages.success.reported, variant: 'success' });
-    } catch (e) {
-      const { silent, message } = mapError(e);
-      if (!silent) toast.show({ message, variant: 'error' });
-    }
-  };
-
-  // S24: RN core Share API → 시스템 share sheet (사용자가 카톡 선택). 취소류는 silent.
-  const handleKakaoInvite = async () => {
-    try {
-      await shareInviteToKakao(
-        { inviterNickname: myNickname },
-        { shareApi: createNativeShareApi() },
-      );
     } catch (e) {
       const { silent, message } = mapError(e);
       if (!silent) toast.show({ message, variant: 'error' });

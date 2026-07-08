@@ -1,9 +1,10 @@
 import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import FriendsSearchScreen from '../../../app/(tabs)/friends/search';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider } from '@/design/theme';
+import { ToastProvider } from '@/components/Toast';
 import { friendsApi } from '@/lib/friends/api';
-import { Alert } from 'react-native';
 
 const mockBack = jest.fn();
 jest.mock('expo-router', () => ({
@@ -12,9 +13,26 @@ jest.mock('expo-router', () => ({
   }),
 }));
 
-describe('FriendsSearchScreen Screen', () => {
-  const wrapper = ThemeProvider;
+// W1-15: 카톡 초대는 공유 훅으로 위임 — 훅 자체는 useKakaoInvite.test.ts에서 검증.
+const mockInvite = jest.fn();
+jest.mock('@/lib/share/useKakaoInvite', () => ({
+  useKakaoInvite: () => mockInvite,
+}));
 
+const METRICS = {
+  frame: { x: 0, y: 0, width: 390, height: 844 },
+  insets: { top: 47, left: 0, right: 0, bottom: 34 },
+};
+
+const wrapper = ({ children }: { children: React.ReactNode }): React.JSX.Element => (
+  <SafeAreaProvider initialMetrics={METRICS}>
+    <ThemeProvider>
+      <ToastProvider>{children}</ToastProvider>
+    </ThemeProvider>
+  </SafeAreaProvider>
+);
+
+describe('FriendsSearchScreen Screen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     friendsApi.__resetMocks();
@@ -54,7 +72,6 @@ describe('FriendsSearchScreen Screen', () => {
   test('sends friend request on button press and updates button text to sent state', async () => {
     jest.spyOn(friendsApi, 'search').mockResolvedValueOnce([{ id: 'user-10', nickname: '김하늘' }]);
     const sendRequestSpy = jest.spyOn(friendsApi, 'sendRequest');
-    const alertSpy = jest.spyOn(Alert, 'alert');
 
     const { getByTestId, getByText } = render(<FriendsSearchScreen />, { wrapper });
 
@@ -77,9 +94,17 @@ describe('FriendsSearchScreen Screen', () => {
     });
 
     expect(sendRequestSpy).toHaveBeenCalledWith('user-10');
-    expect(alertSpy).toHaveBeenCalledWith('알림', '친구 요청을 보냈습니다.');
+    // 시스템 Alert 대신 success 토스트
+    expect(getByText('요청 보냈어요!')).toBeTruthy();
     expect(getByText('요청 보냄')).toBeTruthy();
     expect(reqButton.props.accessibilityState.disabled).toBe(true);
+  });
+
+  // W1-15: 초대 카드가 더 이상 no-op이 아니라 공유 훅을 실행.
+  test('W1-15: 카톡 초대 카드 → useKakaoInvite 실행', () => {
+    const { getByTestId } = render(<FriendsSearchScreen />, { wrapper });
+    fireEvent.press(getByTestId('kakao-invite-card'));
+    expect(mockInvite).toHaveBeenCalledTimes(1);
   });
 
   test('navigates back on back button press', () => {
