@@ -57,6 +57,10 @@ export const tokens = {
         solid: '#3B82F6',
       },
     },
+    // 바텀시트·모달 backdrop scrim (W0-8). 라이트: 0.4 흑 (뒤 콘텐츠 은은히 비침).
+    overlay: {
+      scrim: 'rgba(0, 0, 0, 0.4)',
+    },
   },
   dark: {
     brand: {
@@ -115,6 +119,10 @@ export const tokens = {
         fg: '#60A5FA',
         solid: '#3B82F6',
       },
+    },
+    // 다크 scrim은 0.6으로 더 진하게 — 이미 어두운 배경 위 시트를 분리 (W0-8).
+    overlay: {
+      scrim: 'rgba(0, 0, 0, 0.6)',
     },
   },
   space: {

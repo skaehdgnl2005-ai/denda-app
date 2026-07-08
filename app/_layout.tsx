@@ -24,6 +24,7 @@ import { createExpoNotificationsApi, createPlatformApi } from '@/lib/push/expoNo
 import { PushRegistrationRoot } from '@/lib/push/PushRegistrationRoot';
 import { supabase } from '@/lib/supabase/client';
 import { ThemeProvider } from '@/design/theme';
+import { ToastProvider } from '@/components/Toast';
 
 // Prevent splash screen from auto-hiding before asset loading is complete
 SplashScreen.preventAutoHideAsync().catch(() => {
@@ -76,18 +77,20 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider>
-          <StatusBar style="auto" />
-          <CalendarSyncRootConnected />
-          <PushRegistrationConnected />
-          <AttributionRootConnected />
-          <ColdStartBadge />
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="schedule" />
-            <Stack.Screen name="group" />
-          </Stack>
+          <ToastProvider>
+            <StatusBar style="auto" />
+            <CalendarSyncRootConnected />
+            <PushRegistrationConnected />
+            <AttributionRootConnected />
+            <ColdStartBadge />
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="index" />
+              <Stack.Screen name="(auth)" />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="schedule" />
+              <Stack.Screen name="group" />
+            </Stack>
+          </ToastProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

@@ -25,6 +25,11 @@ import {
   ArrowLeftRight,
   Moon,
   BadgeCheck,
+  CircleCheck,
+  CircleAlert,
+  Info,
+  Plus,
+  Trash2,
   LucideProps,
 } from 'lucide-react-native';
 import { useTheme } from '@/design/theme';
@@ -55,6 +60,11 @@ export const iconMap = {
   환불: ArrowLeftRight,
   '다크/라이트': Moon,
   제휴: BadgeCheck,
+  성공: CircleCheck,
+  경고: CircleAlert,
+  안내: Info,
+  더하기: Plus,
+  삭제: Trash2,
 } as const;
 
 export type IconName = keyof typeof iconMap;

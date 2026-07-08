@@ -663,6 +663,7 @@ export const tokens = {
     text: { primary: '#111827', secondary: '#4B5563', tertiary: '#6B7280', /* ... */ },
     heat: ['#F9FAFB', '#EDE9FE', '#C4B5FD', '#8B5CF6', '#7C3AED'],
     semantic: { success: { bg: '#ECFDF5', fg: '#047857', solid: '#10B981' } /* ... */ },
+    overlay: { scrim: 'rgba(0, 0, 0, 0.4)' }, // 시트/모달 backdrop (W0-8, dark=0.6)
   },
   dark: { /* ... */ },
   space: { 0: 0, px: 1, '0.5': 2, 1: 4, 2: 8, 3: 12, 4: 16, /* ... */ },
@@ -722,6 +723,7 @@ DESIGN.md 변경은 다음 절차를 따른다:
 | 2026-05-21 | 8pt 시각 셀 + 44pt hit area | WCAG 2.5.5 충족 + PRD의 sweep 제스처 보존. PRD §15.5의 "정확도 보완" 모호 표현을 사양화. |
 | 2026-05-21 | 히트맵 heat-0 = 중립 그레이 | 옅은 보라가 "본인 선택"과 충돌함. 본인 선택은 brand-50 + 보더, 히트맵 빈 슬롯은 surface-3. |
 | 2026-05-25 | §17 anti-AI-feel 원칙 추가 | 1차 베타 화면 회고: 토큰은 잘 잡혔지만 적용 화면에서 "AI 생성물 같다"는 피드백. 위계·반복 CTA·빈 placeholder·brand identity 부재가 주원인. §17에서 구체 안티패턴 6가지를 카탈로그화. |
+| 2026-07-08 | `overlay` 토큰 추가 (W0-8) | 바텀시트·모달 backdrop `rgba(0,0,0,0.4)` 하드코딩 2곳+(ConfirmSlotSheet·PlaceActionSheet)을 토큰화. light `scrim`=0.4 / dark=0.6 흑(어두운 배경 위 시트 분리). UI 폴리시 플랜 승인에 포함. §15 절차 준수 — light/dark 검증 + tokens.test.ts 구조 parity·alpha<1 테스트 추가, 단순 토큰 추가(기존 값 변경 0). |
 
 ---
 

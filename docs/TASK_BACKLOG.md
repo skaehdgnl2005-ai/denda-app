@@ -520,20 +520,20 @@
 
 ### UI-W0 — 디자인 시스템 프리미티브 (기반)
 
-- **Status**: TODO | **Owner**: Mobile | **Lane**: F | **커밋 단위**: 1커밋 (프리미티브 전체)
+- **Status**: ✅ **DONE (2026-07-08)** | **Owner**: Mobile | **Lane**: F | **커밋 단위**: 1커밋 (프리미티브 전체)
 - **Depends**: DESIGN §6·§10·§11·§12·§17 (기준선, ✅), 없음(선행 태스크 무)
 - **Acceptance** (전부 TDD, 위치 `src/components/`):
-  - [ ] W0-1 `Button.tsx` — variant primary/secondary/ghost/destructive/kakao, 56/48pt, disabled=surface-2+text-tertiary(§17.5), loading=인라인 스피너, pressed=색 전환(§9.1)
-  - [ ] W0-2 `Toast.tsx`+`ToastProvider`(루트) — e3, in/out short+enter/exit, default/success/error(+아이콘 §12.6), 선택 액션
-  - [ ] W0-3 `ConfirmSheet.tsx` — §10.3 골격(radius-2xl·grabber 36×4·e3·backdrop 탭 닫기·medium+enter/exit), title-3+body-sm+버튼 페어
-  - [ ] W0-4 `EmptyState.tsx` — §11.2 3요소(아이콘 원 72pt surface-2·title-3·body-sm·선택 CTA) + error variant(재시도)
-  - [ ] W0-5 `ScreenHeader.tsx` — 좌 뒤로(44pt chevron-left)·중앙 title-3·우 액션 슬롯, inset space-4/space-3
-  - [ ] W0-6 `Spinner.tsx` — loader-2 24pt(인라인 16) text-brand, 1s linear, reduce-motion 정적(§11.1)
-  - [ ] W0-7 `useReducedMotion` 훅 — Reanimated/AccessibilityInfo 래핑, §6.4 단일 분기점 + 기존 `Skeleton.tsx` 마감(duration.long·reduce-motion 정적)
-  - [ ] W0-8 `tokens.ts` `overlay` 토큰 추가 — backdrop 하드코딩 토큰화 (DESIGN §13/§16 로그, §15 절차)
-  - [ ] W0-9 `src/lib/i18n/messages.ts` 시드 — §17.6 톤 상수화 (Q-B12 closure seam)
-- **게이트**: npm test 그린 + tsc 0 + eslint 0 + design-guard CRITICAL 4 + `/design-check` + 다크 스크린샷. **다중 에이전트 adversarial 디자인 리뷰 후 ship**
-- **Files**: `src/components/{Button,Toast,ConfirmSheet,EmptyState,ScreenHeader,Spinner}.tsx`(+.test), `src/hooks/useReducedMotion.ts`(+.test), `src/design/tokens.ts`, `src/lib/i18n/messages.ts`(+.test), `docs/DESIGN.md`
+  - [x] W0-1 `Button.tsx` — 5 variant, 56/48pt, disabled=surface-2+text-tertiary(§17.5), loading=인라인 Spinner, pressed=색 전환(§9.1) + `buttonPalette` export
+  - [x] W0-2 `Toast.tsx`+`ToastProvider`(_layout 루트)+`useToast` — e3, short+enter/exit, default/success/error(아이콘+스트라이프 §12.6), 액션, announceForAccessibility
+  - [x] W0-3 `ConfirmSheet.tsx` — §10.3 골격 + overlay.scrim backdrop + accessibilityViewIsModal + loading dismiss 차단
+  - [x] W0-4 `EmptyState.tsx` — §11.2 3요소(72pt surface-2 아이콘원 D5) + error variant(재시도)
+  - [x] W0-5 `ScreenHeader.tsx` — 좌 뒤로(chevron-left)·중앙 title-3·우 액션 슬롯
+  - [x] W0-6 `Spinner.tsx` — LoaderCircle 24/16pt, 1s linear, reduce-motion 정적, decorative prop
+  - [x] W0-7 `src/lib/motion/useReducedMotion.ts`(AccessibilityInfo, §6.4) + Skeleton 마감(duration.long·정적) + `easing.ts`(bezier 토큰 함수)
+  - [x] W0-8 `tokens.ts` `overlay.scrim`(light 0.4/dark 0.6) + DESIGN §13/§16 로그
+  - [x] W0-9 `src/lib/i18n/messages.ts` — §17.6 톤 + `mapError`(raw 비노출)
+- **게이트**: ✅ Jest 1067 pass / tsc 0 / eslint 0 / design-guard CRITICAL 4 CLEAR. 다중 에이전트(23) adversarial 리뷰 19제기→11확정→전부 수정.
+- **Files**: `src/components/{Button,Toast,ConfirmSheet,EmptyState,ScreenHeader,Spinner}.tsx`(+.test), `src/lib/motion/{useReducedMotion,easing}.ts`(+.test), `src/design/tokens.ts`, `src/lib/i18n/messages.ts`(+.test), `src/components/Icon.tsx`, `app/_layout.tsx`, `docs/DESIGN.md`
 
 ### UI-W1 — P0 출시 차단급 (Alert 철거 + 여정 3모먼트 + 상태 디자인)
 

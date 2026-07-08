@@ -25,6 +25,27 @@ STATUS는 다음 중 하나:
 
 ---
 
+## UI-W0 — 디자인 시스템 프리미티브 (UI Polish Wave 0) (2026-07-08) — DONE
+- Depends: DESIGN §6·§10·§11·§12·§17 (기준선 ✅), UI 폴리시 플랜 승인(2026-07-08)
+- 배경: 앱 전 화면 "기초적으로 안 다듬어진" 인상 → 감사 결과 계통 원인 C1(공용 프리미티브 부재). Wave 0은 후속 웨이브의 선행 기반. 전부 TDD.
+- Changes (신규 6 컴포넌트 + 훅 + 헬퍼 + 토큰):
+  - `src/components/Button.tsx`(+test) — variant primary/secondary/ghost/destructive/kakao, 56/48pt, disabled=surface-2+text-tertiary(§17.5), loading=인라인 Spinner+라벨, pressed=색 전환(§9.1), `buttonPalette` 순수 export. destructive error.border 테두리(리뷰 #10), style prop 적용(#7), loading 시 press 피드백 억제(#9)
+  - `src/components/Toast.tsx`(+test) — `ToastProvider`(_layout 루트 장착)+`useToast`, e3·surface-1·radius-md, in/out short+enter/exit, default/success/error(아이콘+좌측 스트라이프 §12.6), 액션 버튼. announceForAccessibility(#2), action 시 accessible 병합 해제(#3), action 터치 44pt(#4)
+  - `src/components/ConfirmSheet.tsx`(+test) — §10.3 골격(radius-2xl·grabber 36×4·e3·overlay.scrim backdrop·medium enter), 버튼 페어(ghost/primary·destructive). accessibilityViewIsModal(#5), loading 중 dismiss 차단(#8)
+  - `src/components/EmptyState.tsx`(+test) — §11.2 3요소(72pt surface-2 아이콘원 D5·title-3·body-sm·CTA) + error variant(재시도)
+  - `src/components/ScreenHeader.tsx`(+test) — 좌 뒤로(44pt chevron-left)·중앙 title-3·우 액션 슬롯. privacy 화살표 방향 결함 원천 차단
+  - `src/components/Spinner.tsx`(+test) — loader-2(LoaderCircle) 24/16pt text-brand 1s linear, reduce-motion 정적, `decorative` prop(#6)
+  - `src/lib/motion/useReducedMotion.ts`(+test) — AccessibilityInfo 기반 §6.4 단일 분기점 + Skeleton 마감(duration.long·reduce-motion 정적)
+  - `src/lib/motion/easing.ts`(+test) — tokens.easing.* CSS bezier → RN Easing.bezier 함수 매핑(dead-token-layer 해소, 리뷰 #1). Toast·ConfirmSheet·Skeleton 적용
+  - `src/lib/i18n/messages.ts`(+test) — §17.6 톤 카피 + `mapError`(raw e.message 비노출). expired 톤 일관화(#11)
+  - `src/design/tokens.ts` — `overlay.scrim`(light 0.4 / dark 0.6) + DESIGN §13/§16 로그(W0-8, §15 절차)
+  - `src/components/Icon.tsx` — 성공/경고/안내/더하기/삭제 5 아이콘 추가(Toast·FAB·탈퇴 대비)
+  - `app/_layout.tsx` — ToastProvider 루트 장착
+- Tests: Jest **1067 passed + 1 skip** (baseline 1006 → +61: 프리미티브 TDD +51, 리뷰-수정 +10), typecheck 0, eslint 0
+- 검증: 다중 에이전트(23) adversarial 디자인 리뷰 — 4렌즈(토큰·a11y·API correctness·다크모드/anti-AI-feel) → 19건 제기 → 11건 확정 → **전부 수정**. design-guard CRITICAL 4 CLEAR(hex 0[tokens.ts·Kakao rgba 예외]·new Date 0·indigo/gradient 0·금지폰트 0). D12 gesture 회귀 가드 green, Phase 3 코드 0.
+- Next: **UI-W1** (P0 출시 차단급 — Alert 15파일→0, 여정 3모먼트, 상태 디자인, W1-14 탈퇴 풀 구현)
+- Notes: ConfirmSheet exit 애니메이션은 즉시(Modal 언마운트) — reanimated exiting 도입 seam 남김(후속 폴리시). branch `feat/map-maphost-m0` 연속.
+
 ## S-MAP M4-marker — 지도 마커 보라톤 커스텀 뷰 (PNG 대체, D40) (2026-06-09) — DONE
 - Depends: D38·M4(✅), DESIGN §10.2/§10.5/§12.6, Q-B13(본 작업으로 close) — 충족
 - 배경: M4 후속 실기기 검증 중 마커가 **teal**로 렌더됨 발견 — 네이버 기본 `image={{symbol:'green'}}`라 tintColor 미적용. founder "PNG 구하지 말고 보라톤 맞는 걸로 만들어줘".
