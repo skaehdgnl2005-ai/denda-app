@@ -1,27 +1,34 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { FlatList, Pressable, StyleSheet, View, Alert, ActivityIndicator } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { Icon } from '@/components/Icon';
+import { EmptyState } from '@/components/EmptyState';
+import { Skeleton } from '@/components/Skeleton';
+import { useToast } from '@/components/Toast';
 import { FriendRequestCard } from '@/components/friends/FriendRequestCard';
 import { FriendRequest, friendsApi } from '@/lib/friends/api';
 import { invitationsApi, type GroupInvitation } from '@/lib/groups/invitations';
+import { mapError, messages } from '@/lib/i18n/messages';
 
 type RequestTab = 'incoming' | 'outgoing' | 'invitations';
 
 export default function FriendsRequestsScreen() {
   const { colors, space, radius } = useTheme();
   const router = useRouter();
+  const toast = useToast();
 
   const [activeTab, setActiveTab] = useState<RequestTab>('incoming');
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [invitations, setInvitations] = useState<GroupInvitation[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<boolean>(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setError(false);
     try {
       if (activeTab === 'incoming') {
         const incoming = await friendsApi.listIncomingRequests();
@@ -34,13 +41,9 @@ export default function FriendsRequestsScreen() {
         setInvitations(list);
       }
     } catch (e) {
+      // 로드 실패를 빈 상태로 위장하지 않는다 — error 분리 후 EmptyState error로.
       console.error(e);
-      Alert.alert(
-        '오류',
-        activeTab === 'invitations'
-          ? '모임 초대를 불러오지 못했습니다.'
-          : '요청 목록을 불러오지 못했습니다.',
-      );
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -56,33 +59,36 @@ export default function FriendsRequestsScreen() {
     try {
       // S23: sender_id 전달 → F2 push 대상 식별 (수락된 사실을 원래 요청 보낸 사람에게 알림)
       await friendsApi.acceptRequest(req.id, req.sender_id);
-      Alert.alert('알림', '친구 요청을 수락했습니다.');
+      toast.show({ message: '친구 요청을 수락했어요.', variant: 'success' });
       fetchData();
     } catch (e) {
       console.error(e);
-      Alert.alert('오류', '요청 수락에 실패했습니다.');
+      const { silent, message } = mapError(e);
+      if (!silent) toast.show({ message, variant: 'error' });
     }
   };
 
   const handleReject = async (req: FriendRequest) => {
     try {
       await friendsApi.rejectRequest(req.id);
-      Alert.alert('알림', '친구 요청을 거절했습니다.');
+      toast.show({ message: '친구 요청을 거절했어요.' });
       fetchData();
     } catch (e) {
       console.error(e);
-      Alert.alert('오류', '요청 거절에 실패했습니다.');
+      const { silent, message } = mapError(e);
+      if (!silent) toast.show({ message, variant: 'error' });
     }
   };
 
   const handleCancel = async (req: FriendRequest) => {
     try {
       await friendsApi.cancelRequest(req.id);
-      Alert.alert('알림', '보낸 친구 요청을 취소했습니다.');
+      toast.show({ message: '보낸 요청을 취소했어요.' });
       fetchData();
     } catch (e) {
       console.error(e);
-      Alert.alert('오류', '요청 취소에 실패했습니다.');
+      const { silent, message } = mapError(e);
+      if (!silent) toast.show({ message, variant: 'error' });
     }
   };
 
@@ -90,22 +96,22 @@ export default function FriendsRequestsScreen() {
   const handleInvitationAccept = async (inv: GroupInvitation) => {
     try {
       const { groupId } = await invitationsApi.acceptInvitation(inv.id);
-      Alert.alert('합류 완료', '모임에 합류했어요!');
+      toast.show({ message: messages.success.joined, variant: 'success' });
       router.push(`/group/${groupId}`);
     } catch (e) {
-      const message = e instanceof Error ? e.message : '수락하지 못했어요.';
-      Alert.alert('오류', message);
+      const { silent, message } = mapError(e);
+      if (!silent) toast.show({ message, variant: 'error' });
     }
   };
 
   const handleInvitationReject = async (inv: GroupInvitation) => {
     try {
       await invitationsApi.rejectInvitation(inv.id);
-      Alert.alert('알림', '모임 초대를 거절했어요.');
+      toast.show({ message: '모임 초대를 거절했어요.' });
       fetchData();
     } catch (e) {
-      const message = e instanceof Error ? e.message : '거절하지 못했어요.';
-      Alert.alert('오류', message);
+      const { silent, message } = mapError(e);
+      if (!silent) toast.show({ message, variant: 'error' });
     }
   };
 
@@ -341,11 +347,24 @@ export default function FriendsRequestsScreen() {
         </Pressable>
       </View>
 
-      {/* List */}
+      {/* List — 첫 로딩=Skeleton, 로드 실패=EmptyState error(빈 상태 위장 아님) */}
       {loading ? (
-        <View style={styles.loadingContainer} testID="requests-loading-indicator">
-          <ActivityIndicator color={colors.brand[500]} size="large" />
+        <View
+          testID="requests-loading"
+          style={{ paddingHorizontal: space[4], paddingTop: space[4] }}
+        >
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} height={88} style={{ marginBottom: space[3] }} />
+          ))}
         </View>
+      ) : error ? (
+        <EmptyState
+          variant="error"
+          title="불러오지 못했어요"
+          body="잠시 후 다시 시도해볼게요."
+          cta={{ label: messages.action.retry, onPress: fetchData }}
+          testID="requests-error"
+        />
       ) : activeTab === 'invitations' ? (
         <FlatList
           data={invitations}
@@ -430,11 +449,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 2,
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   listContent: {
     paddingBottom: 24,

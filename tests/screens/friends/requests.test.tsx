@@ -1,10 +1,11 @@
 import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import FriendsRequestsScreen from '../../../app/(tabs)/friends/requests';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider } from '@/design/theme';
+import { ToastProvider } from '@/components/Toast';
 import { friendsApi } from '@/lib/friends/api';
 import { invitationsApi } from '@/lib/groups/invitations';
-import { Alert } from 'react-native';
 
 const mockBack = jest.fn();
 const mockPush = jest.fn();
@@ -65,9 +66,19 @@ const DEFAULT_OUTGOING = [
   },
 ];
 
-describe('FriendsRequestsScreen Screen', () => {
-  const wrapper = ThemeProvider;
+const METRICS = {
+  frame: { x: 0, y: 0, width: 390, height: 844 },
+  insets: { top: 47, left: 0, right: 0, bottom: 34 },
+};
+const wrapper = ({ children }: { children: React.ReactNode }): React.JSX.Element => (
+  <SafeAreaProvider initialMetrics={METRICS}>
+    <ThemeProvider>
+      <ToastProvider>{children}</ToastProvider>
+    </ThemeProvider>
+  </SafeAreaProvider>
+);
 
+describe('FriendsRequestsScreen Screen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     friendsApi.__resetMocks();
@@ -113,11 +124,12 @@ describe('FriendsRequestsScreen Screen', () => {
     expect(cards.length).toBe(1);
   });
 
-  test('handles accept request flow', async () => {
+  test('handles accept request flow → success 토스트', async () => {
     const acceptSpy = jest.spyOn(friendsApi, 'acceptRequest');
-    const alertSpy = jest.spyOn(Alert, 'alert');
 
-    const { getByText, getAllByTestId } = render(<FriendsRequestsScreen />, { wrapper });
+    const { getByText, getAllByTestId, findByText } = render(<FriendsRequestsScreen />, {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(getByText('박민수')).toBeTruthy();
@@ -130,14 +142,15 @@ describe('FriendsRequestsScreen Screen', () => {
 
     // S23: sender_id 전달 → F2 push 대상 식별 (수락 사실을 원 sender에게 알림)
     expect(acceptSpy).toHaveBeenCalledWith('req-1', 'user-5');
-    expect(alertSpy).toHaveBeenCalledWith('알림', '친구 요청을 수락했습니다.');
+    expect(await findByText('친구 요청을 수락했어요.')).toBeTruthy();
   });
 
-  test('handles reject request flow', async () => {
+  test('handles reject request flow → 토스트', async () => {
     const rejectSpy = jest.spyOn(friendsApi, 'rejectRequest');
-    const alertSpy = jest.spyOn(Alert, 'alert');
 
-    const { getByText, getAllByTestId } = render(<FriendsRequestsScreen />, { wrapper });
+    const { getByText, getAllByTestId, findByText } = render(<FriendsRequestsScreen />, {
+      wrapper,
+    });
 
     await waitFor(() => {
       expect(getByText('박민수')).toBeTruthy();
@@ -149,16 +162,16 @@ describe('FriendsRequestsScreen Screen', () => {
     });
 
     expect(rejectSpy).toHaveBeenCalledWith('req-1');
-    expect(alertSpy).toHaveBeenCalledWith('알림', '친구 요청을 거절했습니다.');
+    expect(await findByText('친구 요청을 거절했어요.')).toBeTruthy();
   });
 
-  test('handles cancel request flow in outgoing tab', async () => {
+  test('handles cancel request flow in outgoing tab → 토스트', async () => {
     const cancelSpy = jest.spyOn(friendsApi, 'cancelRequest');
-    const alertSpy = jest.spyOn(Alert, 'alert');
 
-    const { getByText, getByTestId, getAllByTestId } = render(<FriendsRequestsScreen />, {
-      wrapper,
-    });
+    const { getByText, getByTestId, getAllByTestId, findByText } = render(
+      <FriendsRequestsScreen />,
+      { wrapper },
+    );
 
     await waitFor(() => {
       expect(getByText('박민수')).toBeTruthy();
@@ -177,7 +190,7 @@ describe('FriendsRequestsScreen Screen', () => {
     });
 
     expect(cancelSpy).toHaveBeenCalledWith('req-3');
-    expect(alertSpy).toHaveBeenCalledWith('알림', '보낸 친구 요청을 취소했습니다.');
+    expect(await findByText('보낸 요청을 취소했어요.')).toBeTruthy();
   });
 
   test('navigates back on back button press', () => {
@@ -208,13 +221,13 @@ describe('FriendsRequestsScreen Screen', () => {
     expect(cards.length).toBe(2);
   });
 
-  test('S22: accept invitation → group_members 합류 + group 화면 navigation', async () => {
+  test('S22: accept invitation → 합류 success 토스트 + group 화면 navigation', async () => {
     const acceptSpy = jest.spyOn(invitationsApi, 'acceptInvitation');
-    const alertSpy = jest.spyOn(Alert, 'alert');
 
-    const { getByText, getByTestId, getAllByTestId } = render(<FriendsRequestsScreen />, {
-      wrapper,
-    });
+    const { getByText, getByTestId, getAllByTestId, findByText } = render(
+      <FriendsRequestsScreen />,
+      { wrapper },
+    );
 
     await waitFor(() => {
       expect(getByText('박민수')).toBeTruthy();
@@ -234,16 +247,16 @@ describe('FriendsRequestsScreen Screen', () => {
     await waitFor(() => {
       expect(mockPush).toHaveBeenCalledWith('/group/g-1');
     });
-    expect(alertSpy).toHaveBeenCalledWith('합류 완료', expect.stringContaining('합류'));
+    expect(await findByText('모임에 합류했어요!')).toBeTruthy();
   });
 
-  test('S22: reject invitation → rejectInvitation 호출 + 한국어 Alert', async () => {
+  test('S22: reject invitation → rejectInvitation 호출 + 토스트', async () => {
     const rejectSpy = jest.spyOn(invitationsApi, 'rejectInvitation');
-    const alertSpy = jest.spyOn(Alert, 'alert');
 
-    const { getByText, getByTestId, getAllByTestId } = render(<FriendsRequestsScreen />, {
-      wrapper,
-    });
+    const { getByText, getByTestId, getAllByTestId, findByText } = render(
+      <FriendsRequestsScreen />,
+      { wrapper },
+    );
 
     await waitFor(() => {
       expect(getByText('박민수')).toBeTruthy();
@@ -260,9 +273,7 @@ describe('FriendsRequestsScreen Screen', () => {
     });
 
     expect(rejectSpy).toHaveBeenCalledWith('inv-1');
-    await waitFor(() => {
-      expect(alertSpy).toHaveBeenCalledWith('알림', expect.stringContaining('거절'));
-    });
+    expect(await findByText('모임 초대를 거절했어요.')).toBeTruthy();
   });
 
   test('S22: invitations 빈 상태 → empty state 노출', async () => {
