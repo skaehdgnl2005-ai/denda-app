@@ -12,6 +12,15 @@
 
 ## 🟢 활성 작업
 
+### UI Polish (Lane F, Wave 0~2) — 출시 전 완성도 전면 개선
+
+- **상태**: 착수 (2026-07-08). 플랜 ✅ 승인 (스코프 Wave 0~2). 결정 4건 확정: R1=①Lucide 합성 FAB / R2=①벨 제거 / W1-14=풀 구현(front+삭제 RPC) / overlay 토큰 승인.
+- **SSoT**: `docs/superpowers/specs/2026-07-08-ui-polish-design.md` (+ audit findings). 계통 원인 C1(프리미티브 부재)·C2(상태=시스템 Alert 15파일)·C3(모션·reduce-motion 0) 근본 해결.
+- **다음 단계**: Wave 0 프리미티브 TDD — Button → Toast+Provider → ConfirmSheet → EmptyState → ScreenHeader → Spinner → useReducedMotion(+Skeleton 마감) → overlay 토큰 → messages.ts. 완료 후 다중 에이전트 adversarial 디자인 리뷰 → 1커밋 ship.
+- **불가침**: D12 시간 그리드 worklet diff 0 · Phase 3 코드 0 · DESIGN 토큰 외 시각 결정 0.
+- **baseline**: 미커밋 WIP(캘린더 전환·프로필/홈 착수·D12 gesture root·Skeleton/VoteGuide/CalendarDatePicker) 그린 1006 tests → baseline 커밋 완료. ⚠️ `supabase/config.toml` PG 15→17 무관 변경은 커밋 제외(사용자 결정 대기).
+- **마지막 update**: 2026-07-08
+
 ### S16 Phase b — KakaoLocalProvider (Q-A2 허용 → D37)
 
 - **상태**: 코드 빌드 완료 (TDD green) · **미ship** · 운영 prereq 대기

@@ -514,6 +514,52 @@
 
 ---
 
+## Lane F — UI Polish (출시 전 완성도, Wave 0~2)
+
+> SSoT: [docs/superpowers/specs/2026-07-08-ui-polish-design.md](superpowers/specs/2026-07-08-ui-polish-design.md) (✅ 승인 2026-07-08, 스코프 Wave 0~2) + [감사 findings](superpowers/specs/2026-07-08-ui-polish-audit-findings.md). 계통 원인 C1(프리미티브 부재)·C2(상태=시스템 기본값)·C3(모션 0) 근본 해결. 불가침: D12 worklet diff 0, Phase 3 코드 0, DESIGN 토큰 외 시각 결정 0.
+
+### UI-W0 — 디자인 시스템 프리미티브 (기반)
+
+- **Status**: TODO | **Owner**: Mobile | **Lane**: F | **커밋 단위**: 1커밋 (프리미티브 전체)
+- **Depends**: DESIGN §6·§10·§11·§12·§17 (기준선, ✅), 없음(선행 태스크 무)
+- **Acceptance** (전부 TDD, 위치 `src/components/`):
+  - [ ] W0-1 `Button.tsx` — variant primary/secondary/ghost/destructive/kakao, 56/48pt, disabled=surface-2+text-tertiary(§17.5), loading=인라인 스피너, pressed=색 전환(§9.1)
+  - [ ] W0-2 `Toast.tsx`+`ToastProvider`(루트) — e3, in/out short+enter/exit, default/success/error(+아이콘 §12.6), 선택 액션
+  - [ ] W0-3 `ConfirmSheet.tsx` — §10.3 골격(radius-2xl·grabber 36×4·e3·backdrop 탭 닫기·medium+enter/exit), title-3+body-sm+버튼 페어
+  - [ ] W0-4 `EmptyState.tsx` — §11.2 3요소(아이콘 원 72pt surface-2·title-3·body-sm·선택 CTA) + error variant(재시도)
+  - [ ] W0-5 `ScreenHeader.tsx` — 좌 뒤로(44pt chevron-left)·중앙 title-3·우 액션 슬롯, inset space-4/space-3
+  - [ ] W0-6 `Spinner.tsx` — loader-2 24pt(인라인 16) text-brand, 1s linear, reduce-motion 정적(§11.1)
+  - [ ] W0-7 `useReducedMotion` 훅 — Reanimated/AccessibilityInfo 래핑, §6.4 단일 분기점 + 기존 `Skeleton.tsx` 마감(duration.long·reduce-motion 정적)
+  - [ ] W0-8 `tokens.ts` `overlay` 토큰 추가 — backdrop 하드코딩 토큰화 (DESIGN §13/§16 로그, §15 절차)
+  - [ ] W0-9 `src/lib/i18n/messages.ts` 시드 — §17.6 톤 상수화 (Q-B12 closure seam)
+- **게이트**: npm test 그린 + tsc 0 + eslint 0 + design-guard CRITICAL 4 + `/design-check` + 다크 스크린샷. **다중 에이전트 adversarial 디자인 리뷰 후 ship**
+- **Files**: `src/components/{Button,Toast,ConfirmSheet,EmptyState,ScreenHeader,Spinner}.tsx`(+.test), `src/hooks/useReducedMotion.ts`(+.test), `src/design/tokens.ts`, `src/lib/i18n/messages.ts`(+.test), `docs/DESIGN.md`
+
+### UI-W1 — P0 출시 차단급 (Alert 철거 + 여정 3모먼트 + 상태 디자인)
+
+- **Status**: TODO | **Owner**: Mobile(+Backend W1-14) | **Lane**: F | **커밋 단위**: 화면군 단위
+- **Depends**: UI-W0 (프리미티브)
+- **Acceptance**: 설계 §4 전체 —
+  - [ ] W1-1~3 여정 3모먼트(모임 확정·장소 확정·"예약하기") Alert 제거 → ConfirmedTimeCard 등장 모먼트 + ConfirmSheet + success Toast. **Gate #1·#2 로깅 1회성 불변**
+  - [ ] W1-4~6 Alert.alert 15파일→0 (성공=Toast, 확인=ConfirmSheet, 폼경고=인라인, raw e.message→messages.ts 매핑). 시스템 경계 예외
+  - [ ] W1-7~10 상태 디자인(홈·친구·지도·상세·초대·place) 에러 위장 해제 + EmptyState error variant + Skeleton + useFocusEffect/RefreshControl
+  - [ ] W1-11~13 스플래시 다크 flash·privacy 뒤로 화살표·약관 전문 화면
+  - [ ] **W1-14 회원 탈퇴 풀 구현** — 프론트 2단 ConfirmSheet + Supabase 삭제 RPC/Edge (RLS·cascade, @reviewer 강화). 스토어 요건
+  - [ ] W1-15 검색 '카톡 초대' no-op → `useKakaoInvite` 연결
+- **게이트**: UI-W0과 동일 + Alert.alert 프로덕션 0 · ActivityIndicator 0 검증
+
+### UI-W2 — P1 완성도 (셸·그리드 시각·화면 마감)
+
+- **Status**: TODO | **Owner**: Mobile | **Lane**: F | **커밋 단위**: 화면군 단위
+- **Depends**: UI-W0, UI-W1
+- **Acceptance**: 설계 §5 전체 —
+  - [ ] W2-1~4 셸(탭바 safe area·다크 네비 배경·**중앙 FAB=Lucide calendar-days+plus 합성**·ScreenHeader 10화면 적용)
+  - [ ] W2-5~7 시간 그리드 시각 레이어(요일 헤더·히트맵 색전환+heat-4 축하·셀 a11y·RefreshControl·ConfirmedTimeCard 위계). **D12 worklet 무접촉**
+  - [ ] W2-8~15 화면 마감(pressed 색전환·홈 실데이터+**벨 제거**·친구 잠금/pull-refresh·캘린더 row·new KeyboardAvoiding·SearchField·카피 톤 통일·PlaceActionSheet/ConfirmSlotSheet §10.3 이관)
+- **게이트**: UI-W0과 동일
+
+---
+
 ## Sprint 0 — Pre-build 인프라 체크리스트 (ENG_REVIEW §10)
 
 이 12개는 Sprint 1 시작 전 완료. **태스크 코드 부여 X (인프라 셋업)**.
