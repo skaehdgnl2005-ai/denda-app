@@ -1,8 +1,15 @@
 import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import GroupConfirmScreen from '../../../app/group/[id]/index';
 import { ThemeProvider } from '@/design/theme';
+import { ToastProvider } from '@/components/Toast';
+
+const METRICS = {
+  frame: { x: 0, y: 0, width: 390, height: 844 },
+  insets: { top: 47, left: 0, right: 0, bottom: 34 },
+};
 
 const HOST_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 const NON_HOST_ID = '99999999-8888-7777-6666-555555555555';
@@ -84,7 +91,13 @@ jest.mock('react-native-reanimated', () => {
 });
 
 describe('GroupConfirmScreen', () => {
-  const wrapper = ThemeProvider;
+  const wrapper = ({ children }: { children: React.ReactNode }): React.JSX.Element => (
+    <SafeAreaProvider initialMetrics={METRICS}>
+      <ThemeProvider>
+        <ToastProvider>{children}</ToastProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -115,10 +128,12 @@ describe('GroupConfirmScreen', () => {
     expect(getByText('멤버 3명 · 2일 후보')).toBeTruthy();
   });
 
-  test('load error → 에러 메시지 노출', async () => {
+  test('load error → EmptyState error variant (raw 메시지 위장 해제 §11.3)', async () => {
     mockFetchGroup.mockRejectedValue(new Error('모임을 찾을 수 없어요.'));
-    const { findByText } = render(<GroupConfirmScreen />, { wrapper });
-    expect(await findByText('모임을 찾을 수 없어요.')).toBeTruthy();
+    const { findByTestId, queryByText } = render(<GroupConfirmScreen />, { wrapper });
+    expect(await findByTestId('group-load-error')).toBeTruthy();
+    // raw 기술 메시지는 사용자에게 노출하지 않는다
+    expect(queryByText('모임을 찾을 수 없어요.')).toBeNull();
   });
 
   test('호스트 + 미확정 → HostConfirmButton 노출', async () => {

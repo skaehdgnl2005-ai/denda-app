@@ -12,11 +12,12 @@
 // D13: 모든 시간 표시는 KST. confirmed_*_at는 UTC ISO → ConfirmedTimeCard가 luxon 변환.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSharedValue } from 'react-native-reanimated';
 
+import { EmptyState } from '@/components/EmptyState';
 import { Icon } from '@/components/Icon';
 import { Skeleton } from '@/components/Skeleton';
 import { Grid } from '@/components/TimeGrid/Grid';
@@ -27,7 +28,9 @@ import { FirstTimeModal } from '@/components/calendar/FirstTimeModal';
 import { ConfirmedTimeCard } from '@/components/group/ConfirmedTimeCard';
 import { ConfirmSlotSheet } from '@/components/group/ConfirmSlotSheet';
 import { HostConfirmButton } from '@/components/group/HostConfirmButton';
+import { useToast } from '@/components/Toast';
 import { useTheme } from '@/design/theme';
+import { mapError } from '@/lib/i18n/messages';
 import { Body, Caption, Title } from '@/design/typography';
 import { useAuth } from '@/lib/auth/setup';
 import { fetchCalendarPreference } from '@/lib/calendar/preference';
@@ -67,10 +70,12 @@ export default function GroupConfirmScreen(): React.JSX.Element {
   const groupId = params.id ?? '';
   const router = useRouter();
   const { colors, space, radius } = useTheme();
+  const toast = useToast();
   const userId = useAuth((s) => s.session?.user.id);
 
   const [group, setGroup] = useState<GroupForConfirm | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [selectionRecord, setSelectionRecord] = useState<Record<SlotKey, boolean>>({});
   const [inflight, setInflight] = useState(false);
   const [showFirstTimeModal, setShowFirstTimeModal] = useState(false);
@@ -108,6 +113,7 @@ export default function GroupConfirmScreen(): React.JSX.Element {
     Promise.all([fetchGroupForConfirm(groupId), votesPromise])
       .then(([g, slots]) => {
         if (cancelled) return;
+        setLoadError(null);
         setGroup(g);
         prevVoteSetRef.current = voteSetFromSlots(slots);
         const next: Record<SlotKey, boolean> = {};
@@ -123,7 +129,7 @@ export default function GroupConfirmScreen(): React.JSX.Element {
     return (): void => {
       cancelled = true;
     };
-  }, [groupId, userId]);
+  }, [groupId, userId, reloadKey]);
 
   const selfMarks = useMemo<Set<SlotKey>>(() => {
     const set = new Set<SlotKey>();
@@ -173,10 +179,11 @@ export default function GroupConfirmScreen(): React.JSX.Element {
       if (added.length === 0 && removed.length === 0) return;
       prevVoteSetRef.current = nextSet;
       commitVoteDiff({ groupId, userId, added, removed }).catch((e: Error) => {
-        Alert.alert('알림', e.message);
+        const { silent, message } = mapError(e);
+        if (!silent) toast.show({ message, variant: 'error' });
       });
     },
-    [group, userId, groupId, isConfirmed],
+    [group, userId, groupId, isConfirmed, toast],
   );
 
   const days = group?.dates ?? [];
@@ -225,14 +232,19 @@ export default function GroupConfirmScreen(): React.JSX.Element {
         confirmedPlaceId: null,
       });
       setShowConfirmSheet(false);
+      // 클라이맥스 피드백 = ConfirmedTimeCard 등장(아래 setGroup) + 보조 success 토스트.
+      // 시스템 Alert 제거 (§6.5·§11.3).
       if (result.alreadyConfirmed) {
-        Alert.alert('알림', '이미 확정된 모임이에요.');
+        toast.show({ message: '이미 확정된 모임이에요.' });
       } else if (result.f5Dispatch.rejected > 0) {
-        Alert.alert('확정했어요', '일부 멤버에게 알림을 보내지 못했어요.');
+        toast.show({
+          message: '모임이 확정됐어요! 일부 멤버는 알림을 못 받았어요.',
+          variant: 'success',
+        });
       } else {
-        Alert.alert('확정', '모임이 확정됐어요!');
+        toast.show({ message: '모임이 확정됐어요!', variant: 'success' });
       }
-      // Refresh group state to flip into read-only mode
+      // Refresh group state to flip into read-only mode (ConfirmedTimeCard 등장 트리거)
       const updated = await fetchGroupForConfirm(groupId);
       setGroup(updated);
 
@@ -248,7 +260,9 @@ export default function GroupConfirmScreen(): React.JSX.Element {
         }
       }
     } catch (e) {
-      Alert.alert('확정 실패', (e as Error).message);
+      // 확정 실패: 시트를 닫지 않아 재시도 보존 + error 토스트 (raw 메시지 비노출).
+      const { silent, message } = mapError(e);
+      if (!silent) toast.show({ message, variant: 'error' });
     } finally {
       setInflight(false);
     }
@@ -268,7 +282,19 @@ export default function GroupConfirmScreen(): React.JSX.Element {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface[0] }]}>
         <View style={[styles.centered, { padding: space[4] }]}>
-          <Body color={colors.text.secondary}>{loadError}</Body>
+          <EmptyState
+            variant="error"
+            title="모임을 불러오지 못했어요"
+            body="잠시 후 다시 시도해볼게요"
+            cta={{
+              label: '다시 시도',
+              onPress: () => {
+                setLoadError(null);
+                setReloadKey((k) => k + 1);
+              },
+            }}
+            testID="group-load-error"
+          />
         </View>
       </SafeAreaView>
     );

@@ -3,12 +3,14 @@
 // D13 KST 강제 — luxon으로 UTC ISO → KST 변환 후 표시. bare Date 0건.
 // 포맷: "YYYY년 M월 D일 (요일) HH:mm ~ HH:mm"
 
-import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Animated, StyleSheet } from 'react-native';
 import { DateTime } from 'luxon';
 
 import { useTheme } from '@/design/theme';
 import { Body, Caption } from '@/design/typography';
+import { motionEasing } from '@/lib/motion/easing';
+import { useReducedMotion } from '@/lib/motion/useReducedMotion';
 
 const KST_ZONE = 'Asia/Seoul';
 const KO_WEEKDAY = ['월', '화', '수', '목', '금', '토', '일']; // luxon weekday 1..7
@@ -33,11 +35,26 @@ export const ConfirmedTimeCard: React.FC<ConfirmedTimeCardProps> = ({
   endAtUtc,
   testID,
 }) => {
-  const { colors, space, radius } = useTheme();
+  const { colors, space, radius, duration } = useTheme();
+  const reduced = useReducedMotion();
   const formatted = formatRange(startAtUtc, endAtUtc);
+  // 확정 카드의 등장 자체가 클라이맥스 피드백 (§6.5 시간 확정 카드 등장 = long + emphasized).
+  const [enter] = useState(() => new Animated.Value(reduced ? 1 : 0));
+
+  useEffect(() => {
+    if (reduced) return;
+    Animated.timing(enter, {
+      toValue: 1,
+      duration: duration.long,
+      easing: motionEasing.emphasized,
+      useNativeDriver: true,
+    }).start();
+  }, [enter, reduced, duration.long]);
+
+  const translateY = enter.interpolate({ inputRange: [0, 1], outputRange: [8, 0] });
 
   return (
-    <View
+    <Animated.View
       testID={testID}
       style={[
         styles.card,
@@ -47,6 +64,8 @@ export const ConfirmedTimeCard: React.FC<ConfirmedTimeCardProps> = ({
           borderRadius: radius.md,
           padding: space[4],
           gap: space[2],
+          opacity: enter,
+          transform: reduced ? [] : [{ translateY }],
         },
       ]}
     >
@@ -54,7 +73,7 @@ export const ConfirmedTimeCard: React.FC<ConfirmedTimeCardProps> = ({
       <Body color={colors.text.primary} tabularNums style={{ fontWeight: '600' }}>
         {formatted}
       </Body>
-    </View>
+    </Animated.View>
   );
 };
 
