@@ -7,9 +7,18 @@
 import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
+import { DateTime } from 'luxon';
+
 import ScheduleMapScreen from '../../../app/schedule/map';
 import { ThemeProvider } from '@/design/theme';
 import type { ConfirmedGroupScheduleInput } from '@/lib/schedules/scheduleMapPoint';
+
+// 화면의 'week'/'month' 필터는 실제 now() 기준 → 픽스처 날짜를 현재 주로 계산해야 시간이
+// 지나도 통과한다. (기존 고정 날짜 5/28·5/29는 작성일 이후 주가 바뀌며 필터에서 제외돼 깨짐)
+const nowKst = DateTime.now().setZone('Asia/Seoul');
+function kstTodayAtUtcIso(hour: number): string {
+  return nowKst.set({ hour, minute: 0, second: 0, millisecond: 0 }).toUTC().toISO() ?? '';
+}
 
 const mockBack = jest.fn();
 jest.mock('expo-router', () => ({
@@ -28,7 +37,7 @@ const baseRow: ConfirmedGroupScheduleInput = {
   placeName: '광장시장',
   lat: 37.5704,
   lng: 126.9999,
-  confirmedStartAt: '2026-05-29T10:00:00.000Z', // KST 5/29 19:00
+  confirmedStartAt: kstTodayAtUtcIso(19), // 현재 주 내 (week 필터 통과)
 };
 
 describe('ScheduleMapScreen', () => {
@@ -41,8 +50,8 @@ describe('ScheduleMapScreen', () => {
 
   test('mount → fetch + 점들이 ①②③ 시간순으로 렌더', async () => {
     mockFetch.mockResolvedValue([
-      { ...baseRow, groupId: 'g1', confirmedStartAt: '2026-05-28T10:00:00.000Z' },
-      { ...baseRow, groupId: 'g2', confirmedStartAt: '2026-05-29T10:00:00.000Z' },
+      { ...baseRow, groupId: 'g1', confirmedStartAt: kstTodayAtUtcIso(10) },
+      { ...baseRow, groupId: 'g2', confirmedStartAt: kstTodayAtUtcIso(14) },
     ]);
     const { findByTestId } = render(<ScheduleMapScreen />, { wrapper });
     const card1 = await findByTestId('schedule-point-1');

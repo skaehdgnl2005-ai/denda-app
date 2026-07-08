@@ -1,18 +1,19 @@
 // S18 — 모임 생성 화면. 이름 + 후보 날짜 다중선택(최대 7일) → createGroup → 그리드 진입.
-// §17 anti-AI-feel: brand-500 fill CTA 1개(만들기). KST(luxon, dateOptions). 한국어 only.
+// 날짜 선택은 칩 나열 대신 월간 캘린더(CalendarDatePicker) — 사용자가 요일·주 구조를 보고 고른다.
+// §17 anti-AI-feel: brand-500 fill CTA 1개(만들기). KST(luxon, todayKstIso). 한국어 only.
 import React, { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
+import { CalendarDatePicker } from '@/components/calendar/CalendarDatePicker';
 import { Icon } from '@/components/Icon';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { createGroup } from '@/lib/groups/create';
-import { buildDateOptions, formatDateChip, todayKstIso } from '@/lib/groups/dateOptions';
+import { todayKstIso } from '@/lib/groups/dateOptions';
 
 const MAX_DATES = 7; // 그리드 7열 정합
-const DATE_WINDOW = 14; // 오늘부터 14일 후보
 
 export default function NewGroupScreen(): React.JSX.Element {
   const router = useRouter();
@@ -21,7 +22,7 @@ export default function NewGroupScreen(): React.JSX.Element {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [inflight, setInflight] = useState(false);
 
-  const options = useMemo(() => buildDateOptions(todayKstIso(), DATE_WINDOW), []);
+  const today = useMemo(() => todayKstIso(), []);
   const canSubmit = name.trim().length > 0 && selected.size > 0 && !inflight;
 
   const toggleDate = (iso: string): void => {
@@ -40,7 +41,7 @@ export default function NewGroupScreen(): React.JSX.Element {
     if (!canSubmit) return;
     setInflight(true);
     try {
-      const dates = options.filter((d) => selected.has(d));
+      const dates = [...selected].sort();
       const { id } = await createGroup({ name, dates });
       router.replace(`/group/${id}`);
     } catch (e) {
@@ -99,44 +100,17 @@ export default function NewGroupScreen(): React.JSX.Element {
 
         <Caption
           color={colors.text.tertiary}
-          style={{ marginTop: space[6], marginBottom: space[2] }}
+          style={{ marginTop: space[6], marginBottom: space[3] }}
         >
-          후보 날짜 (최대 {MAX_DATES}일)
+          후보 날짜
         </Caption>
-        <View style={styles.chips}>
-          {options.map((iso, i) => {
-            const active = selected.has(iso);
-            return (
-              <Pressable
-                key={iso}
-                onPress={() => toggleDate(iso)}
-                hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
-                accessibilityRole="button"
-                accessibilityLabel={`${formatDateChip(iso)}${active ? ' 선택됨' : ''}`}
-                accessibilityState={{ selected: active }}
-                testID={`date-chip-${i}`}
-                style={{
-                  paddingHorizontal: space[3],
-                  paddingVertical: space[2],
-                  borderRadius: radius.md,
-                  marginRight: space[2],
-                  marginBottom: space[2],
-                  backgroundColor: active ? colors.brand[50] : colors.surface[2],
-                  borderWidth: active ? 2 : 1,
-                  borderColor: active ? colors.brand[500] : colors.border.subtle,
-                }}
-              >
-                <Body
-                  variant={active ? 'bold' : 'primary'}
-                  color={active ? colors.brand[600] : colors.text.secondary}
-                  tabularNums
-                >
-                  {formatDateChip(iso)}
-                </Body>
-              </Pressable>
-            );
-          })}
-        </View>
+        <CalendarDatePicker
+          selected={selected}
+          onToggle={toggleDate}
+          todayIso={today}
+          maxSelectable={MAX_DATES}
+          testID="date-calendar"
+        />
       </ScrollView>
 
       <View style={[styles.footer, { padding: space[4], borderTopColor: colors.border.subtle }]}>
@@ -169,6 +143,5 @@ const styles = StyleSheet.create({
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   titleFlex: { flex: 1, textAlign: 'center' },
-  chips: { flexDirection: 'row', flexWrap: 'wrap' },
   footer: { borderTopWidth: 1 },
 });

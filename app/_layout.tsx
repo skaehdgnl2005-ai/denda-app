@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { Alert, Platform } from 'react-native';
 import { useFonts } from 'expo-font';
 import * as SecureStore from 'expo-secure-store';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { authStore, useAuth } from '@/lib/auth/setup';
@@ -68,23 +69,28 @@ export default function RootLayout() {
     return null;
   }
 
+  // GestureHandlerRootView는 최외곽 — RNGH v2는 루트 래퍼 하위에서만 제스처가 동작한다.
+  // expo-router(expo-router/entry)는 이를 자동 주입하지 않으므로 여기서 명시. 없으면
+  // Android에서 시간 그리드 sweep Pan·지도 Pan이 무음 실패한다 (D12 회귀 가드: tests/regression).
   return (
-    <SafeAreaProvider>
-      <ThemeProvider>
-        <StatusBar style="auto" />
-        <CalendarSyncRootConnected />
-        <PushRegistrationConnected />
-        <AttributionRootConnected />
-        <ColdStartBadge />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="schedule" />
-          <Stack.Screen name="group" />
-        </Stack>
-      </ThemeProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <StatusBar style="auto" />
+          <CalendarSyncRootConnected />
+          <PushRegistrationConnected />
+          <AttributionRootConnected />
+          <ColdStartBadge />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="schedule" />
+            <Stack.Screen name="group" />
+          </Stack>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

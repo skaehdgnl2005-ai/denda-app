@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { Icon } from '@/components/Icon';
+import { Skeleton } from '@/components/Skeleton';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
@@ -21,6 +22,7 @@ export default function HomeScreen() {
   const nickname = useAuth((s) => s.session?.user.nickname ?? '');
 
   const [myGroups, setMyGroups] = useState<MyGroupSummary[]>([]);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
     let cancelled = false;
     fetchMyGroups()
@@ -29,6 +31,9 @@ export default function HomeScreen() {
       })
       .catch(() => {
         /* 홈 진입을 막지 않음 — 빈 목록 유지 (silent) */
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
     return (): void => {
       cancelled = true;
@@ -198,8 +203,29 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* 모임 목록 (실데이터) 또는 빈 카드 — §11.2 */}
-        {myGroups.length > 0 ? (
+        {/* 로딩 중 — 스켈레톤 카드 (§11.1) */}
+        {loading ? (
+          <View style={{ paddingHorizontal: space[4], marginTop: space[3] }} testID="home-loading">
+            {[0, 1].map((i) => (
+              <View
+                key={i}
+                style={{
+                  backgroundColor: colors.surface[2],
+                  borderColor: colors.border.subtle,
+                  borderWidth: 1,
+                  borderRadius: radius.lg,
+                  padding: space[4],
+                  marginBottom: space[2],
+                }}
+              >
+                <Skeleton width={'55%'} height={16} />
+                <View style={{ height: space[2] }} />
+                <Skeleton width={'80%'} height={12} />
+              </View>
+            ))}
+          </View>
+        ) : /* 모임 목록 (실데이터) 또는 빈 카드 — §11.2 */
+        myGroups.length > 0 ? (
           <View style={{ paddingHorizontal: space[4], marginTop: space[3] }}>
             {myGroups.map((g) => (
               <Pressable

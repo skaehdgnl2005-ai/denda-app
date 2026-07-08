@@ -33,7 +33,7 @@ describe('NewGroupScreen', () => {
     const { getByTestId } = render(<NewGroupScreen />, { wrapper });
 
     fireEvent.changeText(getByTestId('group-name-input'), '5/30 저녁');
-    fireEvent.press(getByTestId('date-chip-0'));
+    fireEvent.press(getByTestId('calendar-today'));
 
     await act(async () => {
       fireEvent.press(getByTestId('create-group-submit'));
@@ -56,7 +56,7 @@ describe('NewGroupScreen', () => {
     const { getByTestId } = render(<NewGroupScreen />, { wrapper });
 
     fireEvent.changeText(getByTestId('group-name-input'), 'g');
-    fireEvent.press(getByTestId('date-chip-0'));
+    fireEvent.press(getByTestId('calendar-today'));
     await act(async () => {
       fireEvent.press(getByTestId('create-group-submit'));
     });

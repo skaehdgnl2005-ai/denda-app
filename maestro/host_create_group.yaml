@@ -22,13 +22,10 @@ appId: com.denda.app
     id: "group-name-input"
 - inputText: "팀플 모임"
 
-# 3. 후보 날짜 chip 다중선택 (최대 7일)
+# 3. 후보 날짜 캘린더 다중선택 (최대 7일). 오늘 셀은 항상 선택 가능.
+#    추가 날짜는 id: "calendar-day-YYYY-MM-DD" 로 탭 (러너에서 미래 날짜 주입).
 - tapOn:
-    id: "date-chip-0"
-- tapOn:
-    id: "date-chip-1"
-- tapOn:
-    id: "date-chip-2"
+    id: "calendar-today"
 
 # 4. 모임 만들기 제출
 - tapOn:
