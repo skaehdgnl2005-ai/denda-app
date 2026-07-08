@@ -5,16 +5,23 @@
 
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ConfirmSheet } from '@/components/ConfirmSheet';
 import { Icon, type IconName } from '@/components/Icon';
+import { useToast } from '@/components/Toast';
 import { ReauthModal } from '@/components/calendar/ReauthModal';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { authStore, useAuth } from '@/lib/auth/setup';
+import { deleteAccount } from '@/lib/auth/deleteAccount';
 import { isGoogleReauthNeeded } from '@/lib/calendar/reauth';
-import { createGoogleCalendarProvider, signInGoogleAndUpload } from '@/lib/calendar/setup';
+import {
+  clearStoredGoogleToken,
+  createGoogleCalendarProvider,
+  signInGoogleAndUpload,
+} from '@/lib/calendar/setup';
 import { supabase } from '@/lib/supabase/client';
 
 const APP_VERSION = '베타 v0.1.0';
@@ -24,6 +31,9 @@ export default function ProfileScreen() {
   const nickname = useAuth((s) => s.session?.user.nickname ?? '');
   const userId = useAuth((s) => s.session?.user.id);
   const [showReauth, setShowReauth] = useState(false);
+  const toast = useToast();
+  const [deleteStep, setDeleteStep] = useState<null | 'warn' | 'confirm'>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // S06: profile 진입 시 Google 재인증 필요 여부 체크. true면 ReauthModal 노출.
   useEffect(() => {
@@ -63,6 +73,33 @@ export default function ProfileScreen() {
     await authStore.getState().signOut();
     router.replace('/');
   };
+
+  // 2단 확인의 마지막 단계 — 실제 탈퇴. 성공 시 로컬 세션·기기 플래그까지 teardown 후 스플래시로.
+  const handleConfirmDelete = useCallback(async (): Promise<void> => {
+    setDeleting(true);
+    try {
+      await deleteAccount();
+    } catch (e) {
+      setDeleting(false);
+      setDeleteStep(null);
+      toast.show({
+        message:
+          e instanceof Error ? e.message : '회원 탈퇴에 실패했어요. 잠시 후 다시 시도해주세요.',
+        variant: 'error',
+      });
+      return;
+    }
+    // 서버 삭제 성공(되돌릴 수 없음) — 로컬 세션·기기 자격증명(약관·온보딩 플래그 + Google 토큰)을
+    // 정리한 뒤 스플래시로. 로컬 정리가 실패해도(키체인 잠금 등) 계정은 이미 삭제됐으므로,
+    // 무한 로딩에 갇히지 않도록 반드시 화면을 벗어난다.
+    try {
+      await authStore.getState().resetForAccountDeletion();
+      await clearStoredGoogleToken();
+    } catch {
+      // best-effort
+    }
+    router.replace('/');
+  }, [toast]);
 
   const initial = nickname ? nickname.charAt(0) : '?';
 
@@ -119,37 +156,26 @@ export default function ProfileScreen() {
           />
         </Section>
 
-        {/* 설정 */}
+        {/* 설정 — 준비 중/정보 행은 비대화형(§17.5 pill·hint로 상태 명시, 죽은 Alert 제거) */}
         <Section title="설정">
-          <SettingRow
-            icon="알림 켜짐"
-            label="알림 설정"
-            pending
-            onPress={() => Alert.alert('알림 설정', '준비 중이에요. 정식 출시 때 만나요.')}
-            testID="notifications-row"
-          />
+          <SettingRow icon="알림 켜짐" label="알림 설정" pending testID="notifications-row" />
           <SettingRow
             icon="다크/라이트"
             label="화면 모드"
             hint="기기 설정 따름"
-            onPress={() => Alert.alert('화면 모드', '기기 설정의 다크 모드를 따라요.')}
             testID="theme-row"
           />
         </Section>
 
         {/* 관리 */}
         <Section title="관리">
+          <SettingRow icon="신고" label="신고·차단 관리" pending testID="reports-row" />
           <SettingRow
-            icon="신고"
-            label="신고·차단 관리"
-            pending
-            onPress={() =>
-              Alert.alert(
-                '신고·차단 관리',
-                '준비 중이에요. 지금은 친구 카드에서 신고·차단할 수 있어요.',
-              )
-            }
-            testID="reports-row"
+            icon="삭제"
+            label="회원 탈퇴"
+            danger
+            onPress={() => setDeleteStep('warn')}
+            testID="delete-account-button"
           />
         </Section>
 
@@ -191,6 +217,24 @@ export default function ProfileScreen() {
         signInGoogle={handleSignInGoogle}
         onSuccess={handleReauthSuccess}
       />
+
+      {/* W1-14 회원 탈퇴 — 2단 확인(경고 → 마지막 확인). destructive + 진행 중 dismiss 차단. */}
+      <ConfirmSheet
+        visible={deleteStep !== null}
+        onClose={() => setDeleteStep(null)}
+        destructive
+        loading={deleting}
+        title={deleteStep === 'confirm' ? '마지막 확인이에요' : '정말 탈퇴하시겠어요?'}
+        message={
+          deleteStep === 'confirm'
+            ? '이 작업은 되돌릴 수 없어요. 지금 탈퇴할까요?'
+            : '회원님이 만든 모임과 그 안의 투표·댓글·초대가 모두 사라져요. 되돌릴 수 없어요.'
+        }
+        confirmLabel={deleteStep === 'confirm' ? '탈퇴하기' : '탈퇴 계속하기'}
+        cancelLabel={deleteStep === 'confirm' ? '아니요' : '취소'}
+        onConfirm={deleteStep === 'confirm' ? handleConfirmDelete : () => setDeleteStep('confirm')}
+        testID="delete-account-sheet"
+      />
     </SafeAreaView>
   );
 }
@@ -218,6 +262,7 @@ function SettingRow({
   testID,
   pending,
   hint,
+  danger,
 }: {
   icon: IconName;
   label: string;
@@ -225,8 +270,11 @@ function SettingRow({
   testID?: string;
   pending?: boolean;
   hint?: string;
+  /** 파괴적 액션(회원 탈퇴 등) — error 색·chevron 없음 (§10.6, D5 절제) */
+  danger?: boolean;
 }) {
   const { colors, space, radius } = useTheme();
+  const accent = danger ? colors.semantic.error.fg : undefined;
   const content = (
     <View
       style={{
@@ -238,8 +286,12 @@ function SettingRow({
         backgroundColor: colors.surface[2],
       }}
     >
-      <Icon name={icon} color={colors.text.secondary} size={20} />
-      <Body variant="primary" color={colors.text.primary} style={{ flex: 1, marginLeft: space[3] }}>
+      <Icon name={icon} color={accent ?? colors.text.secondary} size={20} />
+      <Body
+        variant="primary"
+        color={accent ?? colors.text.primary}
+        style={{ flex: 1, marginLeft: space[3] }}
+      >
         {label}
       </Body>
       {pending ? (
@@ -261,7 +313,8 @@ function SettingRow({
           {hint}
         </Caption>
       ) : null}
-      <Icon name="화살표" color={colors.text.tertiary} size={18} />
+      {/* chevron은 이동 어포던스 — 비대화형 행·파괴적 액션엔 표시하지 않는다 */}
+      {onPress && !danger ? <Icon name="화살표" color={colors.text.tertiary} size={18} /> : null}
     </View>
   );
   if (onPress) {
@@ -277,7 +330,11 @@ function SettingRow({
       </Pressable>
     );
   }
-  return <View style={{ marginBottom: space[2] }}>{content}</View>;
+  return (
+    <View testID={testID} style={{ marginBottom: space[2] }}>
+      {content}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

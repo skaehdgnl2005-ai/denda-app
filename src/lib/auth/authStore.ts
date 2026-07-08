@@ -50,6 +50,7 @@ export type AuthState = {
   bootstrap: () => Promise<void>;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
+  resetForAccountDeletion: () => Promise<void>;
   agreeToTerms: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
   clearError: () => void;
@@ -115,6 +116,32 @@ export function createAuthStore(deps: AuthStoreDeps) {
         session: null,
         status: 'signed_out',
         isNewUser: false,
+        lastError: null,
+      });
+    },
+
+    resetForAccountDeletion: async () => {
+      // 서버에서 이미 계정(auth.users)이 삭제됐을 수 있으므로 provider.signOut 실패는 무시하고
+      // 로컬 teardown을 반드시 마친다. signOut과 달리 온보딩·약관 플래그도 제거 —
+      // 다음에 이 기기로 로그인하는 사용자에게 이전 사용자의 동의가 누출되지 않게 한다.
+      try {
+        await deps.provider.signOut();
+      } catch {
+        // ignore — 로컬 상태만 확실히 정리
+      }
+      // allSettled — SecureStore 삭제가 실패(키체인 잠금 등)해도 절대 throw하지 않는다.
+      // 이미 서버에서 삭제된 계정이므로 state 초기화(set)까지 반드시 도달해야 한다(무한 로딩 방지).
+      await Promise.allSettled([
+        deps.storage.deleteItemAsync(KEY_TERMS_AGREED_AT),
+        deps.storage.deleteItemAsync(KEY_ONBOARDED),
+      ]);
+      set({
+        session: null,
+        status: 'signed_out',
+        isNewUser: false,
+        hasAgreedToTerms: false,
+        termsAgreedAt: null,
+        hasCompletedOnboarding: false,
         lastError: null,
       });
     },

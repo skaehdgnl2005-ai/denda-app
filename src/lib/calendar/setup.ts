@@ -248,6 +248,16 @@ function createSecureStoreAdapter(): GoogleTokenStorage {
   };
 }
 
+/**
+ * SecureStore에 저장된 Google 캘린더 토큰(access·refresh)을 기기에서 제거한다.
+ * 회원 탈퇴 teardown용 — 서버 user_oauth_tokens 행은 계정 삭제 cascade로 지워지지만,
+ * 기기에 남은 refresh_token(살아있는 제3자 자격증명)까지 정리해 잔여 PII/공유기기 누출을 막는다.
+ */
+export async function clearStoredGoogleToken(): Promise<void> {
+  const storage = createSecureStoreAdapter();
+  await storage.deleteItemAsync(GOOGLE_TOKEN_STORAGE_KEY);
+}
+
 // ---------------------------------------------------------------------------
 // expo-calendar adapter
 // ---------------------------------------------------------------------------

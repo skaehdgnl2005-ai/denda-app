@@ -278,6 +278,73 @@ describe('authStore', () => {
     });
   });
 
+  describe('resetForAccountDeletion()', () => {
+    it('provider.signOut + 온보딩·약관 플래그 SecureStore 삭제 + state 리셋 (signOut과 달리 플래그 제거)', async () => {
+      const deps = makeDeps();
+      deps.storage = makeStorage({
+        'denda.auth.terms_agreed_at': NOW_ISO,
+        'denda.auth.onboarded': '1',
+      });
+      const store = createAuthStore({ ...deps });
+      await store.getState().bootstrap();
+      await store.getState().signIn();
+
+      await store.getState().resetForAccountDeletion();
+
+      expect(deps.provider.signOut).toHaveBeenCalledTimes(1);
+      expect(deps.storage.deleteItemAsync).toHaveBeenCalledWith('denda.auth.terms_agreed_at');
+      expect(deps.storage.deleteItemAsync).toHaveBeenCalledWith('denda.auth.onboarded');
+      expect(store.getState().session).toBeNull();
+      expect(store.getState().status).toBe('signed_out');
+      expect(store.getState().hasAgreedToTerms).toBe(false);
+      expect(store.getState().termsAgreedAt).toBeNull();
+      expect(store.getState().hasCompletedOnboarding).toBe(false);
+    });
+
+    it('provider.signOut 실패해도 로컬 teardown 진행 (세션이 서버에서 이미 삭제됨)', async () => {
+      const deps = makeDeps({
+        provider: makeAuthProvider({
+          signOut: jest.fn().mockRejectedValue(new Error('session already gone')),
+        }),
+      });
+      deps.storage = makeStorage({
+        'denda.auth.terms_agreed_at': NOW_ISO,
+        'denda.auth.onboarded': '1',
+      });
+      const store = createAuthStore({ ...deps });
+      await store.getState().bootstrap();
+
+      await expect(store.getState().resetForAccountDeletion()).resolves.toBeUndefined();
+
+      expect(deps.storage.deleteItemAsync).toHaveBeenCalledWith('denda.auth.terms_agreed_at');
+      expect(deps.storage.deleteItemAsync).toHaveBeenCalledWith('denda.auth.onboarded');
+      expect(store.getState().status).toBe('signed_out');
+      expect(store.getState().hasAgreedToTerms).toBe(false);
+      expect(store.getState().hasCompletedOnboarding).toBe(false);
+    });
+
+    it('SecureStore 삭제가 실패해도 state는 초기화된다 (탈퇴 후 무한 로딩 방지)', async () => {
+      const deps = makeDeps();
+      deps.storage = makeStorage({
+        'denda.auth.terms_agreed_at': NOW_ISO,
+        'denda.auth.onboarded': '1',
+      });
+      // 키체인 잠금 등으로 삭제가 rejeect되는 상황 — resetForAccountDeletion은 throw하지 않아야 한다.
+      deps.storage.deleteItemAsync = jest.fn().mockRejectedValue(new Error('keychain locked'));
+      const store = createAuthStore({ ...deps });
+      await store.getState().bootstrap();
+      await store.getState().signIn();
+
+      await expect(store.getState().resetForAccountDeletion()).resolves.toBeUndefined();
+
+      // 삭제가 실패해도 state는 반드시 초기화(set 도달) — 이미 삭제된 계정이므로.
+      expect(store.getState().session).toBeNull();
+      expect(store.getState().status).toBe('signed_out');
+      expect(store.getState().hasAgreedToTerms).toBe(false);
+      expect(store.getState().hasCompletedOnboarding).toBe(false);
+    });
+  });
+
   describe('clearError()', () => {
     it('lastError를 null로 reset', async () => {
       const deps = makeDeps({
