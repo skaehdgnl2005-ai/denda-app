@@ -87,3 +87,7 @@ output/
 
 # Claude Code worktrees (Agent isolation)
 .claude/worktrees/
+
+# Supabase CLI artifact — root-level lock has no root deno config;
+# canonical edge-function lock is supabase/functions/deno.lock
+/deno.lock
