@@ -1,7 +1,9 @@
 import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import FriendsIndexScreen from '../../../app/(tabs)/friends/index';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider } from '@/design/theme';
+import { ToastProvider } from '@/components/Toast';
 import { friendsApi } from '@/lib/friends/api';
 
 const mockPush = jest.fn();
@@ -54,9 +56,19 @@ const DEFAULT_INCOMING = [
   },
 ];
 
-describe('FriendsIndexScreen Screen', () => {
-  const wrapper = ThemeProvider;
+const METRICS = {
+  frame: { x: 0, y: 0, width: 390, height: 844 },
+  insets: { top: 47, left: 0, right: 0, bottom: 34 },
+};
+const wrapper = ({ children }: { children: React.ReactNode }): React.JSX.Element => (
+  <SafeAreaProvider initialMetrics={METRICS}>
+    <ThemeProvider>
+      <ToastProvider>{children}</ToastProvider>
+    </ThemeProvider>
+  </SafeAreaProvider>
+);
 
+describe('FriendsIndexScreen Screen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     friendsApi.__resetMocks();
@@ -161,5 +173,31 @@ describe('FriendsIndexScreen Screen', () => {
 
     const sheet = getByTestId('report-block-sheet');
     expect(sheet).toBeTruthy();
+  });
+
+  // W1-8: 첫 로딩이 빈 화면이 아니라 Skeleton.
+  test('첫 로딩은 Skeleton (빈 화면 아님)', () => {
+    const { getByTestId } = render(<FriendsIndexScreen />, { wrapper });
+    expect(getByTestId('friends-loading')).toBeTruthy();
+  });
+
+  // W1-8: fetch 실패를 빈 상태로 위장하지 않고 EmptyState error로 표출 + 재시도.
+  test('fetch 실패 → EmptyState error (빈 상태 위장 아님) + 다시 시도 refetch', async () => {
+    (friendsApi.list as jest.Mock).mockRejectedValueOnce(new Error('network'));
+    const { getByTestId, queryByText, findByText } = render(<FriendsIndexScreen />, { wrapper });
+    await waitFor(() => expect(getByTestId('friends-error')).toBeTruthy());
+    expect(queryByText('아직 친구가 없어요')).toBeNull();
+    fireEvent.press(getByTestId('friends-error-cta'));
+    expect(await findByText('홍길동')).toBeTruthy();
+  });
+
+  // W1-4: 성공/실패 피드백이 시스템 Alert이 아닌 디자인 토스트.
+  test('차단 성공 → success 토스트 (Alert 아님)', async () => {
+    jest.spyOn(friendsApi, 'blockUser').mockResolvedValue(undefined);
+    const { getAllByTestId, getByTestId, findByText } = render(<FriendsIndexScreen />, { wrapper });
+    await waitFor(() => expect(getAllByTestId('more-button').length).toBeGreaterThan(0));
+    fireEvent.press(getAllByTestId('more-button')[0]!);
+    fireEvent.press(getByTestId('block-option'));
+    expect(await findByText('차단했어요.')).toBeTruthy();
   });
 });

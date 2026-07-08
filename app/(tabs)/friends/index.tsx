@@ -1,15 +1,19 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, View, Alert } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/design/theme';
 import { Body, Title } from '@/design/typography';
 import { Icon } from '@/components/Icon';
+import { EmptyState } from '@/components/EmptyState';
+import { Skeleton } from '@/components/Skeleton';
+import { useToast } from '@/components/Toast';
 import { FriendCard } from '@/components/friends/FriendCard';
 import { ReportBlockSheet } from '@/components/friends/ReportBlockSheet';
 import { FriendUser, friendsApi } from '@/lib/friends/api';
 import { submitReport } from '@/lib/reports/api';
 import { type ReportReasonKey } from '@/lib/reports/reasons';
+import { mapError, messages } from '@/lib/i18n/messages';
 import { useAuth } from '@/lib/auth/setup';
 import { createNativeShareApi } from '@/lib/share/kakaoShare';
 import { shareInviteToKakao } from '@/lib/share/inviteShare';
@@ -17,12 +21,14 @@ import { shareInviteToKakao } from '@/lib/share/inviteShare';
 export default function FriendsIndexScreen() {
   const { colors, space } = useTheme();
   const router = useRouter();
+  const toast = useToast();
   const reporterId = useAuth((s) => s.session?.user.id ?? null);
   const myNickname = useAuth((s) => s.session?.user.nickname ?? '');
 
   const [friends, setFriends] = useState<FriendUser[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [error, setError] = useState<boolean>(false);
   const [requestCount, setRequestCount] = useState<number>(0);
 
   // Sheet states
@@ -35,9 +41,11 @@ export default function FriendsIndexScreen() {
       const incoming = await friendsApi.listIncomingRequests();
       setFriends(list);
       setRequestCount(incoming.length);
+      setError(false);
     } catch (e) {
+      // 에러를 빈 상태로 위장하지 않는다(W1-8) — error 분리 후 EmptyState error로 표출.
       console.error(e);
-      Alert.alert('오류', '친구 목록을 불러오지 못했습니다.');
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -55,6 +63,12 @@ export default function FriendsIndexScreen() {
     fetchFriends();
   };
 
+  const onRetry = useCallback(() => {
+    setLoading(true);
+    setError(false);
+    fetchFriends();
+  }, [fetchFriends]);
+
   // S18: 베타는 멤버 사전 선택 없이 생성 후 링크 공유. 친구 사전선택 초대는 S22.
   const handleMakeGroup = (_friend: FriendUser) => {
     router.push('/group/new');
@@ -68,32 +82,32 @@ export default function FriendsIndexScreen() {
   const handleBlock = async (userId: string) => {
     try {
       await friendsApi.blockUser(userId);
-      Alert.alert('알림', '차단했어요. 더 이상 표시되지 않아요.');
       setSheetVisible(false);
       fetchFriends();
+      toast.show({ message: messages.success.blocked, variant: 'success' });
     } catch (e) {
-      const message = e instanceof Error ? e.message : '차단하지 못했어요.';
-      Alert.alert('오류', message);
+      const { silent, message } = mapError(e);
+      if (!silent) toast.show({ message, variant: 'error' });
     }
   };
 
   // S07-report: supabase reports INSERT (D32 베타 DB-only, 운영 통지는 deferred).
   const handleReport = async (targetUserId: string, reason: ReportReasonKey, detail: string) => {
     if (!reporterId) {
-      Alert.alert('알림', '로그인이 필요해요.');
+      toast.show({ message: '로그인이 필요해요.', variant: 'error' });
       return;
     }
     try {
       await submitReport({ reporterId, targetUserId, reason, detail });
-      Alert.alert('알림', '신고가 접수됐어요. 운영팀이 검토 후 조치할게요.');
       setSheetVisible(false);
+      toast.show({ message: messages.success.reported, variant: 'success' });
     } catch (e) {
-      const message = e instanceof Error ? e.message : '신고에 실패했어요.';
-      Alert.alert('오류', message);
+      const { silent, message } = mapError(e);
+      if (!silent) toast.show({ message, variant: 'error' });
     }
   };
 
-  // S24: RN core Share API → 시스템 share sheet (사용자가 카톡 선택). 더 이상 가짜 Alert 아님.
+  // S24: RN core Share API → 시스템 share sheet (사용자가 카톡 선택). 취소류는 silent.
   const handleKakaoInvite = async () => {
     try {
       await shareInviteToKakao(
@@ -101,8 +115,8 @@ export default function FriendsIndexScreen() {
         { shareApi: createNativeShareApi() },
       );
     } catch (e) {
-      const message = e instanceof Error ? e.message : '공유에 실패했어요.';
-      Alert.alert('오류', message);
+      const { silent, message } = mapError(e);
+      if (!silent) toast.show({ message, variant: 'error' });
     }
   };
 
@@ -195,27 +209,46 @@ export default function FriendsIndexScreen() {
         </View>
       </View>
 
-      {/* Main Content List */}
-      <FlatList
-        data={friends}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={[
-          styles.listContent,
-          {
-            paddingHorizontal: space[4],
-            paddingVertical: space[2],
-            flexGrow: 1,
-          },
-        ]}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        renderItem={({ item }) => (
-          <View style={{ marginBottom: space[3] }}>
-            <FriendCard friend={item} onMakeGroup={handleMakeGroup} onMore={handleMore} />
-          </View>
-        )}
-        ListEmptyComponent={!loading ? renderEmptyState : null}
-        testID="friends-flatlist"
-      />
+      {/* Main Content — 첫 로딩=Skeleton(빈 화면 아님), 에러=EmptyState error(빈 상태 위장 아님) */}
+      {loading ? (
+        <View
+          testID="friends-loading"
+          style={{ paddingHorizontal: space[4], paddingTop: space[2] }}
+        >
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} height={72} style={{ marginBottom: space[3] }} />
+          ))}
+        </View>
+      ) : error ? (
+        <EmptyState
+          variant="error"
+          title="친구 목록을 불러오지 못했어요"
+          body="잠시 후 다시 시도해볼게요."
+          cta={{ label: messages.action.retry, onPress: onRetry }}
+          testID="friends-error"
+        />
+      ) : (
+        <FlatList
+          data={friends}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={[
+            styles.listContent,
+            {
+              paddingHorizontal: space[4],
+              paddingVertical: space[2],
+              flexGrow: 1,
+            },
+          ]}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          renderItem={({ item }) => (
+            <View style={{ marginBottom: space[3] }}>
+              <FriendCard friend={item} onMakeGroup={handleMakeGroup} onMore={handleMore} />
+            </View>
+          )}
+          ListEmptyComponent={renderEmptyState}
+          testID="friends-flatlist"
+        />
+      )}
 
       {/* Bottom Sheet Modal */}
       <ReportBlockSheet
