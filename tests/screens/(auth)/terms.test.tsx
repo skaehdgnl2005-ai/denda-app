@@ -90,6 +90,33 @@ describe('TermsScreen', () => {
     expect(mockPush).toHaveBeenCalledWith('/(auth)/privacy');
   });
 
+  // W1-13 — 각 약관 행의 chevron은 토글이 아닌 전문 화면 push (별도 44pt Pressable).
+  test('이용약관 chevron press → 전문 화면 push (토글 아님)', () => {
+    const { getByLabelText } = render(<TermsScreen />, { wrapper });
+    fireEvent.press(getByLabelText('이용약관 전문 보기'));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/(auth)/legal',
+      params: { doc: 'service' },
+    });
+    // chevron 탭은 체크 상태를 바꾸지 않는다
+    expect(getByLabelText('필수 이용약관 동의').props.accessibilityState?.checked).toBe(false);
+  });
+
+  test('개인정보 chevron press → privacy 전문 화면 push', () => {
+    const { getByLabelText } = render(<TermsScreen />, { wrapper });
+    fireEvent.press(getByLabelText('개인정보 수집 및 이용 전문 보기'));
+    expect(mockPush).toHaveBeenCalledWith('/(auth)/privacy');
+  });
+
+  test('마케팅 chevron press → 전문 화면 push', () => {
+    const { getByLabelText } = render(<TermsScreen />, { wrapper });
+    fireEvent.press(getByLabelText('마케팅 정보 수신 전문 보기'));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/(auth)/legal',
+      params: { doc: 'marketing' },
+    });
+  });
+
   test('필수 동의 후 CTA press → agreeToTerms + router.replace(onboarding)', async () => {
     const { getByLabelText } = render(<TermsScreen />, { wrapper });
     fireEvent.press(getByLabelText('필수 이용약관 동의'));

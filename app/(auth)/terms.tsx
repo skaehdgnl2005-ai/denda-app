@@ -52,6 +52,16 @@ export default function TermsScreen() {
     setAgreed((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  // W1-13 — chevron은 토글이 아니라 약관 전문 화면으로 이동한다 (법적 열람 의무).
+  // 개인정보는 기존 PIPA 전문(privacy.tsx), 나머지는 legal 화면(doc 파라미터).
+  const openDetail = (key: string) => {
+    if (key === 'privacy') {
+      router.push('/(auth)/privacy');
+      return;
+    }
+    router.push({ pathname: '/(auth)/legal', params: { doc: key } });
+  };
+
   const handleContinue = async () => {
     if (!allRequiredAgreed || submitting) {
       return;
@@ -112,42 +122,49 @@ export default function TermsScreen() {
           </View>
         </Pressable>
 
-        {/* 개별 약관 카드 리스트 */}
+        {/* 개별 약관 카드 리스트 — 행 탭=토글, chevron=전문 화면 (44pt 별도 Pressable) */}
         <View style={{ marginTop: space[3] }}>
           {TERMS.map((term) => (
-            <Pressable
+            <View
               key={term.key}
-              onPress={() => toggle(term.key)}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: Boolean(agreed[term.key]) }}
-              accessibilityLabel={`${term.required ? '필수' : '선택'} ${term.label} 동의`}
-              style={({ pressed }) => [
-                styles.termRow,
-                {
-                  paddingHorizontal: space[4],
-                  paddingVertical: space[3],
-                  borderRadius: radius.md,
-                  opacity: pressed ? 0.7 : 1,
-                },
-              ]}
+              style={[styles.termRow, { paddingLeft: space[4], borderRadius: radius.md }]}
             >
-              <CheckCircle checked={Boolean(agreed[term.key])} small />
-              <View style={{ marginLeft: space[3], flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Body
-                    variant="sm-bold"
-                    color={term.required ? colors.brand[500] : colors.text.tertiary}
-                    style={{ marginRight: space[2] }}
-                  >
-                    {term.required ? '필수' : '선택'}
-                  </Body>
-                  <Body variant="primary" color={colors.text.primary} style={{ flex: 1 }}>
-                    {term.label}
-                  </Body>
+              <Pressable
+                onPress={() => toggle(term.key)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: Boolean(agreed[term.key]) }}
+                accessibilityLabel={`${term.required ? '필수' : '선택'} ${term.label} 동의`}
+                style={({ pressed }) => [
+                  styles.toggleArea,
+                  { paddingVertical: space[3], opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <CheckCircle checked={Boolean(agreed[term.key])} small />
+                <View style={{ marginLeft: space[3], flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Body
+                      variant="sm-bold"
+                      color={term.required ? colors.brand[500] : colors.text.tertiary}
+                      style={{ marginRight: space[2] }}
+                    >
+                      {term.required ? '필수' : '선택'}
+                    </Body>
+                    <Body variant="primary" color={colors.text.primary} style={{ flex: 1 }}>
+                      {term.label}
+                    </Body>
+                  </View>
                 </View>
-              </View>
-              <Icon name="화살표" color={colors.text.tertiary} size={18} />
-            </Pressable>
+              </Pressable>
+              <Pressable
+                onPress={() => openDetail(term.key)}
+                accessibilityRole="link"
+                accessibilityLabel={`${term.label} 전문 보기`}
+                hitSlop={8}
+                style={({ pressed }) => [styles.chevronButton, { opacity: pressed ? 0.5 : 1 }]}
+              >
+                <Icon name="화살표" color={colors.text.tertiary} size={18} />
+              </Pressable>
+            </View>
           ))}
         </View>
 
@@ -257,6 +274,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: 56,
+  },
+  toggleArea: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  chevronButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bottomBar: {
     borderTopWidth: 1,
