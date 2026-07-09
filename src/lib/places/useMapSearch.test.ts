@@ -118,6 +118,22 @@ describe('useMapSearch', () => {
     await waitFor(() => expect(hook.current.results).toEqual([CAFE]));
   });
 
+  it('retry() → error 후 같은 query 재검색 (provider 재호출 + error 해제)', async () => {
+    const provider = makeProvider();
+    provider.search.mockRejectedValueOnce(new Error('일시 오류'));
+    provider.search.mockResolvedValueOnce([CAFE]);
+
+    const { result: hook } = renderHook(() => useMapSearch({ provider, debounceMs: 20 }));
+
+    act(() => hook.current.setQuery('강남'));
+    await waitFor(() => expect(hook.current.error).not.toBeNull());
+
+    act(() => hook.current.retry());
+    await waitFor(() => expect(hook.current.results).toHaveLength(1));
+    expect(hook.current.error).toBeNull();
+    expect(provider.search).toHaveBeenCalledTimes(2);
+  });
+
   it('검색 진행 중 isLoading true', async () => {
     const provider = makeProvider();
     provider.search.mockReturnValue(new Promise(() => {})); // 미해결

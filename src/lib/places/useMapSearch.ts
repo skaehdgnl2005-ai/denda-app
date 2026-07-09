@@ -9,7 +9,7 @@
 // 네이티브 MapView(@mj-studio/react-native-naver-map) 렌더·마커는 EAS Build 운영 트랙.
 // 본 hook은 검색 데이터만 제공 — 화면은 결과를 마커/리스트로 그린다.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { NaverSearchProvider } from './NaverSearchProvider';
 import { applyPlaceFilters, type PlaceFilter } from './placeFilter';
@@ -52,6 +52,8 @@ export interface UseMapSearchState {
   isLoading: boolean;
   /** 한국어 에러 메시지 (rate limit 등). */
   error: string | null;
+  /** 에러 후 현재 query를 재검색 (캐시 miss면 provider 재호출). */
+  retry: () => void;
 }
 
 export function useMapSearch(options: UseMapSearchOptions = {}): UseMapSearchState {
@@ -73,6 +75,9 @@ export function useMapSearch(options: UseMapSearchOptions = {}): UseMapSearchSta
   const [rawResults, setRawResults] = useState<PlaceSearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // retry 시 effect를 다시 돌려 현재 query를 재검색 (query 불변이라 nonce로 강제).
+  const [retryNonce, setRetryNonce] = useState(0);
+  const retry = useCallback(() => setRetryNonce((n) => n + 1), []);
 
   // 최신 검색만 state 반영 (out-of-order 응답 무시).
   const reqIdRef = useRef(0);
@@ -120,9 +125,9 @@ export function useMapSearch(options: UseMapSearchOptions = {}): UseMapSearchSta
     }, debounceMs);
 
     return () => clearTimeout(timer);
-  }, [query, display, debounceMs, minQueryLength, provider, cache]);
+  }, [query, display, debounceMs, minQueryLength, provider, cache, retryNonce]);
 
   const results = useMemo(() => applyPlaceFilters(rawResults, filter ?? {}), [rawResults, filter]);
 
-  return { query, setQuery, results, isLoading, error };
+  return { query, setQuery, results, isLoading, error, retry };
 }
