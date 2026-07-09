@@ -41,7 +41,7 @@ export default function PrivacyScreen() {
           hitSlop={12}
           style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: space[1] })}
         >
-          <Icon name="화살표" color={colors.text.primary} size={24} />
+          <Icon name="뒤로" color={colors.text.primary} size={24} />
         </Pressable>
         <Title level="h2" color={colors.text.primary} style={{ marginLeft: space[2] }}>
           개인정보 처리방침
