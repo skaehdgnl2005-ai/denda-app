@@ -1,5 +1,4 @@
 import React from 'react';
-import { Alert } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { InviteCodeModal } from './InviteCodeModal';
@@ -99,34 +98,21 @@ describe('InviteCodeModal', () => {
     await findByText(/모임 합류에 실패/);
   });
 
-  it('건너뛰기 → onSkip 호출, resolve 미호출', () => {
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(((
-      _title: string,
-      _message?: string,
-      buttons?: readonly { text: string; onPress?: () => void }[],
-    ) => {
-      const yes = buttons?.find((b) => b.text === '건너뛰기');
-      yes?.onPress?.();
-    }) as typeof Alert.alert);
+  it('건너뛰기 → 시트 내 확인 스텝(아직 onSkip 미호출) → 확인 시 onSkip 호출', () => {
     const { getByTestId } = renderModal();
     fireEvent.press(getByTestId('invite-code-skip'));
+    // 1스텝: 확인 스텝만 노출, 아직 skip 안 함(실수 방지)
+    expect(onSkipMock).not.toHaveBeenCalled();
+    fireEvent.press(getByTestId('invite-code-skip-confirm'));
     expect(resolveMock).not.toHaveBeenCalled();
     expect(onSkipMock).toHaveBeenCalled();
-    alertSpy.mockRestore();
   });
 
-  it('건너뛰기 Alert cancel 시 onSkip 미호출', () => {
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(((
-      _title: string,
-      _message?: string,
-      buttons?: readonly { text: string; onPress?: () => void }[],
-    ) => {
-      const cancel = buttons?.find((b) => b.text === '취소');
-      cancel?.onPress?.();
-    }) as typeof Alert.alert);
+  it('건너뛰기 확인 취소 → onSkip 미호출, 입력으로 복귀', () => {
     const { getByTestId } = renderModal();
     fireEvent.press(getByTestId('invite-code-skip'));
+    fireEvent.press(getByTestId('invite-code-skip-cancel'));
     expect(onSkipMock).not.toHaveBeenCalled();
-    alertSpy.mockRestore();
+    expect(getByTestId('invite-code-confirm')).toBeTruthy();
   });
 });

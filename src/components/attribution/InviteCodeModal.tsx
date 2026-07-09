@@ -16,7 +16,7 @@
 //   - 친근체 한국어
 
 import React, { useState } from 'react';
-import { Alert, Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
@@ -45,6 +45,7 @@ export const InviteCodeModal: React.FC<InviteCodeModalProps> = ({
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [confirmingSkip, setConfirmingSkip] = useState(false);
 
   if (!visible) return null;
 
@@ -69,11 +70,9 @@ export const InviteCodeModal: React.FC<InviteCodeModalProps> = ({
     }
   };
 
+  // 시스템 Alert 대신 시트 내 2스텝 확인(중첩 Modal 회피) — 실수 skip 방지.
   const handleSkipPress = (): void => {
-    Alert.alert('나중에 입력할게요?', '모임 합류는 나중에 4자리 코드로 다시 할 수 있어요.', [
-      { text: '취소', style: 'cancel' },
-      { text: '건너뛰기', style: 'destructive', onPress: () => onSkip() },
-    ]);
+    setConfirmingSkip(true);
   };
 
   const confirmBg = canConfirm ? colors.brand[500] : colors.surface[2];
@@ -151,52 +150,105 @@ export const InviteCodeModal: React.FC<InviteCodeModalProps> = ({
             </Caption>
           ) : null}
 
-          <View style={[styles.footer, { marginTop: space[4], gap: space[2] }]}>
-            <Pressable
-              onPress={handleSkipPress}
-              disabled={busy}
-              accessibilityRole="button"
-              accessibilityLabel="건너뛰기"
-              testID="invite-code-skip"
-              style={({ pressed }) => [
-                styles.button,
-                {
-                  flex: 1,
-                  borderRadius: radius.md,
-                  paddingVertical: space[3],
-                  backgroundColor: colors.surface[2],
-                  opacity: pressed && !busy ? 0.7 : 1,
-                },
-              ]}
-            >
-              <Body variant="bold" color={colors.text.secondary}>
-                건너뛰기
-              </Body>
-            </Pressable>
+          {confirmingSkip ? (
+            <View style={{ marginTop: space[4] }}>
+              <Caption
+                color={colors.text.secondary}
+                style={{ marginBottom: space[3], textAlign: 'center' }}
+              >
+                나중에 4자리 코드로 다시 합류할 수 있어요. 지금 건너뛸까요?
+              </Caption>
+              <View style={[styles.footer, { gap: space[2] }]}>
+                <Pressable
+                  onPress={() => setConfirmingSkip(false)}
+                  accessibilityRole="button"
+                  accessibilityLabel="계속 입력"
+                  testID="invite-code-skip-cancel"
+                  style={({ pressed }) => [
+                    styles.button,
+                    {
+                      flex: 1,
+                      borderRadius: radius.md,
+                      paddingVertical: space[3],
+                      backgroundColor: colors.surface[2],
+                      opacity: pressed ? 0.7 : 1,
+                    },
+                  ]}
+                >
+                  <Body variant="bold" color={colors.text.secondary}>
+                    계속 입력
+                  </Body>
+                </Pressable>
+                <Pressable
+                  onPress={onSkip}
+                  accessibilityRole="button"
+                  accessibilityLabel="건너뛰기 확인"
+                  testID="invite-code-skip-confirm"
+                  style={({ pressed }) => [
+                    styles.button,
+                    {
+                      flex: 1,
+                      borderRadius: radius.md,
+                      paddingVertical: space[3],
+                      backgroundColor: colors.surface[2],
+                      opacity: pressed ? 0.7 : 1,
+                    },
+                  ]}
+                >
+                  <Body variant="bold" color={colors.semantic.error.fg}>
+                    건너뛰기
+                  </Body>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <View style={[styles.footer, { marginTop: space[4], gap: space[2] }]}>
+              <Pressable
+                onPress={handleSkipPress}
+                disabled={busy}
+                accessibilityRole="button"
+                accessibilityLabel="건너뛰기"
+                testID="invite-code-skip"
+                style={({ pressed }) => [
+                  styles.button,
+                  {
+                    flex: 1,
+                    borderRadius: radius.md,
+                    paddingVertical: space[3],
+                    backgroundColor: colors.surface[2],
+                    opacity: pressed && !busy ? 0.7 : 1,
+                  },
+                ]}
+              >
+                <Body variant="bold" color={colors.text.secondary}>
+                  건너뛰기
+                </Body>
+              </Pressable>
 
-            <Pressable
-              onPress={handleConfirm}
-              disabled={!canConfirm}
-              accessibilityRole="button"
-              accessibilityLabel="확인"
-              accessibilityState={{ disabled: !canConfirm, busy }}
-              testID="invite-code-confirm"
-              style={({ pressed }) => [
-                styles.button,
-                {
-                  flex: 1,
-                  borderRadius: radius.md,
-                  paddingVertical: space[3],
-                  backgroundColor: confirmBg,
-                  opacity: pressed && canConfirm ? 0.85 : 1,
-                },
-              ]}
-            >
-              <Body variant="bold" color={confirmFg}>
-                {busy ? '확인 중...' : '확인'}
-              </Body>
-            </Pressable>
-          </View>
+              <Pressable
+                onPress={handleConfirm}
+                disabled={!canConfirm}
+                accessibilityRole="button"
+                accessibilityLabel="확인"
+                accessibilityState={{ disabled: !canConfirm, busy }}
+                testID="invite-code-confirm"
+                style={({ pressed }) => [
+                  styles.button,
+                  {
+                    flex: 1,
+                    borderRadius: radius.md,
+                    paddingVertical: space[3],
+                    backgroundColor: confirmBg,
+                    opacity: pressed && canConfirm ? 0.85 : 1,
+                  },
+                ]}
+              >
+                <Body variant="bold" color={confirmFg}>
+                  {busy ? '확인 중...' : '확인'}
+                </Body>
+              </Pressable>
+            </View>
+          )}
         </View>
       </View>
     </Modal>
