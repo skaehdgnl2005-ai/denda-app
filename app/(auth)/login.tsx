@@ -5,7 +5,7 @@
 
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrandMark } from '@/components/brand/BrandMark';
@@ -41,12 +41,12 @@ export default function LoginScreen() {
       await authStore.getState().signIn();
       router.replace('/');
     } catch (error) {
+      // 실패 표출은 authStore.lastError 기반 CTA 위 인라인 에러 하나로 통일(시스템 Alert 이중화 제거).
+      // 취소류는 store가 lastError=null로 두므로 인라인도 안 뜬다.
       if (error instanceof AuthError && error.detail.kind === 'cancelled') {
         return;
       }
-      const message =
-        error instanceof AuthError ? error.message : '로그인 중 알 수 없는 오류가 발생했어요.';
-      Alert.alert('로그인 실패', message);
+      // 그 외 실패는 store가 lastError를 세팅 → CTA 위 인라인 에러가 렌더된다.
     } finally {
       setSubmitting(false);
     }

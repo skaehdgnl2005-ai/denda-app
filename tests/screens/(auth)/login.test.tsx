@@ -3,7 +3,6 @@
 //       authenticating 상태 disabled. 그리드/Naver SDK 등 native 모듈 무접촉.
 
 import React from 'react';
-import { Alert } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import LoginScreen from '../../../app/(auth)/login';
@@ -48,41 +47,23 @@ describe('LoginScreen', () => {
     expect(mockReplace).toHaveBeenCalledWith('/');
   });
 
-  test('AuthError(cancelled) → silent (Alert 호출 없음, replace 안 함)', async () => {
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  test('AuthError(cancelled) → silent (replace 안 함)', async () => {
     mockSignIn.mockRejectedValueOnce(new AuthError({ kind: 'cancelled' }));
     const { getByLabelText } = render(<LoginScreen />, { wrapper });
     fireEvent.press(getByLabelText('카카오로 시작하기'));
     await waitFor(() => expect(mockSignIn).toHaveBeenCalledTimes(1));
-    expect(alertSpy).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
-    alertSpy.mockRestore();
   });
 
-  test('AuthError(network) → Alert "로그인 실패" + 에러 메시지', async () => {
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  // W1-4: 실패는 시스템 Alert 이중화 제거 → replace 없이 lastError 인라인 에러(아래 테스트)로만 표출.
+  test('signIn 실패 → 네비게이션 없음 (실패 표출은 lastError 인라인)', async () => {
     mockSignIn.mockRejectedValueOnce(
       new AuthError({ kind: 'network', message: '네트워크가 끊겼어요' }),
     );
     const { getByLabelText } = render(<LoginScreen />, { wrapper });
     fireEvent.press(getByLabelText('카카오로 시작하기'));
-    await waitFor(() => expect(alertSpy).toHaveBeenCalled());
-    const [title, body] = alertSpy.mock.calls[0]!;
-    expect(title).toBe('로그인 실패');
-    expect(body).toBe('네트워크가 끊겼어요');
-    alertSpy.mockRestore();
-  });
-
-  test('일반 Error → "로그인 중 알 수 없는 오류가 발생했어요." Alert', async () => {
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    mockSignIn.mockRejectedValueOnce(new Error('boom'));
-    const { getByLabelText } = render(<LoginScreen />, { wrapper });
-    fireEvent.press(getByLabelText('카카오로 시작하기'));
-    await waitFor(() => expect(alertSpy).toHaveBeenCalled());
-    const [title, body] = alertSpy.mock.calls[0]!;
-    expect(title).toBe('로그인 실패');
-    expect(body).toBe('로그인 중 알 수 없는 오류가 발생했어요.');
-    alertSpy.mockRestore();
+    await waitFor(() => expect(mockSignIn).toHaveBeenCalledTimes(1));
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   test('lastError(network) → 친근체 에러 텍스트 노출', () => {

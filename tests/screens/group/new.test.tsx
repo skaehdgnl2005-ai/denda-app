@@ -1,9 +1,15 @@
 import React from 'react';
-import { Alert } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import NewGroupScreen from '../../../app/group/new';
 import { ThemeProvider } from '@/design/theme';
+import { ToastProvider } from '@/components/Toast';
+
+const METRICS = {
+  frame: { x: 0, y: 0, width: 390, height: 844 },
+  insets: { top: 47, left: 0, right: 0, bottom: 34 },
+};
 
 const mockReplace = jest.fn();
 const mockBack = jest.fn();
@@ -16,8 +22,15 @@ jest.mock('@/lib/groups/create', () => ({
   createGroup: (...args: unknown[]) => mockCreateGroup(...args),
 }));
 
+const wrapper = ({ children }: { children: React.ReactNode }): React.JSX.Element => (
+  <SafeAreaProvider initialMetrics={METRICS}>
+    <ThemeProvider>
+      <ToastProvider>{children}</ToastProvider>
+    </ThemeProvider>
+  </SafeAreaProvider>
+);
+
 describe('NewGroupScreen', () => {
-  const wrapper = ThemeProvider;
   beforeEach(() => {
     jest.clearAllMocks();
     mockCreateGroup.mockReset();
@@ -48,12 +61,10 @@ describe('NewGroupScreen', () => {
     });
   });
 
-  test('createGroup throw → Alert 노출, navigation 없음', async () => {
-    mockCreateGroup.mockRejectedValue(
-      new Error('모임을 만들지 못했어요. 잠시 후 다시 시도해주세요.'),
-    );
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    const { getByTestId } = render(<NewGroupScreen />, { wrapper });
+  test('createGroup throw → 에러 토스트(raw 비노출), navigation 없음', async () => {
+    // raw-스러운 메시지가 mapError로 큐레이션 카피로 치환되는지(비노출) 검증.
+    mockCreateGroup.mockRejectedValue(new Error('DB unique violation xyz'));
+    const { getByTestId, findByText } = render(<NewGroupScreen />, { wrapper });
 
     fireEvent.changeText(getByTestId('group-name-input'), 'g');
     fireEvent.press(getByTestId('calendar-today'));
@@ -61,8 +72,7 @@ describe('NewGroupScreen', () => {
       fireEvent.press(getByTestId('create-group-submit'));
     });
 
-    await waitFor(() => expect(alertSpy).toHaveBeenCalled());
+    expect(await findByText('문제가 생겼어요. 잠시 후 다시 시도해볼게요.')).toBeTruthy();
     expect(mockReplace).not.toHaveBeenCalled();
-    alertSpy.mockRestore();
   });
 });

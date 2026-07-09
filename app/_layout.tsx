@@ -2,10 +2,10 @@
 // 부트스트랩: authStore.bootstrap()으로 SecureStore 약관·온보딩 플래그 복원.
 // 라우팅 게이트는 app/index.tsx에서 처리.
 
-import { Stack, SplashScreen } from 'expo-router';
+import { Stack, SplashScreen, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import { useFonts } from 'expo-font';
 import * as SecureStore from 'expo-secure-store';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -24,7 +24,7 @@ import { createExpoNotificationsApi, createPlatformApi } from '@/lib/push/expoNo
 import { PushRegistrationRoot } from '@/lib/push/PushRegistrationRoot';
 import { supabase } from '@/lib/supabase/client';
 import { ThemeProvider } from '@/design/theme';
-import { ToastProvider } from '@/components/Toast';
+import { ToastProvider, useToast } from '@/components/Toast';
 
 // Prevent splash screen from auto-hiding before asset loading is complete
 SplashScreen.preventAutoHideAsync().catch(() => {
@@ -188,18 +188,22 @@ const noopAttApi = {
 
 function AttributionRootConnected(): React.JSX.Element {
   const userId = useAuth((s) => s.session?.user.id);
+  const toast = useToast();
   const resolve = useCallback(
     (args: Parameters<typeof resolveAttribution>[1]) => resolveAttribution(supabase, args),
     [],
   );
-  const onMatched = useCallback((groupId: string) => {
-    Alert.alert(
-      '모임에 합류했어요!',
-      '초대받은 모임에 자동으로 합류했어요. 모임 탭에서 확인하세요.',
-      [{ text: '확인' }],
-    );
-    // 모임 list refresh 또는 navigation은 후속 sub-task. 베타 한정 Alert만으로 충분.
-    void groupId;
-  }, []);
+  // 자동 합류 모먼트 — 시스템 Alert 대신 '보러 가기' 액션 토스트로 바로 그 모임으로 이동.
+  // (존재하지 않는 '모임 탭' 안내 문구 제거 — groupId로 해당 모임 화면 직접 진입.)
+  const onMatched = useCallback(
+    (groupId: string) => {
+      toast.show({
+        message: '모임에 합류했어요!',
+        variant: 'success',
+        action: { label: '보러 가기', onPress: () => router.push(`/group/${groupId}`) },
+      });
+    },
+    [toast],
+  );
   return <AttributionRoot userId={userId} resolve={resolve} onMatched={onMatched} />;
 }
