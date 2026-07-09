@@ -15,6 +15,43 @@
 
 ---
 
+## 0.5 세션 2 진행 (2026-07-09 이어서) — 10 커밋, 전체 green
+
+> 상태: Jest **1084 pass / 1 skip** · tsc 0 · eslint 0 · design-guard clean · Deno 에지 8/8.
+> 로컬 deno는 PATH 밖: `/c/Users/skaeh/.deno/bin/deno.exe` (에지 `_test.ts` 실행용).
+
+### 완료·ship
+| 커밋 | 내용 |
+|---|---|
+| `af13d98` | housekeeping: config.toml PG `15→17`(원격 프로젝트=PostgreSQL 17.6.1.121 확인, `.temp/postgres-version`) + 루트 `deno.lock` gitignore |
+| `a9c4f78` | **W1-14 설계 스펙** — [2026-07-09-w1-14-account-deletion-design.md](2026-07-09-w1-14-account-deletion-design.md) |
+| `4806335` | **W1-14 회원 탈퇴 풀 구현** — Edge `delete_account`(service_role `admin.deleteUser`, JWT 도출=IDOR 차단, Google 토큰 best-effort revoke) + 2단 ConfirmSheet + authStore.`resetForAccountDeletion`(allSettled·무한로딩 방지) + `clearStoredGoogleToken`. **마이그레이션 0개**(cascade가 전부, RESTRICT FK 없음 직접 재검증). @reviewer Critical-4 CLEARED + adversarial 리뷰 3건(무한로딩·로컬 토큰·dead auth branch) 반영. |
+| `cda84cf` | **W1-4·W1-8** friends/index — Alert 7→Toast + 에러 위장 해제(EmptyState error) + Skeleton |
+| `1de1d77` | **W1-5** requests — Alert 11→Toast + ActivityIndicator→Skeleton + 에러 위장 해제 |
+| `f84b86a` | **W1-4·W1-15** search — Alert 3→Toast + Skeleton + `useKakaoInvite` 훅 추출(index 공유) |
+| `8d07509` | **W1-4~6 배치1** — _layout 자동합류→'보러 가기' 액션 토스트(+'모임 탭' 오카피 제거) · login 실패 Alert 제거(인라인 단일화) · new 생성실패→mapError 토스트 |
+| `785e1dd` | **W1-5** InviteCodeModal — '건너뛰기' Alert→시트 내 2스텝 확인(중첩 Modal 회피) |
+| `c214a8b` | **W1-4·W1-10** invite — 결과 3종 Alert→토스트 + Skeleton + 에러 위장 해제+재시도 |
+
+### 확립 사항(§4 패턴에 추가)
+- **effect 안에서 토스트 필요 시** `const { show: showToast } = useToast();`(show는 provider useCallback으로 stable)로 destructure → effect deps에 showToast(재실행 루프 회피). search.tsx 참조.
+- **에지 함수 강화 테스트**: `delete_account`는 click_log의 순수-함수-only와 달리 handler를 **deps 주입형**(`DeleteAccountDeps`)으로 만들어 auth·revoke·delete 경로 전체를 mock 검증. 삭제 엔드포인트 급소라 강화.
+- **비대화형 행**: profile/설정 pending Alert 3개 → SettingRow `danger`/비-onPress(chevron 숨김)로 정리(죽은 Alert 제거).
+
+### 잔여 (다음 세션 — 파일:라인은 §5·audit)
+1. **W1-6 everytime** (`app/schedule/everytime.tsx`) — 이 세션 **유일 미착수 Alert 화면**. Alert 6곳(48 학기미입력→인라인 폼 에러 §11.3 / 59 OCR결과없음·73 OCR실패→error 토스트 / 67 곧활성화→토스트 / 69 권한→ConfirmSheet(설정 이동) / 92 저장실패→mapError 토스트) + ActivityIndicator→Skeleton + OCR 진행 카피.
+2. **W1-7 홈** (`app/(tabs)/index.tsx`) — fetch 위장 해제(32-34) + useFocusEffect refetch + RefreshControl. **알림함 Alert(62)는 R2 결정=제거(W2-9)로 함께 처리**.
+3. **W1-9 지도** (`app/(tabs)/map.tsx`) — 죽은 결과 카드 Pressable화(PlaceActionSheet 연결) + 첫로드만 Skeleton(이전 결과 유지) + ActivityIndicator 제거.
+4. **W1-11** 스플래시 다크 flash(`app/index.tsx`: surface-0+BrandMark+Spinner) · **W1-12** privacy 뒤로 화살표(`(auth)/privacy.tsx:44` ChevronRight→'뒤로') · **W1-13** 약관 전문 화면(`(auth)/terms.tsx:117-151`, privacy Section 재사용).
+5. **Wave 1 종료 게이트 미실행**: 다중 에이전트 adversarial 디자인 리뷰(4렌즈: 토큰·a11y·API·다크모드) — **스펜드 한도로 이 세션 Workflow/서브에이전트 위임 전면 불가**. 다음 세션에서 실행. + `/design-check` + `/run-denda` 라이트/다크 스크린샷.
+6. 이후 **Wave 2** (§5).
+
+### 주의(이 세션 학습)
+- 서브에이전트/Workflow는 **월 스펜드 한도**로 실패할 수 있음(이 세션 배치 위임 4/4 실패) → 한도 여유 없으면 직접 수행.
+- ActivityIndicator 잔존(비-W1 화면): login·HostConfirmButton·MapLoading·PlaceActionSheet·schedule/map = **Wave 2**(Button/Spinner 프리미티브 채택 시). W1 대상은 everytime·map·splash만.
+
+---
+
 ## 1. 먼저 읽을 것
 
 1. CLAUDE.md 공통 5개 (CLAUDE.md / PROJECT_CONTEXT / **NOW.md** / SESSION_LOG / PROGRESS)
