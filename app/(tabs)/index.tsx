@@ -2,11 +2,12 @@
 // 탭바 추가 후 quick action 제거 — 한 화면 한 정보 (토스 풍).
 // 보라는 메인 CTA 하나만, 빈 상태 아이콘은 회색.
 
-import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
+import { EmptyState } from '@/components/EmptyState';
 import { Icon } from '@/components/Icon';
 import { Skeleton } from '@/components/Skeleton';
 import { BrandMark } from '@/components/brand/BrandMark';
@@ -15,6 +16,7 @@ import { Body, Caption, Title } from '@/design/typography';
 import { useAuth } from '@/lib/auth/setup';
 import { fetchMyGroups, type MyGroupSummary } from '@/lib/groups/list';
 import { formatDateChip } from '@/lib/groups/dateOptions';
+import { messages } from '@/lib/i18n/messages';
 
 export default function HomeScreen() {
   const { colors, space, radius, shadow } = useTheme();
@@ -23,22 +25,35 @@ export default function HomeScreen() {
 
   const [myGroups, setMyGroups] = useState<MyGroupSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    let cancelled = false;
-    fetchMyGroups()
-      .then((g) => {
-        if (!cancelled) setMyGroups(g);
-      })
-      .catch(() => {
-        /* 홈 진입을 막지 않음 — 빈 목록 유지 (silent) */
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return (): void => {
-      cancelled = true;
-    };
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(false);
+
+  const loadGroups = useCallback(async () => {
+    setError(false);
+    try {
+      setMyGroups(await fetchMyGroups());
+    } catch {
+      // fetch 실패를 '잡힌 모임이 없어요' 빈 상태로 위장하지 않는다(W1-7) —
+      // 데이터가 없을 때만 EmptyState error로 표출(리스트가 있으면 stale 유지).
+      setError(true);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
+
+  // 모임 생성 후 홈 복귀 시 자동 갱신(§11.4) — 포커스마다 refetch(첫 로드만 skeleton).
+  useFocusEffect(
+    useCallback(() => {
+      loadGroups();
+    }, [loadGroups]),
+  );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadGroups();
+  }, [loadGroups]);
+
   const upcomingCount = myGroups.length;
 
   return (
@@ -49,8 +64,9 @@ export default function HomeScreen() {
       <ScrollView
         contentContainerStyle={{ paddingBottom: space[8] }}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {/* Header */}
+        {/* Header — 알림 벨 제거(R2: 알림함은 차기, 죽은 Alert 노출 방지 §17) */}
         <View
           style={[
             styles.header,
@@ -58,23 +74,6 @@ export default function HomeScreen() {
           ]}
         >
           <BrandMark size="sm" />
-          <Pressable
-            onPress={() => Alert.alert('알림함', '준비 중이에요. 정식 출시 때 만나요.')}
-            accessibilityRole="button"
-            accessibilityLabel="알림"
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            style={({ pressed }) => [
-              styles.iconButton,
-              {
-                backgroundColor: colors.surface[2],
-                borderRadius: radius.full,
-                opacity: pressed ? 0.6 : 1,
-              },
-            ]}
-            testID="notifications-button"
-          >
-            <Icon name="알림 켜짐" color={colors.text.secondary} size={20} />
-          </Pressable>
         </View>
 
         {/* Greeting — 한글 자간 -0.025em 적용 */}
@@ -224,6 +223,16 @@ export default function HomeScreen() {
               </View>
             ))}
           </View>
+        ) : error && myGroups.length === 0 ? (
+          <View style={{ paddingHorizontal: space[4], marginTop: space[3] }}>
+            <EmptyState
+              variant="error"
+              title="모임을 불러오지 못했어요"
+              body="잠시 후 다시 시도해볼게요."
+              cta={{ label: messages.action.retry, onPress: loadGroups }}
+              testID="home-error"
+            />
+          </View>
         ) : /* 모임 목록 (실데이터) 또는 빈 카드 — §11.2 */
         myGroups.length > 0 ? (
           <View style={{ paddingHorizontal: space[4], marginTop: space[3] }}>
@@ -365,12 +374,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  iconButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   primaryCard: {
     flexDirection: 'row',

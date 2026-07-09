@@ -1,14 +1,19 @@
 import React from 'react';
-import { Alert } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 
 import HomeScreen from '../../app/(tabs)/index';
 import { ThemeProvider } from '@/design/theme';
 
 const mockPush = jest.fn();
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
-}));
+jest.mock('expo-router', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const ReactMod = require('react');
+  return {
+    useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
+    // useFocusEffect는 마운트/포커스 시 콜백 실행 — 테스트에선 useEffect로 근사.
+    useFocusEffect: (cb: () => void) => ReactMod.useEffect(() => cb(), [cb]),
+  };
+});
 
 jest.mock('@/lib/auth/setup', () => ({
   useAuth: (sel: (s: unknown) => unknown) => sel({ session: { user: { nickname: '민지' } } }),
@@ -61,17 +66,29 @@ describe('HomeScreen', () => {
     expect(mockPush).toHaveBeenCalledWith('/schedule/map');
   });
 
-  // S24: 알림 버튼 → "준비 중" Alert (실연결은 P1 차기).
-  test('알림 버튼 → "준비 중" Alert', async () => {
+  // R2: 알림 벨 제거 — 죽은 'notifications-button'이 더 이상 없어야 한다.
+  test('알림 벨 제거 (notifications-button 부재)', async () => {
     mockFetchMyGroups.mockResolvedValue([]);
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    const { getByTestId } = render(<HomeScreen />, { wrapper });
+    const { queryByTestId } = render(<HomeScreen />, { wrapper });
     await act(async () => {});
-    fireEvent.press(getByTestId('notifications-button'));
-    expect(alertSpy).toHaveBeenCalledTimes(1);
-    const [title, body] = alertSpy.mock.calls[0]!;
-    expect(title).toBe('알림함');
-    expect(body).toMatch(/준비 중/);
-    alertSpy.mockRestore();
+    expect(queryByTestId('notifications-button')).toBeNull();
+  });
+
+  // W1-7: fetch 실패를 빈 상태로 위장하지 않고 EmptyState error + 재시도.
+  test('fetch 실패 → EmptyState error (빈 상태 위장 아님) + 다시 시도 refetch', async () => {
+    mockFetchMyGroups.mockRejectedValueOnce(new Error('network'));
+    const { findByTestId, getByTestId, queryByText, findByText } = render(<HomeScreen />, {
+      wrapper,
+    });
+    await findByTestId('home-error');
+    expect(queryByText('잡힌 모임이 아직 없어요')).toBeNull();
+
+    mockFetchMyGroups.mockResolvedValueOnce([
+      { id: 'g9', name: '재시도 모임', dates: ['2026-05-30'], confirmedAt: null },
+    ]);
+    await act(async () => {
+      fireEvent.press(getByTestId('home-error-cta'));
+    });
+    expect(await findByText('재시도 모임')).toBeTruthy();
   });
 });
