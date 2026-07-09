@@ -1,11 +1,17 @@
 // S22 — 호스트 인앱 모임 초대 화면 (multi-select → batch createInvitation)
 import React from 'react';
-import { Alert } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import GroupInviteScreen from '../../../app/group/[id]/invite';
 import { ThemeProvider } from '@/design/theme';
+import { ToastProvider } from '@/components/Toast';
 import type { FriendUser } from '@/lib/friends/api';
+
+const METRICS = {
+  frame: { x: 0, y: 0, width: 390, height: 844 },
+  insets: { top: 47, left: 0, right: 0, bottom: 34 },
+};
 
 const mockBack = jest.fn();
 const mockPush = jest.fn();
@@ -31,9 +37,15 @@ const friendA: FriendUser = { id: 'u-a', nickname: '홍길동' };
 const friendB: FriendUser = { id: 'u-b', nickname: '김영희' };
 const friendC: FriendUser = { id: 'u-c', nickname: '이몽룡' };
 
-describe('GroupInviteScreen', () => {
-  const wrapper = ThemeProvider;
+const wrapper = ({ children }: { children: React.ReactNode }): React.JSX.Element => (
+  <SafeAreaProvider initialMetrics={METRICS}>
+    <ThemeProvider>
+      <ToastProvider>{children}</ToastProvider>
+    </ThemeProvider>
+  </SafeAreaProvider>
+);
 
+describe('GroupInviteScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockListFriends.mockReset();
@@ -83,10 +95,9 @@ describe('GroupInviteScreen', () => {
     expect(cta.props.accessibilityState?.disabled).toBe(true);
   });
 
-  test('초대하기 → 선택된 친구 모두 createInvitation 호출 + 성공 Alert + back', async () => {
+  test('초대하기 → 선택된 친구 모두 createInvitation 호출 + 성공 토스트 + back', async () => {
     mockCreateInvitation.mockResolvedValue(undefined);
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    const { findByTestId, getByTestId } = render(<GroupInviteScreen />, { wrapper });
+    const { findByTestId, getByTestId, findByText } = render(<GroupInviteScreen />, { wrapper });
 
     await findByTestId('invite-friend-u-a');
     await act(async () => {
@@ -102,19 +113,15 @@ describe('GroupInviteScreen', () => {
     });
     expect(mockCreateInvitation).toHaveBeenCalledWith({ groupId: 'g-1', inviteeId: 'u-a' });
     expect(mockCreateInvitation).toHaveBeenCalledWith({ groupId: 'g-1', inviteeId: 'u-b' });
-    await waitFor(() => {
-      expect(alertSpy).toHaveBeenCalled();
-    });
+    expect(await findByText('2명에게 초대를 보냈어요!')).toBeTruthy();
     expect(mockBack).toHaveBeenCalled();
-    alertSpy.mockRestore();
   });
 
-  test('일부 createInvitation 실패 → 부분 성공/실패 Alert + back 호출', async () => {
+  test('일부 createInvitation 실패 → 부분 성공/실패 토스트 + back 호출', async () => {
     mockCreateInvitation
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(new Error('이미 초대했어요.'));
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    const { findByTestId, getByTestId } = render(<GroupInviteScreen />, { wrapper });
+    const { findByTestId, getByTestId, findByText } = render(<GroupInviteScreen />, { wrapper });
 
     await findByTestId('invite-friend-u-a');
     await act(async () => {
@@ -127,20 +134,19 @@ describe('GroupInviteScreen', () => {
 
     await waitFor(() => {
       expect(mockCreateInvitation).toHaveBeenCalledTimes(2);
-      expect(alertSpy).toHaveBeenCalled();
     });
-    // Title 또는 메시지에 "일부" 또는 "1명" 형태로 부분 결과 노출
-    const lastCall = alertSpy.mock.calls.at(-1) ?? [];
-    const combined = String(lastCall[0] ?? '') + ' ' + String(lastCall[1] ?? '');
-    expect(combined).toMatch(/일부|보내지|실패|1/);
+    expect(await findByText(/1명 성공/)).toBeTruthy();
     expect(mockBack).toHaveBeenCalled();
-    alertSpy.mockRestore();
   });
 
-  test('친구 fetch 실패 → 에러 메시지', async () => {
-    mockListFriends.mockRejectedValueOnce(new Error('친구 목록을 불러오지 못했어요.'));
-    const { findByText } = render(<GroupInviteScreen />, { wrapper });
-    expect(await findByText(/불러오지 못했어요/)).toBeTruthy();
+  test('친구 fetch 실패 → EmptyState error + 다시 시도 refetch (W1-10)', async () => {
+    mockListFriends.mockRejectedValueOnce(new Error('boom'));
+    const { findByTestId, getByTestId, findByText } = render(<GroupInviteScreen />, { wrapper });
+    expect(await findByTestId('invite-error')).toBeTruthy();
+    await act(async () => {
+      fireEvent.press(getByTestId('invite-error-cta'));
+    });
+    expect(await findByText('홍길동')).toBeTruthy();
   });
 
   test('뒤로 가기', async () => {

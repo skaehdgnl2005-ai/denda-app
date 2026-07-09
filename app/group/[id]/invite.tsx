@@ -6,7 +6,7 @@
 //   1. friendsApi.list() → 친구 목록 fetch.
 //   2. 친구 row tap → toggle (Set).
 //   3. 하단 brand-500 fill CTA "N명 초대하기" tap → 선택된 ids 모두 createInvitation 일괄 호출.
-//   4. 부분 실패 허용 (한 명 이미 초대 등) → 성공/실패 카운트를 결과 Alert 로 surface + back.
+//   4. 부분 실패 허용 (한 명 이미 초대 등) → 성공/실패 카운트를 결과 토스트로 surface + back.
 //
 // D31 정합: friends list 자체가 RLS is_blocked 통과 → 차단한/차단당한 사용자는 자연 hide.
 // 친구가 이미 group_member 인 경우는 베타 단순화로 list 에 그대로 노출 → createInvitation 시
@@ -15,46 +15,51 @@
 // DESIGN 토큰 only · 한국어 only · §17 anti-AI-feel (brand-500 fill CTA = 단 1개 = "초대하기").
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
+import { EmptyState } from '@/components/EmptyState';
 import { Icon } from '@/components/Icon';
+import { Skeleton } from '@/components/Skeleton';
+import { useToast } from '@/components/Toast';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { friendsApi, type FriendUser } from '@/lib/friends/api';
 import { invitationsApi } from '@/lib/groups/invitations';
+import { messages } from '@/lib/i18n/messages';
 
 export default function GroupInviteScreen(): React.JSX.Element {
   const params = useLocalSearchParams<{ id: string }>();
   const groupId = params.id ?? '';
   const router = useRouter();
   const { colors, space, radius } = useTheme();
+  const toast = useToast();
 
   const [friends, setFriends] = useState<FriendUser[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [error, setError] = useState(false);
   const [inflight, setInflight] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    friendsApi
-      .list()
-      .then((list) => {
-        if (cancelled) return;
-        setFriends(list);
-        setLoading(false);
-      })
-      .catch((e: Error) => {
-        if (cancelled) return;
-        setLoadError(e.message);
-        setLoading(false);
-      });
-    return (): void => {
-      cancelled = true;
-    };
+  const loadFriends = useCallback(async (): Promise<void> => {
+    setLoading(true);
+    setError(false);
+    try {
+      const list = await friendsApi.list();
+      setFriends(list);
+    } catch {
+      // 로드 실패를 raw 메시지로 노출하지 않고 EmptyState error로(W1-10).
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadFriends();
+  }, [loadFriends]);
 
   const toggle = useCallback((id: string) => {
     setSelected((prev) => {
@@ -79,14 +84,17 @@ export default function GroupInviteScreen(): React.JSX.Element {
     const fail = results.length - ok;
     setInflight(false);
     if (fail === 0) {
-      Alert.alert('초대했어요', `${ok}명에게 초대를 보냈어요.`);
+      toast.show({ message: messages.success.invited(ok), variant: 'success' });
     } else if (ok === 0) {
-      Alert.alert('초대 실패', '초대를 보내지 못했어요. 잠시 후 다시 시도해주세요.');
+      toast.show({
+        message: '초대를 보내지 못했어요. 잠시 후 다시 시도해주세요.',
+        variant: 'error',
+      });
     } else {
-      Alert.alert('일부 초대 완료', `${ok}명 성공, ${fail}명 보내지 못했어요.`);
+      toast.show({ message: `${ok}명 성공, ${fail}명은 보내지 못했어요.`, variant: 'error' });
     }
     router.back();
-  }, [groupId, inflight, selected, router]);
+  }, [groupId, inflight, selected, router, toast]);
 
   const renderEmpty = (): React.JSX.Element => (
     <View
@@ -217,13 +225,19 @@ export default function GroupInviteScreen(): React.JSX.Element {
       </View>
 
       {loading ? (
-        <View style={[styles.centered, { padding: space[6] }]} testID="invite-loading">
-          <ActivityIndicator color={colors.brand[500]} size="large" />
+        <View style={{ paddingHorizontal: space[4], paddingTop: space[2] }} testID="invite-loading">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} height={68} style={{ marginTop: space[2] }} />
+          ))}
         </View>
-      ) : loadError !== null ? (
-        <View style={[styles.centered, { padding: space[4] }]}>
-          <Body color={colors.semantic.error.fg}>{loadError}</Body>
-        </View>
+      ) : error ? (
+        <EmptyState
+          variant="error"
+          title="친구 목록을 불러오지 못했어요"
+          body="잠시 후 다시 시도해볼게요."
+          cta={{ label: messages.action.retry, onPress: loadFriends }}
+          testID="invite-error"
+        />
       ) : (
         <FlatList
           data={friends}
