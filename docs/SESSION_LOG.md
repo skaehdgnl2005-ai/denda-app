@@ -25,6 +25,19 @@ STATUS는 다음 중 하나:
 
 ---
 
+## UI-W1 잔여 3화면 + Wave 1 종료 게이트 (2026-07-09, 세션3) — DONE
+- Depends: UI-W0(프리미티브), UI-W1 여정 3모먼트, DESIGN §11·§12·§17
+- 배경: Wave 1 잔여 3화면(everytime OCR·지도 탭·약관 전문) — 마지막 Alert 화면 + 죽은 검색 카드 + 법적 P0(약관 전문 부재) 해소 → Wave 1 종료.
+- Changes:
+  - **W1-6 everytime** (9b96492): `app/schedule/everytime.tsx` Alert 6→0 — 학기 미입력=인라인 힌트(disabled) / OCR 결과없음·실패=error Toast(mapError, raw 비노출) / 모듈 미가용=안내 Toast / 권한 거부=설정 이동 ConfirmSheet(Linking.openSettings) / OCR 진행=Skeleton 프리뷰+"시간표를 읽고 있어요" / 저장=Spinner. 취소=silent.
+  - **W1-13 약관 전문** (d1a35b3): `terms.tsx` 각 약관 행 chevron→별도 44pt Pressable(행 탭=토글 유지)→전문 화면 push. `app/(auth)/legal.tsx` 신규(이용약관/마케팅 doc 파라미터, privacy Section/Bullet 재사용, 1차안). 법적 P0 해소.
+  - **W1-9 지도 탭** (1eddd99): `app/(tabs)/map.tsx` 죽은 카드→Pressable→읽기전용 상세 ConfirmSheet+카톡 공유(그룹 없음, 예약/Gate #2 무접촉). 첫 로드만 Skeleton(이전 결과 유지, 점멸 제거) / 에러 시 결과 보존+재시도(배너·EmptyState) / 빈·초기 EmptyState §11.2 / 검색 clear(X)+returnKey. `useMapSearch.retry()` 추가.
+  - **Wave 1 종료 게이트** (2a7377d): /design-check(2) + 4렌즈 adversarial 리뷰(Workflow: 토큰·a11y·API·다크모드 — 6 raised → **4 confirmed 수정** → 2 rejected=DESIGN 토큰/트레이드오프 정당). 수정: map 에러 배너 아이콘·재시도 44pt / terms PIPA 링크 44pt / **useMapSearch raw 에러→mapError**(한국어 only, DI provider 안전) / **terms handleContinue try/catch**(SecureStore 거부 시 submitting 영구 true·CTA 갇힘) / useMapSearch 캐시 hit reqIdRef stale 덮어쓰기.
+- Tests: everytime 10 · terms 12 · legal 4 · map 13 · useMapSearch 9 green. 전체 Jest **1104 pass / 1 skip**, typecheck 0, eslint 0, design-guard clean. Deno 에지 무변경(8/8).
+- Verify: Gradle 빌드 + Metro 번들 성공(redbox 0) → legal 화면 라이트/다크 + terms 라이트 실기 렌더 확인(Pixel_7 에뮬, deep link). typegen이 legal 라우트 자동 반영.
+- Next: **Wave 2** (셸·그리드 시각·화면 마감 — W2-3 중앙 FAB Lucide 합성 / W2-4 ScreenHeader 10화면 일괄 / W2-5~7 그리드 시각 레이어 / 잔여 ActivityIndicator 제거).
+- Notes: 지도 탭은 그룹 컨텍스트가 없어 PlaceActionSheet(Gate #2 로깅) 대신 읽기전용 상세+공유(설계 결정, 불가침 준수 — 사용자 승인). D12 worklet·Phase 3 경계·Gate 로깅 전부 불변. branch `feat/map-maphost-m0` 연속(+5 커밋: 스크린 3 + 리뷰 수정 1 + 문서).
+
 ## UI-W1 여정 3모먼트 — Gate #1·#2 클라이맥스 Alert 제거 (2026-07-08) — DONE
 - Depends: UI-W0(✅ 프리미티브), DESIGN §6.5·§11.3
 - 배경: 핵심 여정(모임 확정→장소 확정→"예약하기")의 클라이맥스가 전부 시스템 Alert. Gate 측정의 바로 그 순간이 무표정. Wave 1 최우선 P0.

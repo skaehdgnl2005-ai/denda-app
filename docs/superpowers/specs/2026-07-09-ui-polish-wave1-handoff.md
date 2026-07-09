@@ -54,6 +54,29 @@
 
 ---
 
+## 0.6 세션 3 완료 (2026-07-09) — Wave 1 종료 ✅
+
+> 상태: Jest **1104 pass / 1 skip** · tsc 0 · eslint 0 · design-guard clean · Deno 에지 8/8. branch `feat/map-maphost-m0` (+5 커밋).
+
+### 완료·ship
+| 커밋 | 내용 |
+|---|---|
+| `9b96492` | **W1-6 everytime** — Alert 6→0 (인라인 힌트·error Toast[mapError]·설정 이동 ConfirmSheet[Linking.openSettings]·OCR Skeleton 프리뷰·Spinner). 취소=silent. TDD 10 |
+| `d1a35b3` | **W1-13 약관 전문** — terms 각 행 chevron→별도 44pt Pressable(행 탭=토글 유지)→전문 push. `app/(auth)/legal.tsx` 신규(이용약관/마케팅 doc, privacy Section 재사용). 법적 P0. TDD 15(terms 11+legal 4) |
+| `1eddd99` | **W1-9 지도 탭** — 죽은 카드→읽기전용 상세 ConfirmSheet+카톡 공유(그룹없음, Gate #2 무접촉) + 첫로드 Skeleton(이전 결과 유지) + 에러 재시도·결과보존 + EmptyState + clear/returnKey + `useMapSearch.retry()`. TDD 22(map 13+hook 9) |
+| `2a7377d` | **Wave 1 종료 게이트** — /design-check(2) + 4렌즈 adversarial 리뷰(Workflow: 토큰·a11y·API·다크모드, 6 raised→**4 confirmed 수정**→2 정당 rejected). 수정: map 배너 아이콘·44pt / terms PIPA 링크 44pt / useMapSearch raw→mapError / terms handleContinue try/catch / useMapSearch 캐시 hit reqIdRef stale |
+
+### 확립 사항(§4 패턴에 추가)
+- **지도 탭(그룹 없음) 카드 액션**: PlaceActionSheet는 groupId+예약(Gate #2 로깅) 필수라 그룹 없는 탭엔 부적합 → **읽기전용 상세 ConfirmSheet + 카톡 공유**(sharePlaceToKakao groupName='')로 대체(사용자 승인). Gate 무접촉.
+- **에러 → mapError 일관**: hook(useMapSearch)의 catch도 raw e.message 대신 `mapError`(silent 처리 포함) 경유 — DI provider가 비한국어를 던져도 한국어 only 보장.
+- **async 액션 try/catch 필수**: SecureStore/네이티브 거부로 submitting이 영구 true 갇힘 방지 — 성공은 언마운트, 실패만 setSubmitting(false)+인라인 에러(terms handleContinue 선례).
+- **Workflow 위임 성공**(이 세션): 스펜드 한도 해소 — 4렌즈 리뷰 10 에이전트/672k 토큰 정상 완료.
+
+### 잔여 → Wave 2 (§5)
+W1 전량 완료. 다음은 Wave 2(셸·그리드 시각·화면 마감): W2-3 FAB Lucide 합성 · W2-4 ScreenHeader 10화면 · W2-5~7 그리드 시각(worklet 무접촉) · 잔여 ActivityIndicator 제거.
+
+---
+
 ## 1. 먼저 읽을 것
 
 1. CLAUDE.md 공통 5개 (CLAUDE.md / PROJECT_CONTEXT / **NOW.md** / SESSION_LOG / PROGRESS)
