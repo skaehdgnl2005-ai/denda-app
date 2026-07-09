@@ -32,6 +32,8 @@
 | `8d07509` | **W1-4~6 배치1** — _layout 자동합류→'보러 가기' 액션 토스트(+'모임 탭' 오카피 제거) · login 실패 Alert 제거(인라인 단일화) · new 생성실패→mapError 토스트 |
 | `785e1dd` | **W1-5** InviteCodeModal — '건너뛰기' Alert→시트 내 2스텝 확인(중첩 Modal 회피) |
 | `c214a8b` | **W1-4·W1-10** invite — 결과 3종 Alert→토스트 + Skeleton + 에러 위장 해제+재시도 |
+| `1554ec0` | **W1-11·W1-12** 스플래시 다크 flash 제거(surface-0+BrandMark+Spinner) + privacy 뒤로 화살표 방향 수정 |
+| `23f3b27` | **W1-7** 홈 — fetch 위장 해제(EmptyState error)+useFocusEffect refetch+RefreshControl+알림 벨 제거(R2) |
 
 ### 확립 사항(§4 패턴에 추가)
 - **effect 안에서 토스트 필요 시** `const { show: showToast } = useToast();`(show는 provider useCallback으로 stable)로 destructure → effect deps에 showToast(재실행 루프 회피). search.tsx 참조.
@@ -40,10 +42,10 @@
 
 ### 잔여 (다음 세션 — 파일:라인은 §5·audit)
 1. **W1-6 everytime** (`app/schedule/everytime.tsx`) — 이 세션 **유일 미착수 Alert 화면**. Alert 6곳(48 학기미입력→인라인 폼 에러 §11.3 / 59 OCR결과없음·73 OCR실패→error 토스트 / 67 곧활성화→토스트 / 69 권한→ConfirmSheet(설정 이동) / 92 저장실패→mapError 토스트) + ActivityIndicator→Skeleton + OCR 진행 카피.
-2. **W1-7 홈** (`app/(tabs)/index.tsx`) — fetch 위장 해제(32-34) + useFocusEffect refetch + RefreshControl. **알림함 Alert(62)는 R2 결정=제거(W2-9)로 함께 처리**.
-3. **W1-9 지도** (`app/(tabs)/map.tsx`) — 죽은 결과 카드 Pressable화(PlaceActionSheet 연결) + 첫로드만 Skeleton(이전 결과 유지) + ActivityIndicator 제거.
-4. **W1-11** 스플래시 다크 flash(`app/index.tsx`: surface-0+BrandMark+Spinner) · **W1-12** privacy 뒤로 화살표(`(auth)/privacy.tsx:44` ChevronRight→'뒤로') · **W1-13** 약관 전문 화면(`(auth)/terms.tsx:117-151`, privacy Section 재사용).
-5. **Wave 1 종료 게이트 미실행**: 다중 에이전트 adversarial 디자인 리뷰(4렌즈: 토큰·a11y·API·다크모드) — **스펜드 한도로 이 세션 Workflow/서브에이전트 위임 전면 불가**. 다음 세션에서 실행. + `/design-check` + `/run-denda` 라이트/다크 스크린샷.
+2. **W1-9 지도** (`app/(tabs)/map.tsx`) — 죽은 결과 카드 Pressable화(PlaceActionSheet 연결) + 첫로드만 Skeleton(이전 결과 유지) + ActivityIndicator 제거.
+3. **W1-13 약관 전문 화면** (`(auth)/terms.tsx:117-151`) — chevron 별도 Pressable로 약관 전문 화면 push(신규 화면, privacy.tsx Section 재사용). 법적 리스크(P0).
+   - ✅ **W1-7 홈·W1-11 스플래시·W1-12 privacy 완료**(23f3b27·1554ec0).
+4. **Wave 1 종료 게이트 미실행**: 다중 에이전트 adversarial 디자인 리뷰(4렌즈: 토큰·a11y·API·다크모드) — **스펜드 한도로 이 세션 Workflow/서브에이전트 위임 전면 불가**. 다음 세션에서 실행. + `/design-check` + `/run-denda` 라이트/다크 스크린샷.
 6. 이후 **Wave 2** (§5).
 
 ### 주의(이 세션 학습)

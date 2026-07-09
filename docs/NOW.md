@@ -25,16 +25,17 @@
 - **세션 2 (2026-07-09) 완료·ship — 10 커밋** (상세: handoff 문서 §0.5):
   - ✅ **W1-14 회원 탈퇴 풀 구현**(Edge delete_account service_role+JWT 도출+Google revoke+2단 ConfirmSheet+로컬 teardown, @reviewer×2 반영) — a9c4f78·4806335
   - ✅ **W1-4/5/8/10/15** friends index(cda84cf)·requests(1de1d77)·search+useKakaoInvite(f84b86a)·login/new/_layout(8d07509)·InviteCodeModal(785e1dd)·invite(c214a8b)
+  - ✅ **W1-11/12** 스플래시·privacy(1554ec0) · **W1-7** 홈 fetch 위장 해제+refetch+RefreshControl+벨 제거(23f3b27)
   - ✅ housekeeping config.toml PG 15→17(원격=17 확인)+deno.lock ignore (af13d98)
-- **Wave 1 잔여 (다음 세션)**:
+- **Wave 1 잔여 (다음 세션 — 3개)**:
   - **W1-6 everytime** (유일 미착수 Alert 화면: 6 Alert+인라인 폼 에러+권한 ConfirmSheet+OCR Skeleton)
-  - **W1-7 홈**(fetch 위장 해제+useFocusEffect refetch+RefreshControl; 알림함 Alert=W2-9 벨 제거로 함께) · **W1-9 지도**(죽은 카드 Pressable+Skeleton) · **W1-11** 스플래시 flash · **W1-12** privacy 뒤로 화살표 · **W1-13** 약관 전문 화면
+  - **W1-9 지도**(죽은 카드 Pressable+Skeleton) · **W1-13** 약관 전문 화면(신규, privacy Section 재사용, 법적 P0)
   - **Wave 1 종료 게이트 미실행**: 다중 에이전트 adversarial 디자인 리뷰(4렌즈)+design-check+에뮬 스크린샷 — ⚠️ **스펜드 한도로 이 세션 서브에이전트/Workflow 위임 불가**(배치 4/4 실패). 다음 세션 실행.
   - 이후 **Wave 2** (셸·그리드 시각·화면 마감, FAB=Lucide 합성, 벨 제거)
 - **패턴 확립**: Alert→Toast(useToast, 성공/안내) · Alert 확인→ConfirmSheet · raw e.message→mapError · 에러 위장→EmptyState error variant · 로딩→Spinner/Skeleton. 스크린 테스트는 SafeAreaProvider+ThemeProvider+ToastProvider 래퍼 필요.
 - **불가침**: D12 worklet diff 0 · Phase 3 코드 0 · DESIGN 토큰 외 시각 결정 0 · Gate #1·#2 로깅 1회성 불변.
 - **⚠️ 미결**: `supabase/config.toml` PG 15→17 무관 변경 커밋 제외 유지(사용자 결정 대기).
-- **상태**: Jest **1084 pass / 1 skip** / tsc 0 / eslint 0 / design-guard clean / Deno 에지 8/8. branch `feat/map-maphost-m0` (미push, 세션 2 +10 커밋). 로컬 deno=`/c/Users/skaeh/.deno/bin/deno.exe`(PATH 밖).
+- **상태**: Jest **1086 pass / 1 skip** / tsc 0 / eslint 0 / design-guard clean / Deno 에지 8/8. branch `feat/map-maphost-m0` (미push, 세션 2 +14 커밋). 로컬 deno=`/c/Users/skaeh/.deno/bin/deno.exe`(PATH 밖).
 - **마지막 update**: 2026-07-09 (세션 2)
 
 ### S16 Phase b — KakaoLocalProvider (Q-A2 허용 → D37)
