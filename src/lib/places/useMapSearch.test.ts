@@ -91,10 +91,11 @@ describe('useMapSearch', () => {
     expect(provider.search).toHaveBeenCalledTimes(1); // 캐시 사용 — 재호출 없음
   });
 
-  it('provider error → 한국어 error set + 이전 results 유지 (D26 fallback)', async () => {
+  it('provider error → 큐레이션 한국어 메시지(raw 비노출) + 이전 results 유지 (D26 fallback)', async () => {
     const provider = makeProvider();
     provider.search.mockResolvedValueOnce([CAFE]);
-    provider.search.mockRejectedValueOnce(new Error('네이버 지역검색 호출 한도를 초과했어요.'));
+    // DI provider가 raw/영문 메시지를 throw해도 사용자에겐 큐레이션 카피만 노출돼야 한다.
+    provider.search.mockRejectedValueOnce(new Error('column "xyz" PGRST999 raw'));
 
     const { result: hook } = renderHook(() => useMapSearch({ provider, debounceMs: 20 }));
 
@@ -102,8 +103,37 @@ describe('useMapSearch', () => {
     await waitFor(() => expect(hook.current.results).toHaveLength(1));
 
     act(() => hook.current.setQuery('판교'));
-    await waitFor(() => expect(hook.current.error).toMatch(/한도/));
+    await waitFor(() => expect(hook.current.error).not.toBeNull());
+    expect(hook.current.error).not.toContain('PGRST999');
+    expect(hook.current.error).not.toContain('column');
     expect(hook.current.results).toHaveLength(1); // 이전 결과 유지
+  });
+
+  it('캐시 hit 후 앞선 느린 요청이 최신(캐시) 결과를 stale로 덮어쓰지 않는다', async () => {
+    const provider = makeProvider();
+    const cache = new ViewportCache<PlaceSearchResult[]>();
+    cache.set('판교|5', [KOREAN]); // 판교는 이미 캐시됨
+    let resolveSlow: (v: PlaceSearchResult[]) => void = () => {};
+    provider.search.mockImplementationOnce(
+      () =>
+        new Promise((r) => {
+          resolveSlow = r;
+        }),
+    );
+
+    const { result: hook } = renderHook(() => useMapSearch({ provider, debounceMs: 20, cache }));
+
+    act(() => hook.current.setQuery('강남')); // miss → 느린 요청 in-flight
+    await waitFor(() => expect(hook.current.isLoading).toBe(true));
+
+    act(() => hook.current.setQuery('판교')); // 캐시 hit → 즉시 판교 표시
+    await waitFor(() => expect(hook.current.results).toEqual([KOREAN]));
+
+    act(() => resolveSlow([CAFE])); // 뒤늦게 resolve된 강남
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+    expect(hook.current.results).toEqual([KOREAN]); // stale 덮어쓰기 없음
   });
 
   it('filter(카테고리) 적용 → results는 필터된 결과', async () => {

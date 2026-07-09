@@ -11,6 +11,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { mapError } from '@/lib/i18n/messages';
+
 import { NaverSearchProvider } from './NaverSearchProvider';
 import { applyPlaceFilters, type PlaceFilter } from './placeFilter';
 import type { PlaceSearchProvider, PlaceSearchResult } from './PlaceSearchProvider';
@@ -97,6 +99,7 @@ export function useMapSearch(options: UseMapSearchOptions = {}): UseMapSearchSta
       const key = `${q}|${display}`;
       const cached = cache.get(key);
       if (cached !== undefined) {
+        reqIdRef.current++; // 앞선 in-flight 요청 무효화 (min-length 분기와 대칭 — stale 덮어쓰기 방지)
         setRawResults(cached);
         setError(null);
         setIsLoading(false);
@@ -116,10 +119,10 @@ export function useMapSearch(options: UseMapSearchOptions = {}): UseMapSearchSta
         })
         .catch((e: unknown) => {
           if (myReq !== reqIdRef.current) return;
-          // D26: 에러 시 이전 결과 유지 + 한국어 메시지 (rawResults 건드리지 않음).
-          setError(
-            e instanceof Error ? e.message : '장소를 불러오지 못했어요. 잠시 후 다시 시도해주세요.',
-          );
+          // D26: 에러 시 이전 결과 유지(rawResults 불변). raw e.message는 노출하지 않고
+          // mapError로 큐레이션된 한국어 카피만 표시 (DI provider가 비한국어를 던져도 안전).
+          const { silent, message } = mapError(e);
+          if (!silent) setError(message);
           setIsLoading(false);
         });
     }, debounceMs);

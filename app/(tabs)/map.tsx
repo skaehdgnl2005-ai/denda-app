@@ -161,7 +161,12 @@ export default function MapScreen(): React.JSX.Element {
                 },
               ]}
             >
-              <Body variant="sm" color={colors.semantic.error.fg} style={{ flex: 1 }}>
+              <Icon name="경고" color={colors.semantic.error.fg} size={16} />
+              <Body
+                variant="sm"
+                color={colors.semantic.error.fg}
+                style={{ flex: 1, marginLeft: space[2] }}
+              >
                 결과를 새로 불러오지 못했어요.
               </Body>
               <Pressable
@@ -169,8 +174,12 @@ export default function MapScreen(): React.JSX.Element {
                 accessibilityRole="button"
                 accessibilityLabel="다시 시도"
                 testID="map-error-retry"
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+                hitSlop={{ top: 14, bottom: 14, left: 12, right: 12 }}
+                style={({ pressed }) => ({
+                  minHeight: 44,
+                  justifyContent: 'center',
+                  opacity: pressed ? 0.6 : 1,
+                })}
               >
                 <Body variant="sm-bold" color={colors.semantic.error.fg}>
                   다시 시도

@@ -12,6 +12,7 @@ import { Icon } from '@/components/Icon';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { authStore } from '@/lib/auth/setup';
+import { mapError } from '@/lib/i18n/messages';
 
 type TermItem = {
   key: string;
@@ -29,6 +30,7 @@ export default function TermsScreen() {
   const { colors, space, radius } = useTheme();
   const [agreed, setAgreed] = useState<Record<string, boolean>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const allRequiredAgreed = useMemo(
     () => TERMS.filter((t) => t.required).every((t) => agreed[t.key]),
@@ -67,8 +69,17 @@ export default function TermsScreen() {
       return;
     }
     setSubmitting(true);
-    await authStore.getState().agreeToTerms();
-    router.replace('/(auth)/onboarding');
+    setSubmitError(null);
+    try {
+      await authStore.getState().agreeToTerms();
+      // 성공 시 router.replace로 화면 언마운트 — submitting 되돌릴 필요 없음.
+      router.replace('/(auth)/onboarding');
+    } catch (e) {
+      // SecureStore 쓰기 거부 등 → submitting 영구 true로 갇히지 않게 복원 + 인라인 에러 (raw 비노출).
+      setSubmitting(false);
+      const { silent, message } = mapError(e);
+      if (!silent) setSubmitError(message);
+    }
   };
 
   return (
@@ -176,7 +187,9 @@ export default function TermsScreen() {
           hitSlop={8}
           style={({ pressed }) => ({
             alignSelf: 'flex-start',
-            marginTop: space[5],
+            justifyContent: 'center',
+            minHeight: 44,
+            marginTop: space[3],
             opacity: pressed ? 0.6 : 1,
           })}
         >
@@ -205,7 +218,15 @@ export default function TermsScreen() {
           },
         ]}
       >
-        {!allRequiredAgreed ? (
+        {submitError ? (
+          <Caption
+            variant="default"
+            color={colors.semantic.error.fg}
+            style={{ textAlign: 'center', marginBottom: space[2] }}
+          >
+            {submitError}
+          </Caption>
+        ) : !allRequiredAgreed ? (
           <Caption
             variant="default"
             color={colors.text.tertiary}

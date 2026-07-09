@@ -117,6 +117,22 @@ describe('TermsScreen', () => {
     });
   });
 
+  test('agreeToTerms 실패 → submitting 해제(CTA 재활성) + 인라인 에러(raw 비노출)', async () => {
+    mockAgreeToTerms.mockRejectedValueOnce(new Error('keystore write failed raw'));
+    const { getByLabelText, getByText, queryByText } = render(<TermsScreen />, { wrapper });
+    fireEvent.press(getByLabelText('필수 이용약관 동의'));
+    fireEvent.press(getByLabelText('필수 개인정보 수집 및 이용 동의'));
+    const cta = getByLabelText('동의하고 계속');
+    fireEvent.press(cta);
+    await waitFor(() => expect(mockAgreeToTerms).toHaveBeenCalledTimes(1));
+    // CTA가 영구 disabled로 갇히지 않고 재활성된다
+    await waitFor(() => expect(cta.props.accessibilityState?.disabled).toBe(false));
+    // 인라인 에러 노출 + raw 메시지 비노출
+    expect(getByText(/잠시 후 다시 시도해볼게요/)).toBeTruthy();
+    expect(queryByText(/raw/)).toBeNull();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
   test('필수 동의 후 CTA press → agreeToTerms + router.replace(onboarding)', async () => {
     const { getByLabelText } = render(<TermsScreen />, { wrapper });
     fireEvent.press(getByLabelText('필수 이용약관 동의'));
