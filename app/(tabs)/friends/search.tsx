@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { Icon } from '@/components/Icon';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { SearchField } from '@/components/SearchField';
 import { Skeleton } from '@/components/Skeleton';
 import { useToast } from '@/components/Toast';
 import { FriendUser, friendsApi } from '@/lib/friends/api';
@@ -59,7 +60,11 @@ export default function FriendsSearchScreen() {
     performSearch();
   }, [debouncedQuery, showToast]);
 
+  // W2-10 — in-flight 잠금: 응답 전 더블탭이 sendRequest를 2번 호출하지 않도록 가드.
+  const sendingRef = useRef<Set<string>>(new Set());
   const handleSendRequest = async (userId: string) => {
+    if (sendingRef.current.has(userId) || sentUserIds.includes(userId)) return;
+    sendingRef.current.add(userId);
     try {
       await friendsApi.sendRequest(userId);
       setSentUserIds((prev) => [...prev, userId]);
@@ -68,6 +73,8 @@ export default function FriendsSearchScreen() {
       console.error(e);
       const { silent, message } = mapError(e);
       if (!silent) showToast({ message, variant: 'error' });
+    } finally {
+      sendingRef.current.delete(userId);
     }
   };
 
@@ -163,6 +170,29 @@ export default function FriendsSearchScreen() {
       >
         닉네임을 다시 확인하거나{'\n'}카톡 친구를 초대해보세요.
       </Body>
+      {/* W2-10 — 막다른 빈 상태 탈출구: §11.2 3요소 완성용 CTA */}
+      <Pressable
+        onPress={handleInvite}
+        accessibilityRole="button"
+        accessibilityLabel="카카오톡으로 친구 초대"
+        testID="search-empty-invite"
+        style={({ pressed }) => ({
+          marginTop: space[4],
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: pressed ? colors.surface[3] : colors.surface[2],
+          borderColor: colors.border.subtle,
+          borderWidth: 1,
+          borderRadius: radius.md,
+          paddingHorizontal: space[4],
+          paddingVertical: space[3],
+        })}
+      >
+        <Icon name="카톡 공유" color={colors.text.secondary} size={18} />
+        <Body variant="sm-bold" color={colors.text.primary} style={{ marginLeft: space[2] }}>
+          카톡으로 초대
+        </Body>
+      </Pressable>
     </View>
   );
 
@@ -238,31 +268,13 @@ export default function FriendsSearchScreen() {
       <View
         style={[styles.inputContainer, { paddingHorizontal: space[4], paddingBottom: space[3] }]}
       >
-        <View
-          style={[
-            styles.inputWrapper,
-            {
-              backgroundColor: colors.surface[2],
-              borderRadius: radius.md,
-              borderColor: colors.border.strong,
-            },
-          ]}
-        >
-          <View style={[styles.searchIconWrapper, { marginLeft: space[3] }]}>
-            <Icon name="검색" color={colors.text.secondary} size={20} />
-          </View>
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="친구 닉네임을 입력해요"
-            placeholderTextColor={colors.text.disabled}
-            autoCapitalize="none"
-            autoCorrect={false}
-            style={[styles.input, { color: colors.text.primary, paddingRight: space[3] }]}
-            accessibilityLabel="친구 닉네임 검색 입력창"
-            testID="search-input-field"
-          />
-        </View>
+        <SearchField
+          value={query}
+          onChangeText={setQuery}
+          placeholder="친구 닉네임을 입력해요"
+          accessibilityLabel="친구 닉네임 검색 입력창"
+          testID="search-input-field"
+        />
       </View>
 
       {/* Results Section — 로딩=Skeleton(§11.1 스피너 스펙 준수) */}

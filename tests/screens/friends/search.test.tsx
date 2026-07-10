@@ -100,6 +100,51 @@ describe('FriendsSearchScreen Screen', () => {
     expect(reqButton.props.accessibilityState.disabled).toBe(true);
   });
 
+  test('W2-10 — 응답 전 더블탭은 sendRequest를 1번만 호출(in-flight 잠금)', async () => {
+    jest.spyOn(friendsApi, 'search').mockResolvedValueOnce([{ id: 'user-10', nickname: '김하늘' }]);
+    let resolveSend: () => void = () => {};
+    const sendRequestSpy = jest
+      .spyOn(friendsApi, 'sendRequest')
+      .mockImplementation(
+        () =>
+          new Promise<void>((res) => {
+            resolveSend = () => res();
+          }),
+      );
+
+    const { getByTestId, getByText } = render(<FriendsSearchScreen />, { wrapper });
+    fireEvent.changeText(getByTestId('search-input-field'), '김하늘');
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+    await waitFor(() => {
+      expect(getByText('김하늘')).toBeTruthy();
+    });
+
+    const reqButton = getByTestId('send-request-button');
+    fireEvent.press(reqButton);
+    fireEvent.press(reqButton); // 응답 전 두 번째 탭 — 가드로 무시돼야 함
+    expect(sendRequestSpy).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveSend();
+    });
+  });
+
+  test('W2-10 — 검색 결과 없음 빈 상태 CTA → useKakaoInvite', async () => {
+    jest.spyOn(friendsApi, 'search').mockResolvedValueOnce([]);
+    const { getByTestId } = render(<FriendsSearchScreen />, { wrapper });
+    fireEvent.changeText(getByTestId('search-input-field'), '없는닉네임');
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+    await waitFor(() => {
+      expect(getByTestId('search-empty-invite')).toBeTruthy();
+    });
+    fireEvent.press(getByTestId('search-empty-invite'));
+    expect(mockInvite).toHaveBeenCalledTimes(1);
+  });
+
   // W1-15: 초대 카드가 더 이상 no-op이 아니라 공유 훅을 실행.
   test('W1-15: 카톡 초대 카드 → useKakaoInvite 실행', () => {
     const { getByTestId } = render(<FriendsSearchScreen />, { wrapper });

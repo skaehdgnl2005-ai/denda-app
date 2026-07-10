@@ -11,6 +11,7 @@ import { useToast } from '@/components/Toast';
 import { FriendCard } from '@/components/friends/FriendCard';
 import { ReportBlockSheet } from '@/components/friends/ReportBlockSheet';
 import { FriendUser, friendsApi } from '@/lib/friends/api';
+import { invitationsApi } from '@/lib/groups/invitations';
 import { submitReport } from '@/lib/reports/api';
 import { type ReportReasonKey } from '@/lib/reports/reasons';
 import { mapError, messages } from '@/lib/i18n/messages';
@@ -36,10 +37,14 @@ export default function FriendsIndexScreen() {
 
   const fetchFriends = useCallback(async () => {
     try {
-      const list = await friendsApi.list();
-      const incoming = await friendsApi.listIncomingRequests();
+      const [list, incoming, invitations] = await Promise.all([
+        friendsApi.list(),
+        friendsApi.listIncomingRequests(),
+        invitationsApi.listMyInvitations(),
+      ]);
       setFriends(list);
-      setRequestCount(incoming.length);
+      // W2-10 — 배지 카운트 = 받은 친구 요청 + 대기중 모임 초대 합산.
+      setRequestCount(incoming.length + invitations.length);
       setError(false);
     } catch (e) {
       // 에러를 빈 상태로 위장하지 않는다(W1-8) — error 분리 후 EmptyState error로 표출.

@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider } from '@/design/theme';
 import { ToastProvider } from '@/components/Toast';
 import { friendsApi } from '@/lib/friends/api';
+import { invitationsApi } from '@/lib/groups/invitations';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
@@ -31,6 +32,11 @@ jest.mock('@/lib/share/kakaoShare', () => ({
 const mockShareInvite = jest.fn().mockResolvedValue({ shared: true });
 jest.mock('@/lib/share/inviteShare', () => ({
   shareInviteToKakao: (...args: unknown[]) => mockShareInvite(...args),
+}));
+
+// W2-10: 배지 카운트에 모임 초대 합산 — invitationsApi 모킹(기본 빈 배열).
+jest.mock('@/lib/groups/invitations', () => ({
+  invitationsApi: { listMyInvitations: jest.fn().mockResolvedValue([]) },
 }));
 
 // S21: friendsApi가 supabase로 전면 교체됨 — mock data는 spy로 명시.
@@ -95,6 +101,22 @@ describe('FriendsIndexScreen Screen', () => {
     await waitFor(() => {
       const badge = getByTestId('requests-badge');
       expect(badge).toBeTruthy();
+    });
+  });
+
+  test('W2-10 — 배지 카운트 = 받은 요청 + 모임 초대 합산', async () => {
+    jest
+      .spyOn(friendsApi, 'listIncomingRequests')
+      .mockResolvedValueOnce([{ id: 'r1' }, { id: 'r2' }] as never);
+    (invitationsApi.listMyInvitations as jest.Mock).mockResolvedValueOnce([
+      { id: 'i1' },
+      { id: 'i2' },
+      { id: 'i3' },
+    ]);
+
+    const { getByText } = render(<FriendsIndexScreen />, { wrapper });
+    await waitFor(() => {
+      expect(getByText('5')).toBeTruthy(); // 2 요청 + 3 초대
     });
   });
 
