@@ -101,6 +101,8 @@ export const Grid: React.FC<GridProps> = ({
                   state={cellData.state}
                   count={cellData.count}
                   isHeader={false}
+                  slotIndex={slotIdx}
+                  dayLabel={effectiveDayLabels[dayIdx]}
                   onPress={(): void => {
                     if (onCellPress && !panGesture) {
                       onCellPress(slotIdx, dayIdx);

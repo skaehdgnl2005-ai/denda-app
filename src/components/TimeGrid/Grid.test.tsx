@@ -34,7 +34,7 @@ describe('Grid Component', () => {
 
     const { getAllByTestId } = render(<Grid cells={mockCells} />, { wrapper });
 
-    const cells = getAllByTestId(/^grid-cell-/);
+    const cells = getAllByTestId(/^grid-cell-\d+-\d+$/);
     expect(cells.length).toBe(420); // 60 slots * 7 days = 420 cells
   });
 
@@ -66,7 +66,7 @@ describe('Grid Component', () => {
       <Grid cells={mockCells} colCount={3} dayLabels={['6/5', '6/6', '6/7']} />,
       { wrapper },
     );
-    const cells = getAllByTestId(/^grid-cell-/);
+    const cells = getAllByTestId(/^grid-cell-\d+-\d+$/);
     expect(cells.length).toBe(180);
   });
 
