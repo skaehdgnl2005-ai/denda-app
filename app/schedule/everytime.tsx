@@ -8,6 +8,7 @@ import React, { useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { ctaPressBg, rowPressBg } from '@/design/press';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { ConfirmSheet } from '@/components/ConfirmSheet';
@@ -135,11 +136,10 @@ export default function EverytimeImportScreen() {
         style={({ pressed }) => [
           styles.primaryButton,
           {
-            backgroundColor: semesterReady ? colors.brand[500] : colors.surface[2],
+            backgroundColor: semesterReady ? ctaPressBg(pressed, colors) : colors.surface[2],
             borderRadius: radius.md,
             paddingVertical: space[3],
             paddingHorizontal: space[4],
-            opacity: pressed && semesterReady ? 0.92 : 1,
           },
         ]}
       >
@@ -229,7 +229,7 @@ export default function EverytimeImportScreen() {
             borderRadius: radius.md,
             paddingVertical: space[3],
             alignItems: 'center',
-            backgroundColor: pressed ? colors.surface[2] : colors.surface[0],
+            backgroundColor: rowPressBg(pressed, colors, colors.surface[0]),
             marginBottom: space[4],
           },
         ]}
@@ -249,7 +249,9 @@ export default function EverytimeImportScreen() {
           styles.toggleRow,
           {
             paddingVertical: space[3],
-            opacity: pressed ? 0.8 : 1,
+            paddingHorizontal: space[2],
+            borderRadius: radius.md,
+            backgroundColor: rowPressBg(pressed, colors),
           },
         ]}
       >
@@ -281,11 +283,10 @@ export default function EverytimeImportScreen() {
         style={({ pressed }) => [
           styles.primaryButton,
           {
-            backgroundColor: canConfirm ? colors.brand[500] : colors.surface[2],
+            backgroundColor: canConfirm ? ctaPressBg(pressed, colors) : colors.surface[2],
             borderRadius: radius.md,
             paddingVertical: space[3],
             paddingHorizontal: space[4],
-            opacity: pressed && canConfirm ? 0.92 : 1,
           },
         ]}
       >
@@ -335,12 +336,11 @@ export default function EverytimeImportScreen() {
         style={({ pressed }) => [
           styles.primaryButton,
           {
-            backgroundColor: colors.brand[500],
+            backgroundColor: ctaPressBg(pressed, colors),
             borderRadius: radius.md,
             paddingVertical: space[3],
             paddingHorizontal: space[8],
             marginTop: space[6],
-            opacity: pressed ? 0.92 : 1,
           },
         ]}
       >

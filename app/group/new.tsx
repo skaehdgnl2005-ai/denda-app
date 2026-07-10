@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { CalendarDatePicker } from '@/components/calendar/CalendarDatePicker';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useToast } from '@/components/Toast';
+import { ctaPressBg } from '@/design/press';
 import { useTheme } from '@/design/theme';
 import { Body, Caption } from '@/design/typography';
 import { createGroup } from '@/lib/groups/create';
@@ -135,11 +136,10 @@ export default function NewGroupScreen(): React.JSX.Element {
             accessibilityState={{ disabled: !canSubmit }}
             testID="create-group-submit"
             style={({ pressed }) => ({
-              backgroundColor: canSubmit ? colors.brand[500] : colors.surface[3],
+              backgroundColor: canSubmit ? ctaPressBg(pressed, colors) : colors.surface[3],
               borderRadius: radius.md,
               paddingVertical: space[4],
               alignItems: 'center',
-              opacity: pressed && canSubmit ? 0.92 : 1,
             })}
           >
             <Body variant="bold" color={canSubmit ? colors.text['on-brand'] : colors.text.disabled}>

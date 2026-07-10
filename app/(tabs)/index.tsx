@@ -13,6 +13,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { Icon } from '@/components/Icon';
 import { Skeleton } from '@/components/Skeleton';
 import { BrandMark } from '@/components/brand/BrandMark';
+import { ctaPressBg } from '@/design/press';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { useAuth } from '@/lib/auth/setup';
@@ -109,11 +110,10 @@ export default function HomeScreen() {
             style={({ pressed }) => [
               styles.primaryCard,
               {
-                backgroundColor: colors.brand[500],
+                backgroundColor: ctaPressBg(pressed, colors),
                 borderRadius: radius.lg,
                 paddingHorizontal: space[5],
                 paddingVertical: space[5],
-                opacity: pressed ? 0.92 : 1,
               },
               shadow.e2,
             ]}

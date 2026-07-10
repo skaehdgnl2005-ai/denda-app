@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { ctaPressBg } from '@/design/press';
 import { useTheme } from '@/design/theme';
 import { Body, Title } from '@/design/typography';
 import { Icon } from '@/components/Icon';
@@ -136,11 +137,10 @@ export default function FriendsIndexScreen() {
         style={({ pressed }) => [
           styles.inviteButton,
           {
-            backgroundColor: colors.brand[500],
+            backgroundColor: ctaPressBg(pressed, colors),
             marginTop: space[6],
             paddingHorizontal: space[6],
             paddingVertical: space[3],
-            opacity: pressed ? 0.92 : 1,
           },
         ]}
       >

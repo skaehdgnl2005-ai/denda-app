@@ -6,6 +6,7 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
+import { ctaPressBg } from '@/design/press';
 import { useTheme } from '@/design/theme';
 import { Body } from '@/design/typography';
 
@@ -25,7 +26,6 @@ export const HostConfirmButton: React.FC<HostConfirmButtonProps> = ({
   const { colors, space, radius } = useTheme();
   const isDisabled = disabled || inflight;
 
-  const bg = isDisabled ? colors.surface[2] : colors.brand[500];
   const fg = isDisabled ? colors.text.disabled : colors.text['on-brand'];
 
   return (
@@ -41,11 +41,11 @@ export const HostConfirmButton: React.FC<HostConfirmButtonProps> = ({
       style={({ pressed }) => [
         styles.button,
         {
-          backgroundColor: bg,
+          // disabled/busy면 surface-2, 아니면 pressed에 따라 brand-500↔600 색 전환 (W2-8)
+          backgroundColor: isDisabled ? colors.surface[2] : ctaPressBg(pressed, colors),
           borderRadius: radius.md,
           paddingVertical: space[3],
           paddingHorizontal: space[5],
-          opacity: pressed && !isDisabled ? 0.85 : 1,
           minHeight: 48, // 터치 타깃 ≥ 44pt (rules/design.md)
         },
       ]}

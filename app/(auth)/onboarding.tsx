@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MiniCalendar } from '@/components/brand/MiniCalendar';
 import { MiniMap } from '@/components/brand/MiniMap';
 import { MiniTimeGrid } from '@/components/brand/MiniTimeGrid';
+import { ctaPressBg } from '@/design/press';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { authStore } from '@/lib/auth/setup';
@@ -205,8 +206,7 @@ export default function OnboardingScreen() {
           style={({ pressed }) => [
             styles.ctaButton,
             {
-              backgroundColor: colors.brand[500],
-              opacity: pressed ? 0.92 : 1,
+              backgroundColor: ctaPressBg(pressed, colors),
               borderRadius: radius.md,
             },
           ]}
