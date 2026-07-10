@@ -14,7 +14,7 @@
 
 ### UI Polish (Lane F, Wave 0~2) — 출시 전 완성도 전면 개선
 
-- **🔖 다음 세션 인수인계 (필독)**: `docs/superpowers/specs/2026-07-10-ui-polish-wave2-handoff.md` (Wave 2 완료분·확립 패턴·잔여 W2-8/W2-10/PlaceActionSheet 모션·Gotchas). Wave 1 이력은 `2026-07-09-ui-polish-wave1-handoff.md`.
+- **🔖 다음 세션 착수 (필독)**: `docs/superpowers/specs/2026-07-10-ui-polish-wave2-completion-kickoff.md` (Wave 2 완결 착수 순서·진행방식·운영팁). 기술 상세는 `2026-07-10-ui-polish-wave2-handoff.md`(완료분·잔여 파일:라인·Gotchas), Wave 1 이력은 `2026-07-09-ui-polish-wave1-handoff.md`.
 - **상태**: **Wave 0 ✅ DONE + Wave 1 여정 3모먼트 ✅ DONE (2026-07-08~09, ship)**. 플랜 승인(스코프 Wave 0~2), 결정 4건: R1=①Lucide 합성 FAB / R2=①벨 제거 / W1-14=풀 구현(front+삭제 RPC) / overlay 토큰 승인.
 - **SSoT**: `docs/superpowers/specs/2026-07-08-ui-polish-design.md` (+ audit findings). 계통 원인 C1(프리미티브 부재)·C2(상태=시스템 Alert 15파일)·C3(모션·reduce-motion 0) 근본 해결.
 - **Wave 0 ✅ 완료·ship** (28ffaaa): 프리미티브 6종(Button·Toast·ConfirmSheet·EmptyState·ScreenHeader·Spinner) + useReducedMotion·easing 헬퍼 + overlay 토큰 + messages.ts. 전부 TDD. 다중 에이전트 리뷰 11건 확정→전부 수정.
