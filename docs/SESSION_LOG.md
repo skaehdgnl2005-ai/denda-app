@@ -25,6 +25,23 @@ STATUS는 다음 중 하나:
 
 ---
 
+## UI-W2 — Wave 2 셸·그리드 시각·화면 마감 (2026-07-10, 세션4) — PARTIAL (13/15)
+- Depends: UI-W0·W1(✅ 프리미티브·여정), DESIGN §5·§7·§10·§12·§17, 스코프 Wave 0~2 승인
+- 배경: Wave 2 = 승인 스코프 마지막 웨이브. 셸(탭바·FAB·다크 네비)·시간 그리드 시각 레이어·화면 마감. 다중 에이전트 병렬(스카웃 15 / 헤더 스왑 8 / 화면 5 / 리뷰 4)로 실행.
+- Changes (8 커밋, branch feat/map-maphost-m0 연속):
+  - `1a103bd` **W2-4** ScreenHeader 10화면 일괄(privacy·legal·everytime·schedule/map·place-search·midpoint·invite·new·friends/search·requests) — 수제 헤더 통일, 백버튼 쿼리 label 이관.
+  - `a7bf5b2` **W2-1·2·3** 셸 — 탭바 safe area(useSafeAreaInsets)+아이콘 24+focused fill 2차 신호(Icon fill prop) / 중앙 FAB(GroupFab: Lucide 캘린더+더하기 합성, radius-md, brand-500 e4, press scale, reduce-motion) / 다크 네비 배경(root+group+schedule+auth+friends contentStyle surface-0). 순수 헬퍼 tabBar.ts.
+  - `f55fa8f` **W2-6·7a** Cell 히트맵 색전환 모션(broadcast JS 경로만, heat-4 진입 xLong+emphasized 축하, reduce-motion 스냅) + 셀 a11y 날짜·시간·인원. **D12 드래그 worklet diff 0**(회귀 가드 green).
+  - `2a66fee` **W2-5·7b** 그리드 요일 헤더 2줄(formatDayHeader luxon KST 공용 헬퍼) + RealtimeStatus 카피(30s·폴링 제거) + ConfirmedTimeCard 위계 3단·다크 배경(surface-2) + group 상세 재진입 refetch(useFocusEffect).
+  - `923d11c` **W2-13** 공용 SearchField 프리미티브(clear·returnKey·a11y) + map·place-search 적용.
+  - `bfaf58a` **W2-10(부분)** 친구 — FriendCard 죽은 '최근 모임' 제거 + search(SearchField·in-flight 잠금·빈 CTA) + index 배지 합산(요청+초대).
+  - `460f772` **W2-9·11·12·14·15** 화면 마감 5종(병렬 구현) — 홈 실데이터·카드 위계·빈 CTA / 프로필 캘린더 row·약관 링크 / group-new KeyboardAvoiding·atMax 토스트·radius / MapPlaceholder 카피 / 시트 CTA·backdrop·grabber·radius.
+  - `adac285` **종료 게이트** 4렌즈 adversarial 리뷰 confirmed 4건 수정(profile 연결됨 오표기·friends 배지 커플링·홈 off-scale margin·홈 배지 다크).
+- Tests: Jest **1177 pass / 1 skip**, tsc 0, eslint 0, design-guard clean, D12 회귀 가드 green. 신규 프리미티브/헬퍼 TDD(GroupFab 8·SearchField 7·tabBar 3·dayHeader 5·stats 12·Cell 9).
+- Verify: 자동 design-guard sweep clean(hex·new Date·indigo·gradient 0). **4렌즈 리뷰**(토큰·a11y·API·다크) — a11y 0건, 4 confirmed 전부 수정. /run-denda 실기 = post-login 다수(탭·그리드·시트) → keyhash env-blocked, bundle-level(tsc+test) 인정 + 디바이스 런은 사용자 트랙.
+- Next(잔여 2/15 → Wave 2 완결 or Wave 3): **W2-8** pressed 색전환 전면 sweep(~32 파일, 최저 우선) · **W2-10 requests** 탭 in-flight 잠금·pull-to-refresh·빈 상태 CTA + search pull-refresh · **PlaceActionSheet** Modal 모션 rework(slide→medium+enter, D12 무관). 상세: `docs/superpowers/specs/2026-07-10-ui-polish-wave2-handoff.md`.
+- Notes: D12 worklet·Gate #1/#2 로깅·Phase 3 경계·DESIGN 토큰 불가침 전부 준수. group 상세 pull-to-refresh는 드래그 그리드 60fps 보호 위해 focus-refetch로 대체(pull은 별도 검증 후). config.toml PG 변경 여전히 커밋 제외.
+
 ## UI-W1 잔여 3화면 + Wave 1 종료 게이트 (2026-07-09, 세션3) — DONE
 - Depends: UI-W0(프리미티브), UI-W1 여정 3모먼트, DESIGN §11·§12·§17
 - 배경: Wave 1 잔여 3화면(everytime OCR·지도 탭·약관 전문) — 마지막 Alert 화면 + 죽은 검색 카드 + 법적 P0(약관 전문 부재) 해소 → Wave 1 종료.
