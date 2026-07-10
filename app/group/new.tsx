@@ -7,10 +7,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { CalendarDatePicker } from '@/components/calendar/CalendarDatePicker';
-import { Icon } from '@/components/Icon';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { useToast } from '@/components/Toast';
 import { useTheme } from '@/design/theme';
-import { Body, Caption, Title } from '@/design/typography';
+import { Body, Caption } from '@/design/typography';
 import { createGroup } from '@/lib/groups/create';
 import { todayKstIso } from '@/lib/groups/dateOptions';
 import { mapError } from '@/lib/i18n/messages';
@@ -57,21 +57,7 @@ export default function NewGroupScreen(): React.JSX.Element {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface[0] }]}>
-      <View style={[styles.topBar, { paddingHorizontal: space[4], paddingVertical: space[3] }]}>
-        <Pressable
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="뒤로 가기"
-          testID="back-button"
-          style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.6 : 1 }]}
-        >
-          <Icon name="뒤로" color={colors.text.primary} size={24} />
-        </Pressable>
-        <Title level="h2" color={colors.text.primary} style={styles.titleFlex}>
-          새 모임
-        </Title>
-        <View style={styles.iconButton} />
-      </View>
+      <ScreenHeader title="새 모임" onBack={() => router.back()} />
 
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: space[4], paddingBottom: space[8] }}
@@ -144,8 +130,5 @@ export default function NewGroupScreen(): React.JSX.Element {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  titleFlex: { flex: 1, textAlign: 'center' },
   footer: { borderTopWidth: 1 },
 });

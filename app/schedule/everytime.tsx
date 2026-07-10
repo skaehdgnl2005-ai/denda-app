@@ -12,6 +12,7 @@ import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { ConfirmSheet } from '@/components/ConfirmSheet';
 import { Icon } from '@/components/Icon';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { Skeleton } from '@/components/Skeleton';
 import { Spinner } from '@/components/Spinner';
 import { useToast } from '@/components/Toast';
@@ -104,21 +105,7 @@ export default function EverytimeImportScreen() {
   };
 
   const renderHeader = () => (
-    <View style={[styles.topBar, { paddingHorizontal: space[4], paddingVertical: space[3] }]}>
-      <Pressable
-        onPress={() => router.back()}
-        accessibilityRole="button"
-        accessibilityLabel="뒤로 가기"
-        testID="back-button"
-        style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.6 : 1 }]}
-      >
-        <Icon name="뒤로" color={colors.text.primary} size={24} />
-      </Pressable>
-      <Title level="h2" color={colors.text.primary}>
-        에브리타임 가져오기
-      </Title>
-      <View style={styles.iconButton} />
-    </View>
+    <ScreenHeader title="에브리타임 가져오기" onBack={() => router.back()} />
   );
 
   const renderInput = () => (
@@ -394,17 +381,6 @@ export default function EverytimeImportScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   primaryButton: {
     alignItems: 'center',

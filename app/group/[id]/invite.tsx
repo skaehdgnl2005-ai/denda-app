@@ -21,6 +21,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { EmptyState } from '@/components/EmptyState';
 import { Icon } from '@/components/Icon';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { Skeleton } from '@/components/Skeleton';
 import { useToast } from '@/components/Toast';
 import { useTheme } from '@/design/theme';
@@ -204,21 +205,7 @@ export default function GroupInviteScreen(): React.JSX.Element {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface[0] }]}>
-      <View style={[styles.topBar, { paddingHorizontal: space[4], paddingVertical: space[3] }]}>
-        <Pressable
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="뒤로 가기"
-          testID="back-button"
-          style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.6 : 1 }]}
-        >
-          <Icon name="뒤로" color={colors.text.primary} size={24} />
-        </Pressable>
-        <Title level="h2" color={colors.text.primary} style={styles.titleFlex}>
-          친구 초대
-        </Title>
-        <View style={styles.iconButton} />
-      </View>
+      <ScreenHeader title="친구 초대" onBack={() => router.back()} />
 
       <View style={{ paddingHorizontal: space[4], paddingBottom: space[2] }}>
         <Caption color={colors.text.tertiary}>모임에 함께 시간을 맞출 친구를 골라주세요.</Caption>
@@ -298,9 +285,6 @@ export default function GroupInviteScreen(): React.JSX.Element {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  titleFlex: { flex: 1, textAlign: 'center' },
   centered: { alignItems: 'center', justifyContent: 'center' },
   footer: { borderTopWidth: 1 },
 });

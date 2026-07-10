@@ -179,8 +179,8 @@ describe('EverytimeImportScreen (W1-6 프리미티브 전환)', () => {
   });
 
   test('back 버튼 press → router.back()', () => {
-    const { getByTestId } = render(<EverytimeImportScreen />, { wrapper });
-    fireEvent.press(getByTestId('back-button'));
+    const { getByLabelText } = render(<EverytimeImportScreen />, { wrapper });
+    fireEvent.press(getByLabelText('뒤로 가기'));
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 });

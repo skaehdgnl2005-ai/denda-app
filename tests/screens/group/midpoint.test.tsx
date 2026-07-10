@@ -220,9 +220,9 @@ describe('MidpointScreen', () => {
   });
 
   test('뒤로 가기 → router.back()', async () => {
-    const { getByTestId } = render(<MidpointScreen />, { wrapper });
+    const { getByLabelText } = render(<MidpointScreen />, { wrapper });
     await act(async () => {}); // mount 시 loadRecentOrigins promise flush
-    fireEvent.press(getByTestId('back-button'));
+    fireEvent.press(getByLabelText('뒤로 가기'));
     expect(mockBack).toHaveBeenCalled();
   });
 });

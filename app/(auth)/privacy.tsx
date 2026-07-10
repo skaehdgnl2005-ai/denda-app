@@ -12,10 +12,10 @@
 //   6. iOS ATT 안내 (거부해도 서비스 이용 무제한)
 
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Icon } from '@/components/Icon';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 
@@ -24,29 +24,7 @@ export default function PrivacyScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface[0] }]}>
-      <View
-        style={[
-          styles.header,
-          {
-            paddingHorizontal: space[4],
-            paddingVertical: space[3],
-            borderBottomColor: colors.border.subtle,
-          },
-        ]}
-      >
-        <Pressable
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="뒤로"
-          hitSlop={12}
-          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: space[1] })}
-        >
-          <Icon name="뒤로" color={colors.text.primary} size={24} />
-        </Pressable>
-        <Title level="h2" color={colors.text.primary} style={{ marginLeft: space[2] }}>
-          개인정보 처리방침
-        </Title>
-      </View>
+      <ScreenHeader title="개인정보 처리방침" onBack={() => router.back()} />
 
       <ScrollView
         contentContainerStyle={{
@@ -307,11 +285,6 @@ function TableRow({
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-  },
   table: {
     borderWidth: 1,
     overflow: 'hidden',

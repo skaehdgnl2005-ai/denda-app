@@ -46,7 +46,7 @@ describe('PrivacyScreen', () => {
 
   test('back 버튼 press → router.back', () => {
     const { getByLabelText } = render(<PrivacyScreen />, { wrapper });
-    fireEvent.press(getByLabelText('뒤로'));
+    fireEvent.press(getByLabelText('뒤로 가기'));
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 });

@@ -105,9 +105,9 @@ describe('ScheduleMapScreen', () => {
 
   test('뒤로 가기 → router.back()', async () => {
     mockFetch.mockResolvedValue([]);
-    const { findByTestId } = render(<ScheduleMapScreen />, { wrapper });
+    const { findByLabelText } = render(<ScheduleMapScreen />, { wrapper });
     await act(async () => {});
-    fireEvent.press(await findByTestId('back-button'));
+    fireEvent.press(await findByLabelText('뒤로 가기'));
     expect(mockBack).toHaveBeenCalled();
   });
 });

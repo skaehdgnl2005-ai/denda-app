@@ -55,7 +55,7 @@ describe('LegalScreen (약관 전문 화면)', () => {
   test('뒤로가기 press → router.back()', () => {
     mockParams = { doc: 'service' };
     const { getByLabelText } = render(<LegalScreen />, { wrapper });
-    fireEvent.press(getByLabelText('뒤로'));
+    fireEvent.press(getByLabelText('뒤로 가기'));
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 });

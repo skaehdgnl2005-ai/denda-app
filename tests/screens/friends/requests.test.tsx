@@ -194,8 +194,8 @@ describe('FriendsRequestsScreen Screen', () => {
   });
 
   test('navigates back on back button press', () => {
-    const { getByTestId } = render(<FriendsRequestsScreen />, { wrapper });
-    const backBtn = getByTestId('requests-back-button');
+    const { getByLabelText } = render(<FriendsRequestsScreen />, { wrapper });
+    const backBtn = getByLabelText('뒤로 가기');
 
     fireEvent.press(backBtn);
     expect(mockBack).toHaveBeenCalled();

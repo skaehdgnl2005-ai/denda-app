@@ -5,10 +5,10 @@
 // privacy.tsx의 Section/SubHeading/Bullet 패턴을 재사용 — 법무 검토 전 1차안.
 
 import { router, useLocalSearchParams } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Icon } from '@/components/Icon';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 
@@ -30,29 +30,7 @@ export default function LegalScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface[0] }]}>
-      <View
-        style={[
-          styles.header,
-          {
-            paddingHorizontal: space[4],
-            paddingVertical: space[3],
-            borderBottomColor: colors.border.subtle,
-          },
-        ]}
-      >
-        <Pressable
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="뒤로"
-          hitSlop={12}
-          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: space[1] })}
-        >
-          <Icon name="뒤로" color={colors.text.primary} size={24} />
-        </Pressable>
-        <Title level="h2" color={colors.text.primary} style={{ marginLeft: space[2] }}>
-          {DOC_TITLE[doc]}
-        </Title>
-      </View>
+      <ScreenHeader title={DOC_TITLE[doc]} onBack={() => router.back()} />
 
       <ScrollView
         contentContainerStyle={{
@@ -285,9 +263,4 @@ function Bullet({
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-  },
 });

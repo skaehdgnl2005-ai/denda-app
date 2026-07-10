@@ -150,9 +150,9 @@ describe('GroupInviteScreen', () => {
   });
 
   test('뒤로 가기', async () => {
-    const { findByTestId, getByTestId } = render(<GroupInviteScreen />, { wrapper });
+    const { findByTestId, getByLabelText } = render(<GroupInviteScreen />, { wrapper });
     await findByTestId('invite-friend-u-a');
-    fireEvent.press(getByTestId('back-button'));
+    fireEvent.press(getByLabelText('뒤로 가기'));
     expect(mockBack).toHaveBeenCalled();
   });
 

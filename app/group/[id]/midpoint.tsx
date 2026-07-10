@@ -22,9 +22,10 @@ import { ConfirmSheet } from '@/components/ConfirmSheet';
 import { Icon } from '@/components/Icon';
 import { MapHost } from '@/components/map/MapHost';
 import { OriginInput } from '@/components/map/OriginInput';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { useToast } from '@/components/Toast';
 import { useTheme } from '@/design/theme';
-import { Body, Caption, Title } from '@/design/typography';
+import { Body, Caption } from '@/design/typography';
 import {
   computeMidpoint,
   sortByDistanceTo,
@@ -182,21 +183,7 @@ export default function MidpointScreen(): React.JSX.Element {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface[0] }]}>
-      <View style={[styles.topBar, { paddingHorizontal: space[4], paddingVertical: space[3] }]}>
-        <Pressable
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="뒤로 가기"
-          testID="back-button"
-          style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.6 : 1 }]}
-        >
-          <Icon name="뒤로" color={colors.text.primary} size={24} />
-        </Pressable>
-        <Title level="h2" color={colors.text.primary} style={styles.titleFlex}>
-          중간지점 찾기
-        </Title>
-        <View style={styles.iconButton} />
-      </View>
+      <ScreenHeader title="중간지점 찾기" onBack={() => router.back()} />
 
       <View style={{ paddingHorizontal: space[4], paddingBottom: space[2] }}>
         <OriginInput recentOrigins={recents} onSelect={handleAddOrigin} />
@@ -315,9 +302,6 @@ export default function MidpointScreen(): React.JSX.Element {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  titleFlex: { flex: 1, textAlign: 'center' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap' },
   centered: { alignItems: 'center', justifyContent: 'center' },
 });

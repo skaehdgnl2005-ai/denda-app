@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { Icon } from '@/components/Icon';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { Skeleton } from '@/components/Skeleton';
 import { useToast } from '@/components/Toast';
@@ -258,23 +259,7 @@ export default function FriendsRequestsScreen() {
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.surface[0] }]}>
-      {/* Custom Header */}
-      <View style={[styles.header, { paddingHorizontal: space[4], paddingVertical: space[3] }]}>
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          accessibilityRole="button"
-          accessibilityLabel="이전 화면으로 돌아가기"
-          style={styles.backButton}
-          testID="requests-back-button"
-        >
-          <Icon name="뒤로" color={colors.text.primary} size={24} />
-        </Pressable>
-        <Title level="h2" color={colors.text.primary} style={styles.headerTitle}>
-          요청함
-        </Title>
-        <View style={styles.backButtonPlaceholder} />
-      </View>
+      <ScreenHeader title="요청함" onBack={() => router.back()} />
 
       {/* Tabs */}
       <View
@@ -413,24 +398,6 @@ export default function FriendsRequestsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    flex: 1,
-    textAlign: 'center',
-  },
-  backButtonPlaceholder: {
-    width: 44,
   },
   tabContainer: {
     flexDirection: 'row',

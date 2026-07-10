@@ -203,8 +203,8 @@ describe('PlaceSearchScreen', () => {
   });
 
   test('뒤로 가기 → router.back()', () => {
-    const { getByTestId } = render(<PlaceSearchScreen />, { wrapper });
-    fireEvent.press(getByTestId('back-button'));
+    const { getByLabelText } = render(<PlaceSearchScreen />, { wrapper });
+    fireEvent.press(getByLabelText('뒤로 가기'));
     expect(mockBack).toHaveBeenCalled();
   });
 

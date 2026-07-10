@@ -108,8 +108,8 @@ describe('FriendsSearchScreen Screen', () => {
   });
 
   test('navigates back on back button press', () => {
-    const { getByTestId } = render(<FriendsSearchScreen />, { wrapper });
-    const backBtn = getByTestId('search-back-button');
+    const { getByLabelText } = render(<FriendsSearchScreen />, { wrapper });
+    const backBtn = getByLabelText('뒤로 가기');
 
     fireEvent.press(backBtn);
     expect(mockBack).toHaveBeenCalled();

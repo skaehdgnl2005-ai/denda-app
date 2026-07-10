@@ -26,6 +26,7 @@ import { ConfirmSheet } from '@/components/ConfirmSheet';
 import { Icon } from '@/components/Icon';
 import { MapHost } from '@/components/map/MapHost';
 import { PartnerBadge } from '@/components/place/PartnerBadge';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { useToast } from '@/components/Toast';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
@@ -132,21 +133,7 @@ export default function PlaceSearchScreen(): React.JSX.Element {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface[0] }]}>
-      <View style={[styles.topBar, { paddingHorizontal: space[4], paddingVertical: space[3] }]}>
-        <Pressable
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="뒤로 가기"
-          testID="back-button"
-          style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.6 : 1 }]}
-        >
-          <Icon name="뒤로" color={colors.text.primary} size={24} />
-        </Pressable>
-        <Title level="h2" color={colors.text.primary} style={styles.titleFlex}>
-          장소 정하기
-        </Title>
-        <View style={styles.iconButton} />
-      </View>
+      <ScreenHeader title="장소 정하기" onBack={() => router.back()} />
 
       <View style={{ paddingHorizontal: space[4], paddingBottom: space[2] }}>
         <View
@@ -226,8 +213,5 @@ export default function PlaceSearchScreen(): React.JSX.Element {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  titleFlex: { flex: 1, textAlign: 'center' },
   centered: { alignItems: 'center', justifyContent: 'center' },
 });

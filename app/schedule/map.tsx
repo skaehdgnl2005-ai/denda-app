@@ -17,6 +17,7 @@ import { DateTime } from 'luxon';
 import { Icon } from '@/components/Icon';
 import { MapHost } from '@/components/map/MapHost';
 import { MapPlaceholder } from '@/components/map/MapPlaceholder';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { toScheduleScene } from '@/lib/map/mapScene';
@@ -91,22 +92,7 @@ export default function ScheduleMapScreen(): React.JSX.Element {
       edges={['top', 'left', 'right']}
     >
       {/* Header */}
-      <View style={[styles.header, { paddingHorizontal: space[3], paddingVertical: space[2] }]}>
-        <Pressable
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="뒤로 가기"
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          testID="back-button"
-          style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.6 : 1 }]}
-        >
-          <Icon name="뒤로" color={colors.text.primary} size={24} />
-        </Pressable>
-        <Title level="h3" color={colors.text.primary}>
-          지도로 내 일정 보기
-        </Title>
-        <View style={{ width: 36 }} />
-      </View>
+      <ScreenHeader title="지도로 내 일정 보기" onBack={() => router.back()} />
 
       {/* 범위 + 모드 토글 */}
       <View style={{ paddingHorizontal: space[4], paddingBottom: space[3] }}>
@@ -345,17 +331,6 @@ function renderBody(args: BodyArgs): React.JSX.Element {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  iconButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   rowGap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
