@@ -40,7 +40,7 @@ STATUS는 다음 중 하나:
 - Tests: Jest **1177 pass / 1 skip**, tsc 0, eslint 0, design-guard clean, D12 회귀 가드 green. 신규 프리미티브/헬퍼 TDD(GroupFab 8·SearchField 7·tabBar 3·dayHeader 5·stats 12·Cell 9).
 - Verify: 자동 design-guard sweep clean(hex·new Date·indigo·gradient 0). **4렌즈 리뷰**(토큰·a11y·API·다크) — a11y 0건, 4 confirmed 전부 수정. /run-denda 실기 = post-login 다수(탭·그리드·시트) → keyhash env-blocked, bundle-level(tsc+test) 인정 + 디바이스 런은 사용자 트랙.
 - Next(잔여 2/15 → Wave 2 완결 or Wave 3): **W2-8** pressed 색전환 전면 sweep(~32 파일, 최저 우선) · **W2-10 requests** 탭 in-flight 잠금·pull-to-refresh·빈 상태 CTA + search pull-refresh · **PlaceActionSheet** Modal 모션 rework(slide→medium+enter, D12 무관). 상세: `docs/superpowers/specs/2026-07-10-ui-polish-wave2-handoff.md`.
-- Notes: D12 worklet·Gate #1/#2 로깅·Phase 3 경계·DESIGN 토큰 불가침 전부 준수. group 상세 pull-to-refresh는 드래그 그리드 60fps 보호 위해 focus-refetch로 대체(pull은 별도 검증 후). config.toml PG 변경 여전히 커밋 제외.
+- Notes: D12 worklet·Gate #1/#2 로깅·Phase 3 경계·DESIGN 토큰 불가침 전부 준수. group 상세 pull-to-refresh는 드래그 그리드 60fps 보호 위해 focus-refetch로 대체(pull은 별도 검증 후). config.toml PG 15→17은 `af13d98`(세션2) 반영·확정(미결 아님).
 
 ## UI-W1 잔여 3화면 + Wave 1 종료 게이트 (2026-07-09, 세션3) — DONE
 - Depends: UI-W0(프리미티브), UI-W1 여정 3모먼트, DESIGN §11·§12·§17

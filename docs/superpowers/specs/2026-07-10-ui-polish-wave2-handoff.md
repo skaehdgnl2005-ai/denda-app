@@ -11,7 +11,7 @@
 - **전체 green**: Jest **1177 pass / 1 skip** · tsc 0 · eslint 0 · design-guard clean · **D12 회귀 가드 green**.
 - **종료 게이트 통과**: 자동 design-guard sweep(hex·new Date·indigo·gradient 0) + **4렌즈 adversarial 리뷰**(토큰·a11y·API·다크 — a11y 0건, 4 confirmed 전부 수정 `adac285`).
 - **잔여 2/15 + 후속 1**: W2-8(pressed sweep), W2-10 requests 탭, PlaceActionSheet Modal 모션 rework. 아래 §3.
-- **branch** `feat/map-maphost-m0` (미push). config.toml PG 변경 계속 커밋 제외.
+- **branch** `feat/map-maphost-m0`. config.toml PG 15→17은 `af13d98` 반영·확정(미결 종료).
 
 ---
 
@@ -82,4 +82,3 @@
 - **D12** 시간 그리드 sweep worklet 경로 diff 0(히트맵 시각 레이어만). 회귀 가드 `tests/regression/`.
 - **Phase 3 코드 0** · **Gate #1·#2 로깅 1회성 불변** · **DESIGN 토큰 외 시각 결정 0** · **한국어 UI only · KST(luxon, new Date() 금지; Date.now() 스로틀은 허용)**.
 - group 상세 pull-to-refresh는 드래그 그리드 60fps 보호 위해 focus-refetch로 대체(pull은 별도 run-denda 검증 후 도입).
-- `supabase/config.toml` PG 변경 커밋 제외 유지(사용자 결정 대기).
