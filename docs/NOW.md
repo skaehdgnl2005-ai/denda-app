@@ -36,7 +36,7 @@
 - **⏭️ Wave 2 잔여(2/15) → 완결 or Wave 3**: **W2-8** pressed 색전환 전면 sweep(~32 파일, 최저 우선) · **W2-10 requests** in-flight 잠금·pull-refresh·빈 CTA + search pull-refresh · **PlaceActionSheet** Modal 모션 rework(slide→medium+enter). 상세 handoff: `docs/superpowers/specs/2026-07-10-ui-polish-wave2-handoff.md`.
 - **패턴 확립**: Alert→Toast(useToast, 성공/안내) · Alert 확인→ConfirmSheet · raw e.message→mapError · 에러 위장→EmptyState error variant · 로딩→Spinner/Skeleton. 스크린 테스트는 SafeAreaProvider+ThemeProvider+ToastProvider 래퍼 필요.
 - **불가침**: D12 worklet diff 0 · Phase 3 코드 0 · DESIGN 토큰 외 시각 결정 0 · Gate #1·#2 로깅 1회성 불변.
-- **상태**: Jest **1177 pass / 1 skip** / tsc 0 / eslint 0 / design-guard clean / Deno 에지 8/8. branch `feat/map-maphost-m0` (미push, 세션4 +8 커밋). 로컬 deno=`/c/Users/skaeh/.deno/bin/deno.exe`(PATH 밖).
+- **상태**: Jest **1177 pass / 1 skip** / tsc 0 / eslint 0 / design-guard clean / Deno 에지 8/8. branch `feat/map-maphost-m0` **push 완료**(origin 추적, `19b049b`, 세션4 +9 커밋). 로컬 deno=`/c/Users/skaeh/.deno/bin/deno.exe`(PATH 밖).
 - **마지막 update**: 2026-07-10 (세션 4 — Wave 2 13/15)
 
 ### S16 Phase b — KakaoLocalProvider (Q-A2 허용 → D37)
