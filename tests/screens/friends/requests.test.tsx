@@ -287,4 +287,95 @@ describe('FriendsRequestsScreen Screen', () => {
     fireEvent.press(getByTestId('invitations-tab'));
     expect(await findByTestId('requests-empty-state')).toBeTruthy();
   });
+
+  // W2-10 — in-flight 잠금: 응답 전 더블탭이 acceptRequest를 2번 호출하지 않도록 pending Set 가드.
+  test('W2-10 — 수락 응답 전 더블탭은 acceptRequest를 1번만 호출', async () => {
+    let resolveAccept: () => void = () => {};
+    const acceptSpy = jest
+      .spyOn(friendsApi, 'acceptRequest')
+      .mockImplementation(() => new Promise<void>((res) => (resolveAccept = () => res())));
+
+    const { getByText, getAllByTestId } = render(<FriendsRequestsScreen />, { wrapper });
+    await waitFor(() => expect(getByText('박민수')).toBeTruthy());
+
+    const acceptButtons = getAllByTestId('accept-button');
+    fireEvent.press(acceptButtons[0]!);
+    fireEvent.press(acceptButtons[0]!); // 응답 전 두 번째 탭 — 가드로 무시돼야 함
+    expect(acceptSpy).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveAccept();
+    });
+  });
+
+  test('W2-10 — 초대 수락 응답 전 더블탭은 acceptInvitation을 1번만 호출', async () => {
+    let resolveAccept: (v: { groupId: string }) => void = () => {};
+    const acceptSpy = jest
+      .spyOn(invitationsApi, 'acceptInvitation')
+      .mockImplementation(() => new Promise<{ groupId: string }>((res) => (resolveAccept = res)));
+
+    const { getByText, getByTestId, getAllByTestId } = render(<FriendsRequestsScreen />, {
+      wrapper,
+    });
+    await waitFor(() => expect(getByText('박민수')).toBeTruthy());
+    fireEvent.press(getByTestId('invitations-tab'));
+    await waitFor(() => expect(getByText('점심 모임')).toBeTruthy());
+
+    const acceptBtns = getAllByTestId('invitation-accept-button');
+    fireEvent.press(acceptBtns[0]!);
+    fireEvent.press(acceptBtns[0]!);
+    expect(acceptSpy).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveAccept({ groupId: 'g-1' });
+    });
+  });
+
+  // W2-10 — pull-to-refresh: 리스트를 당겨서 최신 요청/초대를 다시 불러온다.
+  test('W2-10 — requests 리스트 pull-to-refresh → refetch', async () => {
+    const spy = jest.spyOn(friendsApi, 'listIncomingRequests');
+    const { getByText, getByTestId } = render(<FriendsRequestsScreen />, { wrapper });
+    await waitFor(() => expect(getByText('박민수')).toBeTruthy());
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    const list = getByTestId('requests-list');
+    await act(async () => {
+      await list.props.refreshControl.props.onRefresh();
+    });
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  test('W2-10 — invitations 리스트 pull-to-refresh → refetch', async () => {
+    const spy = jest.spyOn(invitationsApi, 'listMyInvitations');
+    const { getByText, getByTestId } = render(<FriendsRequestsScreen />, { wrapper });
+    await waitFor(() => expect(getByText('박민수')).toBeTruthy());
+    fireEvent.press(getByTestId('invitations-tab'));
+    await waitFor(() => expect(getByText('점심 모임')).toBeTruthy());
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    const list = getByTestId('invitations-list');
+    await act(async () => {
+      await list.props.refreshControl.props.onRefresh();
+    });
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  // W2-10 — 빈 상태 CTA (§11.2 막다른 곳 탈출구)
+  test('W2-10 — 받은 요청 없음 빈 상태 → 친구 검색하기 CTA', async () => {
+    jest.spyOn(friendsApi, 'listIncomingRequests').mockResolvedValueOnce([]);
+    const { findByTestId } = render(<FriendsRequestsScreen />, { wrapper });
+    const cta = await findByTestId('empty-search-cta');
+    fireEvent.press(cta);
+    expect(mockPush).toHaveBeenCalledWith('/friends/search');
+  });
+
+  test('W2-10 — 모임 초대 없음 빈 상태 → 모임 만들기 CTA', async () => {
+    jest.spyOn(invitationsApi, 'listMyInvitations').mockResolvedValueOnce([]);
+    const { getByText, getByTestId, findByTestId } = render(<FriendsRequestsScreen />, { wrapper });
+    await waitFor(() => expect(getByText('박민수')).toBeTruthy());
+    fireEvent.press(getByTestId('invitations-tab'));
+    const cta = await findByTestId('empty-create-group-cta');
+    fireEvent.press(cta);
+    expect(mockPush).toHaveBeenCalledWith('/group/new');
+  });
 });

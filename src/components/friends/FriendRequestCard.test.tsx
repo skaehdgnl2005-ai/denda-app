@@ -1,7 +1,9 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 import { FriendRequestCard } from './FriendRequestCard';
 import { ThemeProvider } from '@/design/theme';
+import { tokens } from '@/design/tokens';
 import { FriendRequest } from '@/lib/friends/api';
 
 describe('FriendRequestCard Component', () => {
@@ -81,5 +83,58 @@ describe('FriendRequestCard Component', () => {
 
     fireEvent.press(getByTestId('cancel-button'));
     expect(handleCancel).toHaveBeenCalledWith(mockOutgoingRequest);
+  });
+
+  // W2-10 — in-flight 잠금 시각: pending 동안 카드 버튼이 회색 비활성이 되고 onPress를 차단해야
+  // 더블탭 중복 RPC를 막는다(화면단 pending Set 가드와 짝).
+  test('pending=true (incoming) → 수락/거절 버튼 비활성 + onPress 차단', () => {
+    const onAccept = jest.fn();
+    const onReject = jest.fn();
+    const { getByTestId } = render(
+      <FriendRequestCard
+        request={mockIncomingRequest}
+        type="incoming"
+        pending
+        onAccept={onAccept}
+        onReject={onReject}
+      />,
+      { wrapper },
+    );
+
+    const accept = getByTestId('accept-button');
+    const reject = getByTestId('reject-button');
+    expect(accept.props.accessibilityState.disabled).toBe(true);
+    expect(reject.props.accessibilityState.disabled).toBe(true);
+
+    fireEvent.press(accept);
+    fireEvent.press(reject);
+    expect(onAccept).not.toHaveBeenCalled();
+    expect(onReject).not.toHaveBeenCalled();
+  });
+
+  test('pending=true (incoming) → 수락 버튼 brand 아닌 surface-2 회색 (§17.5 가짜 affordance 차단)', () => {
+    const { getByTestId } = render(
+      <FriendRequestCard request={mockIncomingRequest} type="incoming" pending />,
+      { wrapper },
+    );
+    const accept = StyleSheet.flatten(getByTestId('accept-button').props.style);
+    expect(accept.backgroundColor).toBe(tokens.light.surface[2]);
+  });
+
+  test('pending=true (outgoing) → 취소 버튼 비활성 + onPress 차단', () => {
+    const onCancel = jest.fn();
+    const { getByTestId } = render(
+      <FriendRequestCard
+        request={mockOutgoingRequest}
+        type="outgoing"
+        pending
+        onCancel={onCancel}
+      />,
+      { wrapper },
+    );
+    const cancel = getByTestId('cancel-button');
+    expect(cancel.props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(cancel);
+    expect(onCancel).not.toHaveBeenCalled();
   });
 });

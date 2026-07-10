@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/design/theme';
@@ -23,6 +23,8 @@ export default function FriendsSearchScreen() {
   const [debouncedQuery, setDebouncedQuery] = useState<string>('');
   const [results, setResults] = useState<FriendUser[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  // W2-10 — pull-to-refresh는 loading(스켈레톤 전체 교체)과 분리. 목록을 유지한 채 재검색.
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [sentUserIds, setSentUserIds] = useState<string[]>([]);
 
   // Debounce search query input (300ms)
@@ -36,15 +38,16 @@ export default function FriendsSearchScreen() {
     };
   }, [query]);
 
-  // Execute search when debounced query changes
-  useEffect(() => {
-    const performSearch = async () => {
+  // 검색 실행 본체 — refresh=true면 스켈레톤(loading) 대신 refreshing으로 목록 유지 재검색.
+  const runSearch = useCallback(
+    async (refresh = false) => {
       const trimmed = debouncedQuery.trim();
       if (!trimmed) {
         setResults([]);
         return;
       }
-      setLoading(true);
+      const setBusy = refresh ? setRefreshing : setLoading;
+      setBusy(true);
       try {
         const searchResults = await friendsApi.search(trimmed);
         setResults(searchResults);
@@ -53,12 +56,20 @@ export default function FriendsSearchScreen() {
         const { silent, message } = mapError(e);
         if (!silent) showToast({ message, variant: 'error' });
       } finally {
-        setLoading(false);
+        setBusy(false);
       }
-    };
+    },
+    [debouncedQuery, showToast],
+  );
 
-    performSearch();
-  }, [debouncedQuery, showToast]);
+  // Execute search when debounced query changes
+  useEffect(() => {
+    // 빈 검색어일 때 결과 초기화(setResults) 동기 호출은 의도 — 디바운스 후 1회
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    runSearch();
+  }, [runSearch]);
+
+  const onRefresh = useCallback(() => runSearch(true), [runSearch]);
 
   // W2-10 — in-flight 잠금: 응답 전 더블탭이 sendRequest를 2번 호출하지 않도록 가드.
   const sendingRef = useRef<Set<string>>(new Set());
@@ -297,6 +308,14 @@ export default function FriendsSearchScreen() {
               flexGrow: 1,
             },
           ]}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.brand[500]}
+              colors={[colors.brand[500]]}
+            />
+          }
           ListEmptyComponent={renderNoResults}
           testID="search-results-list"
         />

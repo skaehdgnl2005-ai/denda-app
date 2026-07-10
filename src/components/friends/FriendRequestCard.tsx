@@ -19,6 +19,11 @@ export interface FriendRequestCardProps {
   onAccept?: (request: FriendRequest) => void;
   onReject?: (request: FriendRequest) => void;
   onCancel?: (request: FriendRequest) => void;
+  /**
+   * 이 요청의 액션이 in-flight — 응답 전 더블탭 중복 RPC 방지 (W2-10).
+   * true면 버튼이 §17.5 회색 죽은 톤(surface-2 + text-tertiary)으로 비활성 + onPress 차단.
+   */
+  pending?: boolean;
 }
 
 function formatRelative(iso: string): string {
@@ -50,6 +55,7 @@ export const FriendRequestCard: React.FC<FriendRequestCardProps> = ({
   onAccept,
   onReject,
   onCancel,
+  pending = false,
 }) => {
   const { colors, space, radius } = useTheme();
 
@@ -61,6 +67,11 @@ export const FriendRequestCard: React.FC<FriendRequestCardProps> = ({
   const relativeTime = formatRelative(request.created_at);
 
   const isIncoming = type === 'incoming';
+
+  // W2-10 in-flight 잠금 시각 (§17.5): pending이면 brand 살린 톤을 죽은 회색으로 낮춘다.
+  const acceptBg = pending ? colors.surface[2] : colors.brand[500];
+  const acceptFg = pending ? colors.text.tertiary : colors.text['on-brand'];
+  const secondaryFg = pending ? colors.text.tertiary : colors.text.secondary;
 
   return (
     <View
@@ -145,7 +156,11 @@ export const FriendRequestCard: React.FC<FriendRequestCardProps> = ({
         {isIncoming ? (
           <>
             <Pressable
-              onPress={() => onReject?.(request)}
+              onPress={() => {
+                if (pending) return;
+                onReject?.(request);
+              }}
+              disabled={pending}
               accessibilityRole="button"
               accessibilityLabel="친구 요청 거절"
               style={({ pressed }) => [
@@ -155,44 +170,48 @@ export const FriendRequestCard: React.FC<FriendRequestCardProps> = ({
                   borderColor: colors.border.subtle,
                   borderRadius: radius.md,
                   marginRight: space[2],
-                  opacity: pressed ? 0.7 : 1,
+                  opacity: pressed && !pending ? 0.7 : 1,
                 },
               ]}
               testID="reject-button"
             >
-              <Body variant="sm-bold" color={colors.text.secondary}>
+              <Body variant="sm-bold" color={secondaryFg}>
                 거절
               </Body>
             </Pressable>
 
             <Pressable
-              onPress={() => onAccept?.(request)}
+              onPress={() => {
+                if (pending) return;
+                onAccept?.(request);
+              }}
+              disabled={pending}
               accessibilityRole="button"
               accessibilityLabel="친구 요청 수락"
               style={({ pressed }) => [
                 styles.actionButton,
                 styles.acceptButton,
                 {
-                  backgroundColor: colors.brand[500],
+                  backgroundColor: acceptBg,
                   borderRadius: radius.md,
-                  opacity: pressed ? 0.92 : 1,
+                  opacity: pressed && !pending ? 0.92 : 1,
                 },
               ]}
               testID="accept-button"
             >
-              <Icon name="확정" color={colors.text['on-brand']} size={16} />
-              <Body
-                variant="sm-bold"
-                color={colors.text['on-brand']}
-                style={{ marginLeft: space[1] }}
-              >
+              <Icon name="확정" color={acceptFg} size={16} />
+              <Body variant="sm-bold" color={acceptFg} style={{ marginLeft: space[1] }}>
                 수락
               </Body>
             </Pressable>
           </>
         ) : (
           <Pressable
-            onPress={() => onCancel?.(request)}
+            onPress={() => {
+              if (pending) return;
+              onCancel?.(request);
+            }}
+            disabled={pending}
             accessibilityRole="button"
             accessibilityLabel="보낸 친구 요청 취소"
             style={({ pressed }) => [
@@ -201,12 +220,12 @@ export const FriendRequestCard: React.FC<FriendRequestCardProps> = ({
                 backgroundColor: colors.surface[2],
                 borderColor: colors.border.subtle,
                 borderRadius: radius.md,
-                opacity: pressed ? 0.7 : 1,
+                opacity: pressed && !pending ? 0.7 : 1,
               },
             ]}
             testID="cancel-button"
           >
-            <Body variant="sm-bold" color={colors.text.secondary}>
+            <Body variant="sm-bold" color={secondaryFg}>
               요청 취소
             </Body>
           </Pressable>

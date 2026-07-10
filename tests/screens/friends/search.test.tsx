@@ -103,14 +103,12 @@ describe('FriendsSearchScreen Screen', () => {
   test('W2-10 — 응답 전 더블탭은 sendRequest를 1번만 호출(in-flight 잠금)', async () => {
     jest.spyOn(friendsApi, 'search').mockResolvedValueOnce([{ id: 'user-10', nickname: '김하늘' }]);
     let resolveSend: () => void = () => {};
-    const sendRequestSpy = jest
-      .spyOn(friendsApi, 'sendRequest')
-      .mockImplementation(
-        () =>
-          new Promise<void>((res) => {
-            resolveSend = () => res();
-          }),
-      );
+    const sendRequestSpy = jest.spyOn(friendsApi, 'sendRequest').mockImplementation(
+      () =>
+        new Promise<void>((res) => {
+          resolveSend = () => res();
+        }),
+    );
 
     const { getByTestId, getByText } = render(<FriendsSearchScreen />, { wrapper });
     fireEvent.changeText(getByTestId('search-input-field'), '김하늘');
@@ -158,6 +156,30 @@ describe('FriendsSearchScreen Screen', () => {
 
     fireEvent.press(backBtn);
     expect(mockBack).toHaveBeenCalled();
+  });
+
+  test('W2-10 — 검색 결과 리스트 pull-to-refresh → 현재 검색어 재검색', async () => {
+    const searchSpy = jest
+      .spyOn(friendsApi, 'search')
+      .mockResolvedValue([{ id: 'user-10', nickname: '김하늘' }]);
+
+    const { getByTestId, getByText } = render(<FriendsSearchScreen />, { wrapper });
+    fireEvent.changeText(getByTestId('search-input-field'), '김하늘');
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+    await waitFor(() => {
+      expect(getByText('김하늘')).toBeTruthy();
+    });
+    expect(searchSpy).toHaveBeenCalledTimes(1);
+
+    const list = getByTestId('search-results-list');
+    // pull-to-refresh는 loading 스켈레톤(전체 교체)이 아니라 refreshing state로 목록 유지 재검색.
+    await act(async () => {
+      await list.props.refreshControl.props.onRefresh();
+    });
+    expect(searchSpy).toHaveBeenCalledTimes(2);
+    expect(searchSpy).toHaveBeenLastCalledWith('김하늘');
   });
 
   test('renders empty state when no results found', async () => {
