@@ -23,7 +23,7 @@ import { getAppColdStartTracker } from '@/lib/perf/coldStart';
 import { createExpoNotificationsApi, createPlatformApi } from '@/lib/push/expoNotifications';
 import { PushRegistrationRoot } from '@/lib/push/PushRegistrationRoot';
 import { supabase } from '@/lib/supabase/client';
-import { ThemeProvider } from '@/design/theme';
+import { ThemeProvider, useTheme } from '@/design/theme';
 import { ToastProvider, useToast } from '@/components/Toast';
 
 // Prevent splash screen from auto-hiding before asset loading is complete
@@ -83,17 +83,35 @@ export default function RootLayout() {
             <PushRegistrationConnected />
             <AttributionRootConnected />
             <ColdStartBadge />
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="index" />
-              <Stack.Screen name="(auth)" />
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="schedule" />
-              <Stack.Screen name="group" />
-            </Stack>
+            <RootStack />
           </ToastProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
+  );
+}
+
+/**
+ * 루트 Stack — ThemeProvider 하위 자식으로 분리해 useTheme 접근(루트 함수 본체는 Provider의
+ * 조상이라 useTheme 불가). contentStyle=surface-0으로 다크 전환 시 라이트 배경 flash 제거(W2-2),
+ * 루트 전환을 slide_from_right로 통일(§4).
+ */
+function RootStack(): React.JSX.Element {
+  const { colors } = useTheme();
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: 'slide_from_right',
+        contentStyle: { backgroundColor: colors.surface[0] },
+      }}
+    >
+      <Stack.Screen name="index" />
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="schedule" />
+      <Stack.Screen name="group" />
+    </Stack>
   );
 }
 

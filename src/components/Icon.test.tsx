@@ -2,6 +2,7 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import { Icon } from './Icon';
 import { ThemeProvider } from '../design/theme';
+import { tokens } from '../design/tokens';
 
 describe('Icon Component', () => {
   test('renders icon component matching standard Lucide mapping', () => {
@@ -32,6 +33,23 @@ describe('Icon Component', () => {
     expect(json).toBeDefined();
     expect(Array.isArray(json)).toBe(false);
     if (json && !Array.isArray(json)) {
+      expect(json.props.strokeWidth).toBe(2);
+    }
+  });
+
+  test('fill 미지정 시 아웃라인(fill undefined), 지정 시 forward (W2-1 focused 2차 신호)', () => {
+    const { toJSON, rerender } = render(<Icon name="홈" />, { wrapper: ThemeProvider });
+    let json = toJSON();
+    if (json && !Array.isArray(json)) {
+      expect(json.props.fill).toBeUndefined();
+    }
+
+    const brand = tokens.light.brand[500];
+    rerender(<Icon name="홈" fill={brand} />);
+    json = toJSON();
+    if (json && !Array.isArray(json)) {
+      expect(json.props.fill).toBe(brand);
+      // fill을 줘도 stroke 2px 규칙은 유지(rules/design.md)
       expect(json.props.strokeWidth).toBe(2);
     }
   });

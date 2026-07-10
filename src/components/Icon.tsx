@@ -73,10 +73,12 @@ export interface IconProps {
   name: IconName;
   color?: string;
   size?: number;
+  /** 선택된 탭 등 '채움' 2차 신호용(§12.6 색 단독 의존 금지). 기본 미지정 = 아웃라인. */
+  fill?: string;
   testID?: string;
 }
 
-export const Icon: React.FC<IconProps> = ({ name, color, size = 24, testID }) => {
+export const Icon: React.FC<IconProps> = ({ name, color, size = 24, fill, testID }) => {
   const { colors } = useTheme();
 
   const IconComponent = iconMap[name];
@@ -90,6 +92,7 @@ export const Icon: React.FC<IconProps> = ({ name, color, size = 24, testID }) =>
     color: iconColor,
     size,
     strokeWidth: 2,
+    fill,
     testID,
   } as LucideProps);
 };
