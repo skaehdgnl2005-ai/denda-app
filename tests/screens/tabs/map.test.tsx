@@ -170,13 +170,13 @@ describe('MapScreen (W1-9 상태 디자인)', () => {
   it('검색어 있으면 clear(X) 버튼 → press 시 setQuery("")', () => {
     setState({ query: '강남' });
     const { getByTestId } = renderScreen();
-    fireEvent.press(getByTestId('map-search-clear'));
+    fireEvent.press(getByTestId('map-search-input-clear'));
     expect(mockSetQuery).toHaveBeenCalledWith('');
   });
 
   it('검색어 없으면 clear(X) 버튼 미표시', () => {
     setState({ query: '' });
     const { queryByTestId } = renderScreen();
-    expect(queryByTestId('map-search-clear')).toBeNull();
+    expect(queryByTestId('map-search-input-clear')).toBeNull();
   });
 });

@@ -9,12 +9,13 @@
 // 이전 결과 보존 + 재시도 · 빈/초기 상태 §11.2.
 
 import React, { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ConfirmSheet } from '@/components/ConfirmSheet';
 import { EmptyState } from '@/components/EmptyState';
 import { Icon } from '@/components/Icon';
+import { SearchField } from '@/components/SearchField';
 import { Skeleton } from '@/components/Skeleton';
 import { useToast } from '@/components/Toast';
 import { useTheme } from '@/design/theme';
@@ -246,44 +247,14 @@ export default function MapScreen(): React.JSX.Element {
 
       {/* 검색 입력 */}
       <View style={{ paddingHorizontal: space[4], paddingBottom: space[3] }}>
-        <View
-          style={[
-            styles.inputWrapper,
-            {
-              backgroundColor: colors.surface[2],
-              borderColor: colors.border.strong,
-              borderRadius: radius.md,
-            },
-          ]}
-        >
-          <View style={{ marginLeft: space[3], marginRight: space[2] }}>
-            <Icon name="검색" color={colors.text.secondary} size={20} />
-          </View>
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="식당·카페·지역을 검색해요"
-            placeholderTextColor={colors.text.disabled}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="search"
-            style={[styles.input, { color: colors.text.primary }]}
-            accessibilityLabel="장소 검색 입력창"
-            testID="map-search-input"
-          />
-          {hasQuery ? (
-            <Pressable
-              onPress={() => setQuery('')}
-              accessibilityRole="button"
-              accessibilityLabel="검색어 지우기"
-              testID="map-search-clear"
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              style={({ pressed }) => [styles.clearButton, { opacity: pressed ? 0.5 : 1 }]}
-            >
-              <Icon name="닫기" color={colors.text.tertiary} size={18} />
-            </Pressable>
-          ) : null}
-        </View>
+        <SearchField
+          value={query}
+          onChangeText={setQuery}
+          onClear={() => setQuery('')}
+          placeholder="식당·카페·지역을 검색해요"
+          accessibilityLabel="장소 검색 입력창"
+          testID="map-search-input"
+        />
       </View>
 
       {/* 네이티브 지도 준비 중 안내 (EAS Build 운영 트랙) */}

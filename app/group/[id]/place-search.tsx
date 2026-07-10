@@ -18,12 +18,13 @@
 // §17 anti-AI-feel (brand-500 fill CTA 0개 — 카드 tap = action).
 
 import React, { useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { ConfirmSheet } from '@/components/ConfirmSheet';
 import { Icon } from '@/components/Icon';
+import { SearchField } from '@/components/SearchField';
 import { MapHost } from '@/components/map/MapHost';
 import { PartnerBadge } from '@/components/place/PartnerBadge';
 import { ScreenHeader } from '@/components/ScreenHeader';
@@ -136,34 +137,14 @@ export default function PlaceSearchScreen(): React.JSX.Element {
       <ScreenHeader title="장소 정하기" onBack={() => router.back()} />
 
       <View style={{ paddingHorizontal: space[4], paddingBottom: space[2] }}>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: colors.surface[2],
-            borderRadius: radius.md,
-            paddingHorizontal: space[3],
-          }}
-        >
-          <Icon name="검색" color={colors.text.tertiary} size={20} />
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="식당 이름 또는 동네"
-            placeholderTextColor={colors.text.disabled}
-            testID="place-search-input"
-            autoFocus
-            returnKeyType="search"
-            style={{
-              flex: 1,
-              marginLeft: space[2],
-              paddingVertical: space[3],
-              color: colors.text.primary,
-              fontFamily: 'PretendardVariable',
-              fontSize: 16,
-            }}
-          />
-        </View>
+        <SearchField
+          value={query}
+          onChangeText={setQuery}
+          placeholder="식당 이름 또는 동네"
+          accessibilityLabel="장소 검색 입력창"
+          testID="place-search-input"
+          autoFocus
+        />
       </View>
 
       {isLoading ? (
