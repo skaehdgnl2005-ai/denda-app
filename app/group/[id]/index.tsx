@@ -29,6 +29,7 @@ import { ConfirmedTimeCard } from '@/components/group/ConfirmedTimeCard';
 import { ConfirmSlotSheet } from '@/components/group/ConfirmSlotSheet';
 import { HostConfirmButton } from '@/components/group/HostConfirmButton';
 import { useToast } from '@/components/Toast';
+import { rowPressBg, ctaPressBg } from '@/design/press';
 import { useTheme } from '@/design/theme';
 import { mapError } from '@/lib/i18n/messages';
 import { Body, Caption, Title } from '@/design/typography';
@@ -402,14 +403,13 @@ export default function GroupConfirmScreen(): React.JSX.Element {
             accessibilityLabel="정해진 장소 보기"
             testID="place-view-button"
             style={({ pressed }) => ({
-              backgroundColor: colors.surface[1],
+              backgroundColor: rowPressBg(pressed, colors, colors.surface[1]),
               borderRadius: radius.md,
               padding: space[4],
               flexDirection: 'row',
               alignItems: 'center',
               borderWidth: 1,
               borderColor: colors.border.subtle,
-              opacity: pressed ? 0.85 : 1,
             })}
           >
             <Icon name="장소" color={colors.text.tertiary} size={20} />
@@ -427,11 +427,10 @@ export default function GroupConfirmScreen(): React.JSX.Element {
             accessibilityLabel="장소 정하기"
             testID="place-pick-button"
             style={({ pressed }) => ({
-              backgroundColor: colors.brand[500],
+              backgroundColor: ctaPressBg(pressed, colors),
               borderRadius: radius.md,
               padding: space[4],
               alignItems: 'center',
-              opacity: pressed ? 0.92 : 1,
             })}
           >
             <Body variant="bold" color={colors.text['on-brand']}>
@@ -453,10 +452,9 @@ export default function GroupConfirmScreen(): React.JSX.Element {
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: colors.surface[1],
+              backgroundColor: rowPressBg(pressed, colors, colors.surface[1]),
               borderWidth: 1,
               borderColor: colors.border.subtle,
-              opacity: pressed ? 0.85 : 1,
             })}
           >
             <Icon name="장소" color={colors.text.secondary} size={18} />

@@ -24,6 +24,7 @@ import { Icon } from '@/components/Icon';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { Skeleton } from '@/components/Skeleton';
 import { useToast } from '@/components/Toast';
+import { ctaPressBg } from '@/design/press';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { friendsApi, type FriendUser } from '@/lib/friends/api';
@@ -259,11 +260,10 @@ export default function GroupInviteScreen(): React.JSX.Element {
             accessibilityState={{ disabled: ctaDisabled }}
             testID="invite-submit-button"
             style={({ pressed }) => ({
-              backgroundColor: ctaDisabled ? colors.surface[2] : colors.brand[500],
+              backgroundColor: ctaDisabled ? colors.surface[2] : ctaPressBg(pressed, colors),
               borderRadius: radius.md,
               paddingVertical: space[4],
               alignItems: 'center',
-              opacity: pressed && !ctaDisabled ? 0.92 : 1,
             })}
           >
             <Body

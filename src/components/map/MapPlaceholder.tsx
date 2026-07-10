@@ -7,6 +7,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Icon } from '@/components/Icon';
+import { rowPressBg } from '@/design/press';
 import { useTheme } from '@/design/theme';
 import { Body, Caption } from '@/design/typography';
 import type { MapViewMode } from '@/lib/places/MapViewMode';
@@ -89,13 +90,12 @@ export function MapPlaceholder({
           style={({ pressed }) => [
             styles.listBtn,
             {
-              backgroundColor: colors.surface[2],
+              backgroundColor: rowPressBg(pressed, colors, colors.surface[2]),
               borderColor: colors.border.strong,
               borderRadius: radius.pill,
               paddingHorizontal: space[4],
               paddingVertical: space[2],
               marginTop: space[4],
-              opacity: pressed ? 0.7 : 1,
             },
           ]}
         >

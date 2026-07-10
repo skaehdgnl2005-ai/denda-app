@@ -19,6 +19,7 @@ import React, { useState } from 'react';
 import { Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { useTheme } from '@/design/theme';
+import { rowPressBg, ctaPressBg } from '@/design/press';
 import { Body, Caption, Title } from '@/design/typography';
 import { isValidInviteCode } from '@/lib/branch/inviteCode';
 import type { ResolveArgs, ResolveResult } from '@/lib/branch/attributionApi';
@@ -75,7 +76,6 @@ export const InviteCodeModal: React.FC<InviteCodeModalProps> = ({
     setConfirmingSkip(true);
   };
 
-  const confirmBg = canConfirm ? colors.brand[500] : colors.surface[2];
   const confirmFg = canConfirm ? colors.text['on-brand'] : colors.text.disabled;
 
   return (
@@ -170,8 +170,7 @@ export const InviteCodeModal: React.FC<InviteCodeModalProps> = ({
                       flex: 1,
                       borderRadius: radius.md,
                       paddingVertical: space[3],
-                      backgroundColor: colors.surface[2],
-                      opacity: pressed ? 0.7 : 1,
+                      backgroundColor: rowPressBg(pressed, colors, colors.surface[2]),
                     },
                   ]}
                 >
@@ -190,8 +189,7 @@ export const InviteCodeModal: React.FC<InviteCodeModalProps> = ({
                       flex: 1,
                       borderRadius: radius.md,
                       paddingVertical: space[3],
-                      backgroundColor: colors.surface[2],
-                      opacity: pressed ? 0.7 : 1,
+                      backgroundColor: rowPressBg(pressed, colors, colors.surface[2]),
                     },
                   ]}
                 >
@@ -215,8 +213,7 @@ export const InviteCodeModal: React.FC<InviteCodeModalProps> = ({
                     flex: 1,
                     borderRadius: radius.md,
                     paddingVertical: space[3],
-                    backgroundColor: colors.surface[2],
-                    opacity: pressed && !busy ? 0.7 : 1,
+                    backgroundColor: rowPressBg(pressed, colors, colors.surface[2]),
                   },
                 ]}
               >
@@ -238,8 +235,7 @@ export const InviteCodeModal: React.FC<InviteCodeModalProps> = ({
                     flex: 1,
                     borderRadius: radius.md,
                     paddingVertical: space[3],
-                    backgroundColor: confirmBg,
-                    opacity: pressed && canConfirm ? 0.85 : 1,
+                    backgroundColor: canConfirm ? ctaPressBg(pressed, colors) : colors.surface[2],
                   },
                 ]}
               >

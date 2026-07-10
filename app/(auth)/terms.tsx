@@ -9,6 +9,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/Icon';
+import { ctaPressBg, rowPressBg } from '@/design/press';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { authStore } from '@/lib/auth/setup';
@@ -147,7 +148,7 @@ export default function TermsScreen() {
                 accessibilityLabel={`${term.required ? '필수' : '선택'} ${term.label} 동의`}
                 style={({ pressed }) => [
                   styles.toggleArea,
-                  { paddingVertical: space[3], opacity: pressed ? 0.7 : 1 },
+                  { paddingVertical: space[3], backgroundColor: rowPressBg(pressed, colors) },
                 ]}
               >
                 <CheckCircle checked={Boolean(agreed[term.key])} small />
@@ -245,8 +246,7 @@ export default function TermsScreen() {
             styles.ctaButton,
             {
               // §17.5 (revised): disabled = dead 회색. 활성만 brand.
-              backgroundColor: allRequiredAgreed ? colors.brand[500] : colors.surface[2],
-              opacity: pressed && allRequiredAgreed ? 0.92 : 1,
+              backgroundColor: allRequiredAgreed ? ctaPressBg(pressed, colors) : colors.surface[2],
               borderRadius: radius.md,
             },
           ]}

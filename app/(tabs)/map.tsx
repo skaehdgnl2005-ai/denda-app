@@ -18,6 +18,7 @@ import { Icon } from '@/components/Icon';
 import { SearchField } from '@/components/SearchField';
 import { Skeleton } from '@/components/Skeleton';
 import { useToast } from '@/components/Toast';
+import { rowPressBg } from '@/design/press';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { mapError } from '@/lib/i18n/messages';
@@ -70,12 +71,11 @@ export default function MapScreen(): React.JSX.Element {
       style={({ pressed }) => [
         styles.card,
         {
-          backgroundColor: colors.surface[1],
+          backgroundColor: rowPressBg(pressed, colors, colors.surface[1]),
           borderColor: colors.border.subtle,
           borderRadius: radius.lg,
           padding: space[4],
           marginBottom: space[3],
-          opacity: pressed ? 0.85 : 1,
         },
       ]}
     >

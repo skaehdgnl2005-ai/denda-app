@@ -24,6 +24,7 @@ import { MapHost } from '@/components/map/MapHost';
 import { OriginInput } from '@/components/map/OriginInput';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useToast } from '@/components/Toast';
+import { rowPressBg } from '@/design/press';
 import { useTheme } from '@/design/theme';
 import { Body, Caption } from '@/design/typography';
 import {
@@ -150,13 +151,12 @@ export default function MidpointScreen(): React.JSX.Element {
           accessibilityLabel={`${item.name} 선택`}
           testID={`reco-result-${index}`}
           style={({ pressed }) => ({
-            backgroundColor: colors.surface[1],
+            backgroundColor: rowPressBg(pressed, colors, colors.surface[1]),
             borderRadius: radius.md,
             padding: space[4],
             marginTop: space[2],
             borderWidth: 1,
             borderColor: colors.border.subtle,
-            opacity: pressed ? 0.85 : 1,
           })}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>

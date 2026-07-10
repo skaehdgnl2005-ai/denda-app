@@ -3,6 +3,7 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-nat
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/design/theme';
+import { rowPressBg, ctaPressBg } from '@/design/press';
 import { Body, Caption, Title } from '@/design/typography';
 import { Icon } from '@/components/Icon';
 import { ScreenHeader } from '@/components/ScreenHeader';
@@ -201,11 +202,10 @@ export default function FriendsRequestsScreen() {
             testID="invitation-reject-button"
             style={({ pressed }) => ({
               flex: 1,
-              backgroundColor: colors.surface[2],
+              backgroundColor: rowPressBg(pressed, colors, colors.surface[2]),
               borderRadius: radius.md,
               paddingVertical: space[3],
               alignItems: 'center',
-              opacity: pressed && !invPending ? 0.85 : 1,
             })}
           >
             <Body
@@ -223,11 +223,10 @@ export default function FriendsRequestsScreen() {
             testID="invitation-accept-button"
             style={({ pressed }) => ({
               flex: 1,
-              backgroundColor: invPending ? colors.surface[2] : colors.brand[500],
+              backgroundColor: !invPending ? ctaPressBg(pressed, colors) : colors.surface[2],
               borderRadius: radius.md,
               paddingVertical: space[3],
               alignItems: 'center',
-              opacity: pressed && !invPending ? 0.92 : 1,
             })}
           >
             <Body

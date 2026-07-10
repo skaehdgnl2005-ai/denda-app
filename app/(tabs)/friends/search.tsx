@@ -3,6 +3,7 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-nat
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/design/theme';
+import { rowPressBg } from '@/design/press';
 import { Body, Caption, Title } from '@/design/typography';
 import { Icon } from '@/components/Icon';
 import { ScreenHeader } from '@/components/ScreenHeader';
@@ -225,7 +226,7 @@ export default function FriendsSearchScreen() {
         accessibilityRole="button"
         accessibilityLabel="카카오톡으로 친구 초대"
         style={({ pressed }) => ({
-          backgroundColor: colors.surface[2],
+          backgroundColor: rowPressBg(pressed, colors, colors.surface[2]),
           borderColor: colors.border.subtle,
           borderWidth: 1,
           borderRadius: radius.lg,
@@ -233,7 +234,6 @@ export default function FriendsSearchScreen() {
           paddingVertical: space[4],
           flexDirection: 'row',
           alignItems: 'center',
-          opacity: pressed ? 0.7 : 1,
         })}
         testID="kakao-invite-card"
       >

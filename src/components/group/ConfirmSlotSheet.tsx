@@ -10,6 +10,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { DateTime } from 'luxon';
 
 import { Icon } from '@/components/Icon';
+import { rowPressBg } from '@/design/press';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import type { RecommendedSlot } from '@/lib/groups/recommendSlots';
@@ -192,8 +193,7 @@ export const ConfirmSlotSheet: React.FC<ConfirmSlotSheetProps> = ({
                 borderRadius: radius.md,
                 paddingVertical: space[3],
                 marginTop: space[3],
-                backgroundColor: colors.surface[2],
-                opacity: pressed && !inflight ? 0.7 : 1,
+                backgroundColor: rowPressBg(pressed && !inflight, colors, colors.surface[2]),
               },
             ]}
           >

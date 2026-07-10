@@ -10,6 +10,7 @@ import React from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { Icon } from '@/components/Icon';
+import { rowPressBg } from '@/design/press';
 import { useTheme } from '@/design/theme';
 import { Body, Caption } from '@/design/typography';
 import type { OriginPoint } from '@/lib/map/midpoint';
@@ -76,13 +77,12 @@ export function OriginInput({
               style={({ pressed }) => ({
                 flexDirection: 'row',
                 alignItems: 'center',
-                backgroundColor: colors.surface[2],
+                backgroundColor: rowPressBg(pressed, colors, colors.surface[2]),
                 borderRadius: radius.pill,
                 paddingHorizontal: space[3],
                 paddingVertical: space[2],
                 marginRight: space[2],
                 marginTop: space[2],
-                opacity: pressed ? 0.7 : 1,
               })}
             >
               <Icon name="장소" color={colors.text.tertiary} size={14} />
@@ -108,13 +108,12 @@ export function OriginInput({
           accessibilityLabel={`${item.name} 출발지로 선택`}
           testID={`origin-result-${index}`}
           style={({ pressed }) => ({
-            backgroundColor: colors.surface[1],
+            backgroundColor: rowPressBg(pressed, colors, colors.surface[1]),
             borderRadius: radius.md,
             padding: space[3],
             marginTop: space[2],
             borderWidth: 1,
             borderColor: colors.border.subtle,
-            opacity: pressed ? 0.85 : 1,
           })}
         >
           <Body variant="bold" color={colors.text.primary} numberOfLines={1}>
