@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { AccessibilityInfo, StyleSheet } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { PlaceActionSheet, type PlaceActionSheetProps } from './PlaceActionSheet';
@@ -203,5 +203,57 @@ describe('PlaceActionSheet', () => {
   it('isPartnership=false → 제휴 배지 미노출', () => {
     const { queryByTestId } = renderSheet({ isPartnership: false });
     expect(queryByTestId('partner-badge')).toBeNull();
+  });
+});
+
+// W2-15 후속 — 시트 모션 rework: RN 기본 animationType="slide" 대신 자체 Animated
+// 슬라이드-업(§6.5 바텀시트 up = medium+enter) + backdrop 페이드 + 모션 감소 즉시(§6.4).
+// D12 드래그 그리드 worklet과 무관(RN Animated, Reanimated 아님).
+describe('PlaceActionSheet — 시트 모션 (§6.5 / §6.4)', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('Modal animationType="none" — RN 기본 슬라이드 대신 자체 모션', () => {
+    const { getByTestId } = renderSheet();
+    expect(getByTestId('place-action-sheet').props.animationType).toBe('none');
+  });
+
+  it('시트가 translateY 슬라이드-업 모션으로 등장 (기본 = 모션 유지)', () => {
+    const { getByTestId } = renderSheet();
+    const sheet = StyleSheet.flatten(getByTestId('place-action-sheet-sheet').props.style);
+    expect(Array.isArray(sheet.transform)).toBe(true);
+    expect((sheet.transform as unknown[]).length).toBeGreaterThan(0);
+  });
+
+  it('모션 감소 시 슬라이드 없이 즉시 (transform 비움, §6.4)', async () => {
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
+    const { getByTestId } = renderSheet();
+    await waitFor(() => {
+      const sheet = StyleSheet.flatten(getByTestId('place-action-sheet-sheet').props.style);
+      expect(sheet.transform).toEqual([]);
+    });
+  });
+
+  it('닫히면(visible=false) exit 모션 후 시트를 언마운트한다', async () => {
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
+    const base: PlaceActionSheetProps = {
+      visible: true,
+      onClose: jest.fn(),
+      place: PLACE,
+      groupName: '5/30 저녁',
+      isPartnership: false,
+      onReservationPress: jest.fn().mockResolvedValue(undefined),
+      onSharePress: jest.fn().mockResolvedValue(undefined),
+    };
+    const { rerender, queryByTestId } = render(<PlaceActionSheet {...base} />, {
+      wrapper: ThemeProvider,
+    });
+    expect(queryByTestId('place-action-sheet')).toBeTruthy();
+
+    await act(async () => {
+      rerender(<PlaceActionSheet {...base} visible={false} />);
+    });
+    await waitFor(() => expect(queryByTestId('place-action-sheet')).toBeNull());
   });
 });

@@ -12,12 +12,17 @@
 //   - inflight = ActivityIndicator (CTA disable + 더블 탭 방어)
 //   - 친근체 micro-copy (founder review 대기 — Q-B12 closure 시 본문 교체 가능)
 
-import React, { useRef, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { PartnerBadge } from '@/components/place/PartnerBadge';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
+import { motionEasing } from '@/lib/motion/easing';
+import { useReducedMotion } from '@/lib/motion/useReducedMotion';
+
+// 시트를 화면 아래에서 밀어 올리는 거리 (측정 대신 충분값 — ConfirmSheet 선례).
+const SLIDE_DISTANCE = 480;
 
 export interface PlaceSheetPlace {
   id: string;
@@ -58,17 +63,47 @@ export const PlaceActionSheet: React.FC<PlaceActionSheetProps> = ({
   onSharePress,
   testID,
 }) => {
-  const { colors, space, radius, shadow } = useTheme();
+  const { colors, space, radius, shadow, duration } = useTheme();
+  const reduced = useReducedMotion();
+  const [anim] = useState(() => new Animated.Value(0));
+  const [rendered, setRendered] = useState(visible);
   const [busy, setBusy] = useState<BusyState>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   // 동기 lock — busy useState는 비동기라 같은 tick 더블탭에 stale closure로 둘 다 통과할 수 있다.
   // ref로 두 번째 press를 즉시 차단해 "예약하기" click(Gate #2)을 정확히 1회만 로그한다.
   const lockRef = useRef(false);
 
-  if (!visible) return null;
+  // 시트 열림=슬라이드 업(§6.5 바텀시트 up = medium+enter)·backdrop 페이드 / 닫힘=슬라이드
+  // 다운(medium+exit) 후 언마운트. 모션 감소 시 duration 0 즉시(§6.4). RN Animated —
+  // Reanimated 워클릿이 아니므로 D12 드래그 그리드 60fps 경로와 무관.
+  useEffect(() => {
+    if (visible) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setRendered(true);
+      anim.setValue(0);
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: reduced ? 0 : duration.medium,
+        easing: motionEasing.enter,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(anim, {
+        toValue: 0,
+        duration: reduced ? 0 : duration.medium,
+        easing: motionEasing.exit,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) setRendered(false);
+      });
+    }
+  }, [visible, reduced, duration.medium, anim]);
+
+  if (!rendered) return null;
 
   const isBusy = busy !== 'idle';
   const sheetTestID = testID ?? 'place-action-sheet';
+  const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [SLIDE_DISTANCE, 0] });
 
   const handleClose = (): void => {
     if (isBusy) return;
@@ -120,21 +155,24 @@ export const PlaceActionSheet: React.FC<PlaceActionSheetProps> = ({
 
   return (
     <Modal
-      visible={visible}
+      visible
       transparent
-      animationType="slide"
+      animationType="none"
       onRequestClose={handleClose}
       testID={sheetTestID}
     >
       <View style={styles.root}>
-        <Pressable
-          testID={`${sheetTestID}-backdrop`}
-          accessibilityLabel="시트 닫기"
-          onPress={handleClose}
-          style={[styles.backdrop, { backgroundColor: colors.overlay.scrim }]}
-        />
+        <Animated.View style={[styles.backdrop, { opacity: anim }]}>
+          <Pressable
+            testID={`${sheetTestID}-backdrop`}
+            accessibilityLabel="시트 닫기"
+            onPress={handleClose}
+            style={[StyleSheet.absoluteFill, { backgroundColor: colors.overlay.scrim }]}
+          />
+        </Animated.View>
 
-        <View
+        <Animated.View
+          testID={`${sheetTestID}-sheet`}
           style={[
             styles.container,
             shadow.e3,
@@ -143,6 +181,7 @@ export const PlaceActionSheet: React.FC<PlaceActionSheetProps> = ({
               borderTopLeftRadius: radius['2xl'],
               borderTopRightRadius: radius['2xl'],
               paddingBottom: space[6],
+              transform: reduced ? [] : [{ translateY }],
             },
           ]}
         >
@@ -268,7 +307,7 @@ export const PlaceActionSheet: React.FC<PlaceActionSheetProps> = ({
               </Pressable>
             </View>
           </View>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
