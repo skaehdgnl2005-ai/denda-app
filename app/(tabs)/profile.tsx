@@ -154,14 +154,18 @@ export default function ProfileScreen() {
 
         {/* 내 일정 */}
         <Section title="내 일정">
-          {/* 캘린더 연결 상태 — 끊기면 상시 error 행으로 재연결(나중에 닫아도 재진입). */}
-          <SettingRow
-            icon="캘린더"
-            label={calendarDisconnected ? 'Google 캘린더 연결이 끊겼어요' : 'Google 캘린더 연결됨'}
-            status={calendarDisconnected ? 'error' : undefined}
-            onPress={calendarDisconnected ? () => setShowReauth(true) : undefined}
-            testID="calendar-connection-row"
-          />
+          {/* 캘린더 연결 상태 — 끊겼을 때만 상시 error 행으로 재연결(나중에 닫아도 재진입).
+              isGoogleReauthNeeded=false는 연결됨·미사용·전송오류를 구분 못 하므로 "연결됨"을
+              단정하지 않는다(리뷰 confirmed — Apple-only/미연결 사용자 오표기 방지). */}
+          {calendarDisconnected ? (
+            <SettingRow
+              icon="캘린더"
+              label="Google 캘린더 연결이 끊겼어요"
+              status="error"
+              onPress={() => setShowReauth(true)}
+              testID="calendar-connection-row"
+            />
+          ) : null}
           <SettingRow
             icon="캘린더"
             label="에브리타임 시간표 가져오기"

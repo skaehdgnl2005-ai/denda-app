@@ -192,9 +192,12 @@ describe('ProfileScreen', () => {
       await waitFor(() => expect(getByTestId('reauth-modal')).toBeTruthy());
     });
 
-    test('연결됨(기본) → 일반 행, 모달 자동 노출 안 함, 끊김 뱃지 없음', async () => {
+    test('끊김 아님(기본) → 캘린더 행 미노출("연결됨" 오표기 제거), 모달 자동 노출 안 함', async () => {
       const { getByTestId, queryByTestId } = render(<ProfileScreen />, { wrapper });
-      await waitFor(() => expect(getByTestId('calendar-connection-row')).toBeTruthy());
+      // 렌더 완료 확인 (에브리타임 행은 항상 노출)
+      await waitFor(() => expect(getByTestId('everytime-import-link')).toBeTruthy());
+      // 끊김이 아닐 때(연결됨·Apple-only·미연결·전송오류)는 캘린더 연결 행을 그리지 않는다.
+      expect(queryByTestId('calendar-connection-row')).toBeNull();
       expect(queryByTestId('reauth-modal')).toBeNull();
       expect(queryByTestId('calendar-disconnected-badge')).toBeNull();
     });

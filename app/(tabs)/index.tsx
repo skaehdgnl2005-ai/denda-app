@@ -22,7 +22,7 @@ import { countGroupsThisMonthKst } from '@/lib/groups/stats';
 import { messages } from '@/lib/i18n/messages';
 
 export default function HomeScreen() {
-  const { colors, space, radius, shadow } = useTheme();
+  const { colors, space, radius, shadow, isDark } = useTheme();
   const router = useRouter();
   const nickname = useAuth((s) => s.session?.user.nickname ?? '');
 
@@ -179,7 +179,8 @@ export default function HomeScreen() {
                   height: 24,
                   paddingHorizontal: space[2],
                   borderRadius: radius.pill,
-                  backgroundColor: colors.brand[50],
+                  // 다크: brand-50(6% 알파)은 투명이라 배지가 사라짐 → surface-3(리뷰 confirmed).
+                  backgroundColor: isDark ? colors.surface[3] : colors.brand[50],
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
@@ -421,7 +422,7 @@ function StatChip({
         <Caption
           variant="default"
           color={colors.text.tertiary}
-          style={{ marginLeft: 3, marginBottom: 3 }}
+          style={{ marginLeft: space['0.5'], marginBottom: space['0.5'] }}
         >
           {suffix}
         </Caption>

@@ -37,14 +37,20 @@ export default function FriendsIndexScreen() {
 
   const fetchFriends = useCallback(async () => {
     try {
-      const [list, incoming, invitations] = await Promise.all([
+      const [list, incoming] = await Promise.all([
         friendsApi.list(),
         friendsApi.listIncomingRequests(),
-        invitationsApi.listMyInvitations(),
       ]);
       setFriends(list);
-      // W2-10 — 배지 카운트 = 받은 친구 요청 + 대기중 모임 초대 합산.
-      setRequestCount(incoming.length + invitations.length);
+      // W2-10 — 배지 카운트 = 받은 친구 요청 + 대기중 모임 초대 합산. 단, 초대 조회 실패는
+      // 부차 정보(배지)만 저하시키고 친구 목록(주 콘텐츠)을 에러로 가리지 않는다(리뷰 confirmed).
+      let inviteCount = 0;
+      try {
+        inviteCount = (await invitationsApi.listMyInvitations()).length;
+      } catch {
+        // 배지만 요청 수로 저하 — 목록은 그대로 노출.
+      }
+      setRequestCount(incoming.length + inviteCount);
       setError(false);
     } catch (e) {
       // 에러를 빈 상태로 위장하지 않는다(W1-8) — error 분리 후 EmptyState error로 표출.
