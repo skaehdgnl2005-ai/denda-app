@@ -30,7 +30,7 @@ export const RealtimeStatus: React.FC<RealtimeStatusProps> = ({ isConnected, tes
       ]}
       testID={testID}
       accessibilityRole="alert"
-      accessibilityLabel="실시간 갱신 일시 중단 — 30초 후 폴링"
+      accessibilityLabel="실시간 갱신이 잠시 멈췄어요. 곧 다시 연결돼요."
     >
       <Info size={14} color={colors.semantic.info.fg} strokeWidth={2} style={styles.icon} />
       <Caption
@@ -39,7 +39,7 @@ export const RealtimeStatus: React.FC<RealtimeStatusProps> = ({ isConnected, tes
         allowFontScaling={true}
         style={styles.text}
       >
-        실시간 갱신 일시 중단 — 30s 후 폴링
+        실시간 갱신이 잠시 멈췄어요 · 곧 다시 연결돼요
       </Caption>
     </View>
   );

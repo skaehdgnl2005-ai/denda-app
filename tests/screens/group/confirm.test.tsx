@@ -18,10 +18,16 @@ const VALID_GROUP_ID = '11111111-2222-3333-4444-555555555555';
 const mockBack = jest.fn();
 const mockPush = jest.fn();
 const mockRouterReplace = jest.fn();
-jest.mock('expo-router', () => ({
-  useLocalSearchParams: () => ({ id: '11111111-2222-3333-4444-555555555555' }),
-  useRouter: () => ({ back: mockBack, push: mockPush, replace: mockRouterReplace }),
-}));
+jest.mock('expo-router', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const ReactMod = require('react');
+  return {
+    useLocalSearchParams: () => ({ id: '11111111-2222-3333-4444-555555555555' }),
+    useRouter: () => ({ back: mockBack, push: mockPush, replace: mockRouterReplace }),
+    // useFocusEffect는 마운트/포커스 시 콜백 실행 — 테스트에선 useEffect로 근사(첫 포커스=마운트).
+    useFocusEffect: (cb: () => void) => ReactMod.useEffect(() => cb(), [cb]),
+  };
+});
 
 let mockUserId: string | null = HOST_ID;
 jest.mock('@/lib/auth/setup', () => ({

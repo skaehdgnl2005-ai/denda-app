@@ -38,6 +38,24 @@ describe('Grid Component', () => {
     expect(cells.length).toBe(420); // 60 slots * 7 days = 420 cells
   });
 
+  test('W2-5 — dayHeaders 제공 시 요일 + 날짜 2줄 헤더 렌더', () => {
+    const { getByText } = render(
+      <Grid
+        cells={generateMockCells('empty')}
+        colCount={2}
+        dayHeaders={[
+          { weekday: '수', date: '7/8' },
+          { weekday: '목', date: '7/9' },
+        ]}
+      />,
+      { wrapper },
+    );
+    expect(getByText('수')).toBeTruthy();
+    expect(getByText('7/8')).toBeTruthy();
+    expect(getByText('목')).toBeTruthy();
+    expect(getByText('7/9')).toBeTruthy();
+  });
+
   test('triggers onCellPress with correct slot and day coordinates', () => {
     const mockCells = generateMockCells('empty');
     const onCellPressMock = jest.fn();

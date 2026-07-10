@@ -9,6 +9,7 @@ import {
 import { GestureDetector, type PanGesture } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import { useTheme } from '../../design/theme';
+import type { DayHeader } from '../../lib/datetime/dayHeader';
 import { Cell } from './Cell';
 import { Header } from './Header';
 
@@ -21,6 +22,8 @@ export interface GridProps {
   cells: CellState[][]; // 60 rows × N columns (N = colCount, default 7)
   onCellPress?: (slot: number, day: number) => void;
   dayLabels?: string[];
+  // W2-5 — 요일+날짜 2줄 헤더. 있으면 dayLabels 대신 사용(요일 caption + 날짜 micro).
+  dayHeaders?: DayHeader[];
   testID?: string;
   // D12 worklet drag 통합 — optional.
   // panGesture가 있으면 grid body가 GestureDetector로 감싸지고 single-tap onCellPress는 사용되지 않는다.
@@ -44,6 +47,7 @@ export const Grid: React.FC<GridProps> = ({
   cells,
   onCellPress,
   dayLabels,
+  dayHeaders,
   testID,
   panGesture,
   onCellWidthChange,
@@ -94,6 +98,8 @@ export const Grid: React.FC<GridProps> = ({
                 state: 'empty',
                 count: 0,
               };
+              const dh = dayHeaders?.[dayIdx];
+              const cellDayLabel = dh ? `${dh.weekday} ${dh.date}` : effectiveDayLabels[dayIdx];
 
               return (
                 <Cell
@@ -102,7 +108,7 @@ export const Grid: React.FC<GridProps> = ({
                   count={cellData.count}
                   isHeader={false}
                   slotIndex={slotIdx}
-                  dayLabel={effectiveDayLabels[dayIdx]}
+                  dayLabel={cellDayLabel}
                   onPress={(): void => {
                     if (onCellPress && !panGesture) {
                       onCellPress(slotIdx, dayIdx);
@@ -135,12 +141,19 @@ export const Grid: React.FC<GridProps> = ({
       <View style={[styles.headerRow, { borderBottomColor: colors.border.subtle }]}>
         {/* Left Spacer matching time column width */}
         <View style={styles.timeColumnSpacer} />
-        {/* Day Header Cells */}
-        {effectiveDayLabels.map((day, idx) => (
-          <View key={`day-header-${idx}`} style={styles.dayHeaderCellContainer}>
-            <Header type="day" label={day} />
-          </View>
-        ))}
+        {/* Day Header Cells — dayHeaders(요일+날짜 2줄) 우선, 없으면 dayLabels 단일 줄 */}
+        {Array.from({ length: effectiveColCount }).map((_, idx) => {
+          const dh = dayHeaders?.[idx];
+          return (
+            <View key={`day-header-${idx}`} style={styles.dayHeaderCellContainer}>
+              {dh ? (
+                <Header type="day" label={dh.weekday} sublabel={dh.date} />
+              ) : (
+                <Header type="day" label={effectiveDayLabels[idx] ?? ''} />
+              )}
+            </View>
+          );
+        })}
       </View>
 
       {/* Scrollable TimeGrid Body */}

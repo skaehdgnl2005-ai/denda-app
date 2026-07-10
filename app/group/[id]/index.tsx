@@ -14,7 +14,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSharedValue } from 'react-native-reanimated';
 
 import { EmptyState } from '@/components/EmptyState';
@@ -39,6 +39,7 @@ import {
   createGoogleCalendarProvider,
   signInGoogleAndUpload,
 } from '@/lib/calendar/setup';
+import { formatDayHeader } from '@/lib/datetime/dayHeader';
 import { confirmGroup } from '@/lib/groups/confirm';
 import { fetchGroupForConfirm, fetchUserVotes, type GroupForConfirm } from '@/lib/groups/queries';
 import { recommendSlots, type RecommendedSlot } from '@/lib/groups/recommendSlots';
@@ -53,17 +54,6 @@ import { diffVoteSets, voteSetFromSlots, type VoteSlot } from '@/lib/votes/voteS
 const ROW_COUNT = 60;
 const CELL_HEIGHT = 16; // Grid styles.row.height (Issue 2: 10 → 14 → 16)
 const HEADER_WIDTH = 50; // Grid TIME_COLUMN_WIDTH
-
-function formatDayLabels(dates: string[]): string[] {
-  return dates.map((d) => {
-    const parts = d.split('-');
-    if (parts.length !== 3) return d;
-    const month = Number(parts[1]);
-    const day = Number(parts[2]);
-    if (!Number.isInteger(month) || !Number.isInteger(day)) return d;
-    return `${month}/${day}`;
-  });
-}
 
 export default function GroupConfirmScreen(): React.JSX.Element {
   const params = useLocalSearchParams<{ id: string }>();
@@ -130,6 +120,20 @@ export default function GroupConfirmScreen(): React.JSX.Element {
       cancelled = true;
     };
   }, [groupId, userId, reloadKey]);
+
+  // W2-7 — 재진입 시 refetch. 멤버가 화면을 떠난 사이 호스트가 확정하면 재진입해도 stale로
+  // 남던 문제 해소. 첫 포커스(마운트)는 위 useEffect가 이미 fetch하므로 skip(중복 fetch 방지).
+  // (드래그 그리드에 pull-to-refresh는 D12 60fps 보호 위해 별도 검증 후 도입 — 본 커밋 제외.)
+  const didFocusRef = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (!didFocusRef.current) {
+        didFocusRef.current = true;
+        return;
+      }
+      setReloadKey((k) => k + 1);
+    }, []),
+  );
 
   const selfMarks = useMemo<Set<SlotKey>>(() => {
     const set = new Set<SlotKey>();
@@ -336,7 +340,7 @@ export default function GroupConfirmScreen(): React.JSX.Element {
     );
   }
 
-  const dayLabels = formatDayLabels(group.dates);
+  const dayHeaders = group.dates.map(formatDayHeader);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface[0] }]}>
@@ -474,7 +478,7 @@ export default function GroupConfirmScreen(): React.JSX.Element {
       <View style={styles.gridContainer}>
         <Grid
           cells={cells}
-          dayLabels={dayLabels}
+          dayHeaders={dayHeaders}
           colCount={dayCount}
           panGesture={isConfirmed ? undefined : panGesture}
           onCellWidthChange={handleCellWidthChange}
