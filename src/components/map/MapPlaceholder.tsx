@@ -21,15 +21,15 @@ interface MapPlaceholderProps {
 const COPY: Record<MapViewMode, { title: string; body: string }> = {
   schedule: {
     title: '지도는 준비 중이에요',
-    body: '정식 앱 빌드가 준비되면\n모임 일정을 지도 위에 표시해드릴게요.',
+    body: '곧 모임 일정을 지도 위에서 볼 수 있어요.',
   },
   search: {
     title: '지도는 준비 중이에요',
-    body: '정식 앱 빌드가 준비되면\n검색한 장소를 지도 위에 표시해드릴게요.',
+    body: '곧 검색한 장소를 지도 위에서 볼 수 있어요.',
   },
   midpoint: {
     title: '지도는 준비 중이에요',
-    body: '정식 앱 빌드가 준비되면\n출발지와 중간지점을 지도 위에 표시해드릴게요.',
+    body: '곧 출발지와 중간지점을 지도 위에서 볼 수 있어요.',
   },
 };
 

@@ -1,8 +1,14 @@
 import React from 'react';
 import { act, fireEvent, render } from '@testing-library/react-native';
+import { DateTime } from 'luxon';
 
 import HomeScreen from '../../app/(tabs)/index';
 import { ThemeProvider } from '@/design/theme';
+
+// 현 KST 기준 이번 달/지난 달 날짜(테스트 실행 시점 무관하게 결정적).
+const nowKst = DateTime.now().setZone('Asia/Seoul');
+const thisMonthIso = nowKst.set({ day: 15 }).toISODate() ?? '';
+const lastMonthIso = nowKst.minus({ months: 1 }).set({ day: 15 }).toISODate() ?? '';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => {
@@ -90,5 +96,45 @@ describe('HomeScreen', () => {
       fireEvent.press(getByTestId('home-error-cta'));
     });
     expect(await findByText('재시도 모임')).toBeTruthy();
+  });
+
+  // W2-9: '이번 달 모임' 스탯 = 이번 달 후보 날짜가 있는 모임 수(파생값).
+  test("'이번 달 모임' 스탯이 파생 카운트를 표시", async () => {
+    mockFetchMyGroups.mockResolvedValue([
+      { id: 'g1', name: '이번 달', dates: [thisMonthIso], confirmedAt: null },
+      { id: 'g2', name: '지난 달', dates: [lastMonthIso], confirmedAt: null },
+    ]);
+    const { findByTestId } = render(<HomeScreen />, { wrapper });
+    const value = await findByTestId('stat-this-month-value');
+    expect(value.props.children).toBe('1');
+  });
+
+  // W2-9 §17.2: 데이터 없는 '함께한 친구'·'노쇼' 가짜 0 칩 제거.
+  test("'함께한 친구'·'노쇼' 칩 제거(가짜 0 금지)", async () => {
+    mockFetchMyGroups.mockResolvedValue([]);
+    const { queryByText, findByText } = render(<HomeScreen />, { wrapper });
+    await findByText('잡힌 모임이 아직 없어요');
+    expect(queryByText('함께한 친구')).toBeNull();
+    expect(queryByText('노쇼')).toBeNull();
+    expect(queryByText('이번 달 모임')).toBeTruthy();
+  });
+
+  // W2-9 §17.3: 카드 위계 — 우측 chevron + 상태 라벨(색 단독 아님).
+  test('내 모임 카드에 chevron + 상태 라벨 존재', async () => {
+    mockFetchMyGroups.mockResolvedValue([
+      { id: 'g1', name: '5/30 저녁', dates: ['2026-05-30'], confirmedAt: null },
+    ]);
+    const { findByTestId, findByText } = render(<HomeScreen />, { wrapper });
+    expect(await findByTestId('my-group-g1-chevron')).toBeTruthy();
+    expect(await findByText('투표 중')).toBeTruthy();
+  });
+
+  // W2-9 §11.2: 빈 상태 CTA(secondary) → /group/new.
+  test('빈 상태 CTA → router.push(/group/new)', async () => {
+    mockFetchMyGroups.mockResolvedValue([]);
+    const { findByTestId } = render(<HomeScreen />, { wrapper });
+    const cta = await findByTestId('home-empty-cta');
+    fireEvent.press(cta);
+    expect(mockPush).toHaveBeenCalledWith('/group/new');
   });
 });

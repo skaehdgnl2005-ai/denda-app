@@ -1,8 +1,10 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { PlaceActionSheet, type PlaceActionSheetProps } from './PlaceActionSheet';
 import { ThemeProvider } from '@/design/theme';
+import { tokens } from '@/design/tokens';
 
 const PLACE = {
   id: '11111111-2222-3333-4444-555555555555',
@@ -45,6 +47,20 @@ describe('PlaceActionSheet', () => {
   it('"예약은 준비 중" 안내 chip 노출 (Phase 1+2 baseline)', () => {
     const { getByTestId } = renderSheet();
     expect(getByTestId('phase12-notice')).toBeTruthy();
+  });
+
+  it('backdrop 배경색 = overlay.scrim 토큰 (하드코딩 금지, §10.3)', () => {
+    const { getByTestId } = renderSheet();
+    const style = StyleSheet.flatten(getByTestId('place-action-sheet-backdrop').props.style);
+    expect(style.backgroundColor).toBe(tokens.light.overlay.scrim);
+  });
+
+  it('CTA 높이 = 56pt (§10.3 CTA 높이)', () => {
+    const { getByTestId } = renderSheet();
+    const reservation = StyleSheet.flatten(getByTestId('reservation-cta').props.style);
+    const share = StyleSheet.flatten(getByTestId('share-cta').props.style);
+    expect(reservation.minHeight).toBe(56);
+    expect(share.minHeight).toBe(56);
   });
 
   it('"예약하기" press → onReservationPress 호출 → 성공 후 onClose 호출', async () => {

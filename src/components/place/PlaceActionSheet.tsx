@@ -131,7 +131,7 @@ export const PlaceActionSheet: React.FC<PlaceActionSheetProps> = ({
           testID={`${sheetTestID}-backdrop`}
           accessibilityLabel="시트 닫기"
           onPress={handleClose}
-          style={[styles.backdrop, { backgroundColor: 'rgba(0, 0, 0, 0.4)' }]}
+          style={[styles.backdrop, { backgroundColor: colors.overlay.scrim }]}
         />
 
         <View
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
   cta: {
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
+    minHeight: 56,
   },
   ctaContent: {
     flexDirection: 'row',

@@ -6,7 +6,9 @@ import { useCallback, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { DateTime } from 'luxon';
 
+import { Button } from '@/components/Button';
 import { EmptyState } from '@/components/EmptyState';
 import { Icon } from '@/components/Icon';
 import { Skeleton } from '@/components/Skeleton';
@@ -16,6 +18,7 @@ import { Body, Caption, Title } from '@/design/typography';
 import { useAuth } from '@/lib/auth/setup';
 import { fetchMyGroups, type MyGroupSummary } from '@/lib/groups/list';
 import { formatDateChip } from '@/lib/groups/dateOptions';
+import { countGroupsThisMonthKst } from '@/lib/groups/stats';
 import { messages } from '@/lib/i18n/messages';
 
 export default function HomeScreen() {
@@ -55,6 +58,9 @@ export default function HomeScreen() {
   }, [loadGroups]);
 
   const upcomingCount = myGroups.length;
+  // '이번 달 모임' 파생값 — now는 호출부에서 KST ISO로 만들어 순수 helper에 주입(D13).
+  const nowKstIso = DateTime.now().setZone('Asia/Seoul').toISODate() ?? '';
+  const thisMonthCount = countGroupsThisMonthKst(myGroups, nowKstIso);
 
   return (
     <SafeAreaView
@@ -236,39 +242,73 @@ export default function HomeScreen() {
         ) : /* 모임 목록 (실데이터) 또는 빈 카드 — §11.2 */
         myGroups.length > 0 ? (
           <View style={{ paddingHorizontal: space[4], marginTop: space[3] }}>
-            {myGroups.map((g) => (
-              <Pressable
-                key={g.id}
-                onPress={() => router.push(`/group/${g.id}`)}
-                accessibilityRole="button"
-                accessibilityLabel={`${g.name} 모임 열기`}
-                testID={`my-group-${g.id}`}
-                style={({ pressed }) => [
-                  {
-                    backgroundColor: colors.surface[2],
-                    borderColor: colors.border.subtle,
-                    borderWidth: 1,
-                    borderRadius: radius.lg,
-                    padding: space[4],
-                    marginBottom: space[2],
-                    opacity: pressed ? 0.8 : 1,
-                  },
-                ]}
-              >
-                <Body variant="bold" color={colors.text.primary}>
-                  {g.name}
-                </Body>
-                <Caption
-                  variant="default"
-                  color={colors.text.tertiary}
-                  style={{ marginTop: space[1] }}
+            {myGroups.map((g) => {
+              const confirmed = g.confirmedAt !== null;
+              const dateSummary =
+                g.dates.length > 0
+                  ? `후보 ${g.dates.length}일 · ${g.dates.map(formatDateChip).join(', ')}`
+                  : '날짜 미정';
+              return (
+                <Pressable
+                  key={g.id}
+                  onPress={() => router.push(`/group/${g.id}`)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${g.name} 모임 열기`}
+                  testID={`my-group-${g.id}`}
+                  style={({ pressed }) => [
+                    styles.groupCard,
+                    {
+                      backgroundColor: pressed ? colors.surface[3] : colors.surface[2],
+                      borderColor: colors.border.subtle,
+                      borderRadius: radius.lg,
+                      padding: space[4],
+                      marginBottom: space[2],
+                    },
+                  ]}
                 >
-                  {g.confirmedAt
-                    ? '확정됨'
-                    : `투표 중 · 후보 ${g.dates.length}일 (${g.dates.map(formatDateChip).join(', ')})`}
-                </Caption>
-              </Pressable>
-            ))}
+                  {/* 위계: 1 이름 / 2 상태(dot+라벨) / 3 날짜 요약 (§17.3) */}
+                  <View style={{ flex: 1 }}>
+                    <Body variant="bold" color={colors.text.primary}>
+                      {g.name}
+                    </Body>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: space[2],
+                        marginTop: space[1],
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: radius.full,
+                          backgroundColor: confirmed ? colors.brand[500] : colors.text.tertiary,
+                        }}
+                      />
+                      <Caption
+                        variant="default"
+                        color={confirmed ? colors.text.primary : colors.text.secondary}
+                      >
+                        {confirmed ? '확정됨' : '투표 중'}
+                      </Caption>
+                    </View>
+                    <Caption
+                      variant="micro"
+                      color={colors.text.tertiary}
+                      style={{ marginTop: space[1] }}
+                    >
+                      {dateSummary}
+                    </Caption>
+                  </View>
+                  {/* Icon testID는 svg로 안 넘어가므로 wrapper View로 노출 */}
+                  <View testID={`my-group-${g.id}-chevron`} style={{ marginLeft: space[2] }}>
+                    <Icon name="화살표" color={colors.text.tertiary} size={20} />
+                  </View>
+                </Pressable>
+              );
+            })}
           </View>
         ) : (
           /* Empty card — §11.2. 아이콘 컨테이너는 회색(D5 절제) */
@@ -305,39 +345,62 @@ export default function HomeScreen() {
                 color={colors.text.tertiary}
                 style={{ textAlign: 'center', lineHeight: 18 }}
               >
-                위에서 새 모임을 만들면{'\n'}여기에 다가오는 일정이 표시돼요.
+                첫 모임을 만들어볼까요?
               </Caption>
+              {/* §11.2 3요소 채우기 — 상단이 이미 brand fill이라 여기선 secondary(§17.1) */}
+              <View style={{ alignSelf: 'stretch', marginTop: space[5] }}>
+                <Button
+                  label="모임 만들기"
+                  onPress={() => router.push('/group/new')}
+                  variant="secondary"
+                  size="md"
+                  testID="home-empty-cta"
+                />
+              </View>
             </View>
           </View>
         )}
 
-        {/* Stat row */}
+        {/* Stat row — 데이터 있는 '이번 달 모임'만(§17.2 가짜 0 금지). 단일 칩은 콘텐츠 폭 */}
         <View
           style={{
             paddingHorizontal: space[4],
             marginTop: space[8],
             flexDirection: 'row',
-            gap: space[3],
           }}
         >
-          <StatChip label="이번 달 모임" value="0" suffix="회" />
-          <StatChip label="함께한 친구" value="0" suffix="명" />
-          <StatChip label="노쇼" value="0" suffix="회" />
+          <StatChip
+            label="이번 달 모임"
+            value={String(thisMonthCount)}
+            suffix="회"
+            testID="stat-this-month-value"
+          />
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function StatChip({ label, value, suffix }: { label: string; value: string; suffix: string }) {
+function StatChip({
+  label,
+  value,
+  suffix,
+  testID,
+}: {
+  label: string;
+  value: string;
+  suffix: string;
+  testID?: string;
+}) {
   const { colors, space, radius } = useTheme();
   return (
     <View
       style={{
-        flex: 1,
+        // 단일 칩이므로 콘텐츠 폭만 차지(전폭 stretch 회피)
+        alignSelf: 'flex-start',
         backgroundColor: colors.surface[2],
         borderRadius: radius.md,
-        paddingHorizontal: space[3],
+        paddingHorizontal: space[4],
         paddingVertical: space[3],
       }}
     >
@@ -347,17 +410,18 @@ function StatChip({ label, value, suffix }: { label: string; value: string; suff
       {/* baseline 정렬 보정 — tabular-nums + 같은 line-height */}
       <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
         <Title
-          level="h3"
+          level="h2"
           color={colors.text.primary}
           tabularNums
-          style={{ fontWeight: '700', letterSpacing: -0.3, lineHeight: 22 }}
+          testID={testID}
+          style={{ fontWeight: '700', letterSpacing: -0.4, lineHeight: 26 }}
         >
           {value}
         </Title>
         <Caption
           variant="default"
           color={colors.text.tertiary}
-          style={{ marginLeft: 3, marginBottom: 2 }}
+          style={{ marginLeft: 3, marginBottom: 3 }}
         >
           {suffix}
         </Caption>
@@ -378,6 +442,11 @@ const styles = StyleSheet.create({
   primaryCard: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  groupCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
   },
   emptyCard: {
     borderWidth: 1,

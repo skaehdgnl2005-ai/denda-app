@@ -5,6 +5,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import ProfileScreen from '../../../app/(tabs)/profile';
 import { ThemeProvider } from '@/design/theme';
 import { ToastProvider } from '@/components/Toast';
+import { router } from 'expo-router';
+import { isGoogleReauthNeeded } from '@/lib/calendar/reauth';
 
 // ConfirmSheet·Toast가 useSafeAreaInsets를 쓰므로 SafeAreaProvider(initialMetrics) 필수.
 // useToast는 ToastProvider 안에서만 동작.
@@ -163,6 +165,63 @@ describe('ProfileScreen', () => {
       fireEvent.press(getByTestId('delete-account-sheet-cancel'));
       expect(mockDeleteAccount).not.toHaveBeenCalled();
       expect(mockReplace).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('W2-11 캘린더 연결 행 + 재진입', () => {
+    test('연결 끊김 → 끊김 행 노출 + 나중에 닫아도 행에서 재연결(재진입)', async () => {
+      (isGoogleReauthNeeded as jest.Mock).mockResolvedValueOnce(true);
+      const { getByTestId, queryByTestId } = render(<ProfileScreen />, { wrapper });
+
+      // 마운트 시 모달 자동 노출(기존 auto-open 동작 유지)
+      await waitFor(() => expect(getByTestId('reauth-modal')).toBeTruthy());
+
+      // '나중에'로 닫으면 모달은 사라진다
+      await act(async () => {
+        fireEvent.press(getByTestId('reauth-later-button'));
+      });
+      await waitFor(() => expect(queryByTestId('reauth-modal')).toBeNull());
+
+      // 끊김 상태는 영구 행으로 남는다 — 색 단독 아님(§12.6 연결 끊김 뱃지 + 경고 아이콘)
+      expect(getByTestId('calendar-disconnected-badge')).toBeTruthy();
+
+      // 행을 다시 누르면 모달 재진입 (나중에 닫아도 재연결 경로 존재)
+      await act(async () => {
+        fireEvent.press(getByTestId('calendar-connection-row'));
+      });
+      await waitFor(() => expect(getByTestId('reauth-modal')).toBeTruthy());
+    });
+
+    test('연결됨(기본) → 일반 행, 모달 자동 노출 안 함, 끊김 뱃지 없음', async () => {
+      const { getByTestId, queryByTestId } = render(<ProfileScreen />, { wrapper });
+      await waitFor(() => expect(getByTestId('calendar-connection-row')).toBeTruthy());
+      expect(queryByTestId('reauth-modal')).toBeNull();
+      expect(queryByTestId('calendar-disconnected-badge')).toBeNull();
+    });
+  });
+
+  describe('W2-11 약관·정보 링크', () => {
+    test('이용약관 → legal(doc:service), 개인정보 → privacy 라우팅', async () => {
+      const { getByTestId } = render(<ProfileScreen />, { wrapper });
+      await waitFor(() => expect(getByTestId('terms-of-service-link')).toBeTruthy());
+
+      fireEvent.press(getByTestId('terms-of-service-link'));
+      expect(router.push).toHaveBeenCalledWith({
+        pathname: '/(auth)/legal',
+        params: { doc: 'service' },
+      });
+
+      fireEvent.press(getByTestId('privacy-policy-link'));
+      expect(router.push).toHaveBeenCalledWith('/(auth)/privacy');
+    });
+  });
+
+  describe('W2-11 회귀 — 기존 행 유지', () => {
+    test('회원탈퇴·에브리타임·로그아웃 행 그대로', async () => {
+      const { getByTestId } = render(<ProfileScreen />, { wrapper });
+      await waitFor(() => expect(getByTestId('delete-account-button')).toBeTruthy());
+      expect(getByTestId('everytime-import-link')).toBeTruthy();
+      expect(getByTestId('signout-button')).toBeTruthy();
     });
   });
 });

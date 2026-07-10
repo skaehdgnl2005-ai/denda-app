@@ -31,6 +31,8 @@ export default function ProfileScreen() {
   const nickname = useAuth((s) => s.session?.user.nickname ?? '');
   const userId = useAuth((s) => s.session?.user.id);
   const [showReauth, setShowReauth] = useState(false);
+  // S06/W2-11: 캘린더 연결 끊김 여부를 영구 보관 → 프로필에 상시 재연결 행 노출.
+  const [calendarDisconnected, setCalendarDisconnected] = useState(false);
   const toast = useToast();
   const [deleteStep, setDeleteStep] = useState<null | 'warn' | 'confirm'>(null);
   const [deleting, setDeleting] = useState(false);
@@ -40,7 +42,10 @@ export default function ProfileScreen() {
     if (!userId) return;
     let cancelled = false;
     isGoogleReauthNeeded(supabase, userId).then((needs) => {
-      if (!cancelled && needs) setShowReauth(true);
+      if (cancelled) return;
+      // 끊김 상태 persist(상시 행) + 마운트 시 auto-open 유지.
+      setCalendarDisconnected(needs);
+      if (needs) setShowReauth(true);
     });
     return (): void => {
       cancelled = true;
@@ -66,6 +71,7 @@ export default function ProfileScreen() {
       // silent
     }
     const needs = await isGoogleReauthNeeded(supabase, userId);
+    setCalendarDisconnected(needs);
     if (!needs) setShowReauth(false);
   }, [userId]);
 
@@ -148,6 +154,14 @@ export default function ProfileScreen() {
 
         {/* 내 일정 */}
         <Section title="내 일정">
+          {/* 캘린더 연결 상태 — 끊기면 상시 error 행으로 재연결(나중에 닫아도 재진입). */}
+          <SettingRow
+            icon="캘린더"
+            label={calendarDisconnected ? 'Google 캘린더 연결이 끊겼어요' : 'Google 캘린더 연결됨'}
+            status={calendarDisconnected ? 'error' : undefined}
+            onPress={calendarDisconnected ? () => setShowReauth(true) : undefined}
+            testID="calendar-connection-row"
+          />
           <SettingRow
             icon="캘린더"
             label="에브리타임 시간표 가져오기"
@@ -164,6 +178,22 @@ export default function ProfileScreen() {
             label="화면 모드"
             hint="기기 설정 따름"
             testID="theme-row"
+          />
+        </Section>
+
+        {/* 약관·정보 — read-only 전문 화면으로 이동(약관 GATE인 terms.tsx로는 라우팅하지 않음) */}
+        <Section title="약관·정보">
+          <SettingRow
+            icon="안내"
+            label="이용약관"
+            onPress={() => router.push({ pathname: '/(auth)/legal', params: { doc: 'service' } })}
+            testID="terms-of-service-link"
+          />
+          <SettingRow
+            icon="안내"
+            label="개인정보 처리방침"
+            onPress={() => router.push('/(auth)/privacy')}
+            testID="privacy-policy-link"
           />
         </Section>
 
@@ -263,6 +293,7 @@ function SettingRow({
   pending,
   hint,
   danger,
+  status,
 }: {
   icon: IconName;
   label: string;
@@ -272,9 +303,13 @@ function SettingRow({
   hint?: string;
   /** 파괴적 액션(회원 탈퇴 등) — error 색·chevron 없음 (§10.6, D5 절제) */
   danger?: boolean;
+  /** 'error' = 조치 필요 상태(캘린더 연결 끊김 등) — error 색 + 경고 아이콘·"연결 끊김"
+   *  뱃지로 색 단독 의존 회피(§12.6). danger와 달리 눌러서 조치 가능(chevron 유지). */
+  status?: 'error';
 }) {
   const { colors, space, radius } = useTheme();
-  const accent = danger ? colors.semantic.error.fg : undefined;
+  const isError = status === 'error';
+  const accent = danger || isError ? colors.semantic.error.fg : undefined;
   const content = (
     <View
       style={{
@@ -294,7 +329,25 @@ function SettingRow({
       >
         {label}
       </Body>
-      {pending ? (
+      {isError ? (
+        <View
+          testID="calendar-disconnected-badge"
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginRight: space[2],
+          }}
+        >
+          <Icon name="경고" color={colors.semantic.error.fg} size={16} />
+          <Caption
+            variant="micro"
+            color={colors.semantic.error.fg}
+            style={{ marginLeft: space[1] }}
+          >
+            연결 끊김
+          </Caption>
+        </View>
+      ) : pending ? (
         <View
           style={{
             backgroundColor: colors.surface[3],

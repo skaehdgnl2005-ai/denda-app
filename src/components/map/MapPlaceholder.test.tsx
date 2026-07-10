@@ -36,4 +36,31 @@ describe('MapPlaceholder', () => {
     });
     expect(getByTestId('midpoint-map-placeholder')).toBeTruthy();
   });
+
+  test('schedule 모드 body → 내부 빌드 용어 없이 친절한 안내', () => {
+    const { getByText, queryByText } = render(<MapPlaceholder mode="schedule" />, {
+      wrapper: ThemeProvider,
+    });
+    expect(getByText('지도는 준비 중이에요')).toBeTruthy();
+    expect(getByText('곧 모임 일정을 지도 위에서 볼 수 있어요.')).toBeTruthy();
+    expect(queryByText(/정식 앱 빌드|빌드/)).toBeNull();
+  });
+
+  test('search 모드 body → 내부 빌드 용어 없이 친절한 안내', () => {
+    const { getByText, queryByText } = render(<MapPlaceholder mode="search" />, {
+      wrapper: ThemeProvider,
+    });
+    expect(getByText('지도는 준비 중이에요')).toBeTruthy();
+    expect(getByText('곧 검색한 장소를 지도 위에서 볼 수 있어요.')).toBeTruthy();
+    expect(queryByText(/정식 앱 빌드|빌드/)).toBeNull();
+  });
+
+  test('midpoint 모드 body → 내부 빌드 용어 없이 친절한 안내', () => {
+    const { getByText, queryByText } = render(<MapPlaceholder mode="midpoint" />, {
+      wrapper: ThemeProvider,
+    });
+    expect(getByText('지도는 준비 중이에요')).toBeTruthy();
+    expect(getByText('곧 출발지와 중간지점을 지도 위에서 볼 수 있어요.')).toBeTruthy();
+    expect(queryByText(/정식 앱 빌드|빌드/)).toBeNull();
+  });
 });

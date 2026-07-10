@@ -1,8 +1,10 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 
 import { ConfirmSlotSheet } from './ConfirmSlotSheet';
 import { ThemeProvider } from '@/design/theme';
+import { tokens } from '@/design/tokens';
 import type { RecommendedSlot } from '@/lib/groups/recommendSlots';
 
 const wrapper = ThemeProvider;
@@ -37,6 +39,36 @@ describe('ConfirmSlotSheet', () => {
       { wrapper },
     );
     expect(queryByTestId('sheet')).toBeNull();
+  });
+
+  test('grabber 노출 (§10.3)', () => {
+    const { getByTestId } = render(
+      <ConfirmSlotSheet
+        visible
+        recommendations={[REC1]}
+        onSelect={jest.fn()}
+        onClose={jest.fn()}
+        testID="sheet"
+      />,
+      { wrapper },
+    );
+    expect(getByTestId('sheet-grabber')).toBeTruthy();
+  });
+
+  test('시트 컨테이너 곡률 = radius 2xl (§10.3)', () => {
+    const { getByTestId } = render(
+      <ConfirmSlotSheet
+        visible
+        recommendations={[REC1]}
+        onSelect={jest.fn()}
+        onClose={jest.fn()}
+        testID="sheet"
+      />,
+      { wrapper },
+    );
+    const style = StyleSheet.flatten(getByTestId('sheet-container').props.style);
+    expect(style.borderTopLeftRadius).toBe(tokens.radius['2xl']);
+    expect(style.borderTopRightRadius).toBe(tokens.radius['2xl']);
   });
 
   test('추천 목록 — 시간 범위·인원수 표시', () => {

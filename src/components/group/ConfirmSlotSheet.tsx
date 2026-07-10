@@ -61,18 +61,31 @@ export const ConfirmSlotSheet: React.FC<ConfirmSlotSheetProps> = ({
         accessibilityViewIsModal
       >
         <View
+          testID={`${id}-container`}
           style={[
             styles.sheet,
             {
               backgroundColor: colors.surface[1],
-              borderTopLeftRadius: radius.xl,
-              borderTopRightRadius: radius.xl,
+              borderTopLeftRadius: radius['2xl'],
+              borderTopRightRadius: radius['2xl'],
               paddingHorizontal: space[5],
               paddingTop: space[5],
               paddingBottom: space[6],
             },
           ]}
         >
+          <View
+            testID={`${id}-grabber`}
+            style={[
+              styles.grabber,
+              {
+                backgroundColor: colors.surface[3],
+                borderRadius: radius.full,
+                marginTop: space[2],
+              },
+            ]}
+          />
+
           <Title level="h2" color={colors.text.primary}>
             이 시간 어때요?
           </Title>
@@ -202,6 +215,11 @@ const styles = StyleSheet.create({
   sheet: {
     width: '100%',
     maxHeight: '80%',
+  },
+  grabber: {
+    width: 36,
+    height: 4,
+    alignSelf: 'center',
   },
   row: {
     flexDirection: 'row',
