@@ -25,6 +25,18 @@ STATUS는 다음 중 하나:
 
 ---
 
+## UI-W2b — Wave 2 완결 (잔여 2건 + 시트 모션 + W2-8 헬퍼) (2026-07-10, 세션5) — DONE
+- Depends: UI-W2(세션4 13/15), 스코프 Wave 0~2 승인, DESIGN §6.5·§9.1·§17.5
+- 배경: 승인 스코프 마지막. Wave 2 잔여(W2-10 requests·search / PlaceActionSheet 시트 모션 / W2-8 pressed sweep) 완결. 각 항목 TDD(RED→GREEN 확인).
+- Changes (3 커밋, branch feat/map-maphost-m0 연속):
+  - `61a5c8f` **W2-10** 친구 요청함·검색 완결 — FriendRequestCard `pending` prop(§17.5 surface-2+text-tertiary 회색 비활성+onPress 차단) / requests.tsx pendingRef(동기 더블탭 차단)+pendingIds 가드를 5핸들러(accept/reject/cancel/invitationAccept/invitationReject)에 적용, loadData(무-스켈레톤 refetch) 분리, 두 FlatList RefreshControl(brand-500), 빈 CTA(받은/보낸→친구 검색하기·초대→모임 만들기) / search.tsx 결과 pull-to-refresh(별도 refreshing state). accept/reject/cancel testID 보존.
+  - `2ed4282` **PlaceActionSheet 시트 모션** — Modal animationType slide→none, RN Animated 자체 슬라이드 up(§6.5 medium+enter)·backdrop 페이드 + exit 후 언마운트(rendered 상태) + reduce-motion 즉시(§6.4). ConfirmSheet 선례 미러. RN Animated=Reanimated 워클릿 아님 → D12 무접촉. Gate #2 로깅·lockRef·CTA56·scrim·grabber·radius-2xl 불변.
+  - `4eaa3ac` **W2-8** `src/design/press.ts` 순수 헬퍼 신설(rowPressBg→surface[3]/ctaPressBg→brand[600]↔500, light/dark 계약 7 tests) + 초기 sweep 8파일(양 버킷: brand CTA→ctaPressBg = HostConfirmButton·everytime·onboarding·홈·friends/index·group-new / 행·카드→rowPressBg = place-search·everytime·ReauthModal). opacity 딤→§9.1 색전환.
+- Tests: Jest **1198 pass / 1 skip** (baseline 1177 + 신규 21: FriendRequestCard 3·requests 6·search 1·PlaceActionSheet 4·press 7), tsc 0, eslint 0, design-guard clean(13 파일), D12 회귀 가드 green.
+- Verify: full suite green + tsc/eslint/design-guard + **자체 4렌즈 리뷰**(Workflow는 월 spend limit로 불가 → 메인 루프에서 토큰·a11y·API·다크 4렌즈 수행, confirmed 0). /run-denda 실기=post-login keyhash env-blocked → bundle-level(tsc+test) 인정(디바이스 런=사용자 트랙).
+- Next: **W2-8 잔여 sweep 후속** — terms·InviteCodeModal·map·requests/search 재채택·group[id]/index·midpoint·invite·ConfirmSlotSheet·FirstTimeModal·CalendarDatePicker·CourseRow·OriginInput·MapPlaceholder·profile. 제외 유지(후속 아님): Cell(D12)·아이콘 전용 버튼(opacity)·ghost brand pill·캘린더 날짜셀·Gate #2 PlaceActionSheet CTA.
+- Notes: 세션5는 spend limit로 서브에이전트(sweep·리뷰 Workflow) 전량 실패 → 메인 루프에서 직접 수행. W2-8 헬퍼는 확립·검증 완료, 잔여 sweep은 기계적 후속(계약 고정). D12 worklet·Gate #1/#2 로깅·Phase 3 경계·DESIGN 토큰 불가침 전부 준수. branch push 유지.
+
 ## UI-W2 — Wave 2 셸·그리드 시각·화면 마감 (2026-07-10, 세션4) — PARTIAL (13/15)
 - Depends: UI-W0·W1(✅ 프리미티브·여정), DESIGN §5·§7·§10·§12·§17, 스코프 Wave 0~2 승인
 - 배경: Wave 2 = 승인 스코프 마지막 웨이브. 셸(탭바·FAB·다크 네비)·시간 그리드 시각 레이어·화면 마감. 다중 에이전트 병렬(스카웃 15 / 헤더 스왑 8 / 화면 5 / 리뷰 4)로 실행.

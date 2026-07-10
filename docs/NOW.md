@@ -14,7 +14,7 @@
 
 ### UI Polish (Lane F, Wave 0~2) — 출시 전 완성도 전면 개선
 
-- **🔖 다음 세션 착수 (필독)**: `docs/superpowers/specs/2026-07-10-ui-polish-wave2-completion-kickoff.md` (Wave 2 완결 착수 순서·진행방식·운영팁). 기술 상세는 `2026-07-10-ui-polish-wave2-handoff.md`(완료분·잔여 파일:라인·Gotchas), Wave 1 이력은 `2026-07-09-ui-polish-wave1-handoff.md`.
+- **✅ Wave 0~2 승인 스코프 종료 (2026-07-10 세션5)**. 후속 진입점: W2-8 잔여 sweep(선택, 아래) 또는 Wave 3(Gate #2 통과 후). 이력: 착수 `2026-07-10-ui-polish-wave2-completion-kickoff.md`, 기술 `2026-07-10-ui-polish-wave2-handoff.md`(§6 세션5 종료 기록), Wave 1 `2026-07-09-ui-polish-wave1-handoff.md`.
 - **상태**: **Wave 0 ✅ DONE + Wave 1 여정 3모먼트 ✅ DONE (2026-07-08~09, ship)**. 플랜 승인(스코프 Wave 0~2), 결정 4건: R1=①Lucide 합성 FAB / R2=①벨 제거 / W1-14=풀 구현(front+삭제 RPC) / overlay 토큰 승인.
 - **SSoT**: `docs/superpowers/specs/2026-07-08-ui-polish-design.md` (+ audit findings). 계통 원인 C1(프리미티브 부재)·C2(상태=시스템 Alert 15파일)·C3(모션·reduce-motion 0) 근본 해결.
 - **Wave 0 ✅ 완료·ship** (28ffaaa): 프리미티브 6종(Button·Toast·ConfirmSheet·EmptyState·ScreenHeader·Spinner) + useReducedMotion·easing 헬퍼 + overlay 토큰 + messages.ts. 전부 TDD. 다중 에이전트 리뷰 11건 확정→전부 수정.
@@ -33,11 +33,12 @@
   - ✅ **W1-9 지도 탭** (1eddd99): 죽은 카드→읽기전용 상세 ConfirmSheet+카톡 공유(그룹없음, Gate #2 무접촉) + 첫로드 Skeleton + 에러 재시도·결과보존 + EmptyState + clear/returnKey + `useMapSearch.retry()`
   - ✅ **Wave 1 종료 게이트** (2a7377d): /design-check + 4렌즈 adversarial 리뷰(Workflow, 토큰·a11y·API·다크모드 — 6 raised→**4 confirmed 수정**→2 정당 rejected) + 에뮬 실기 렌더(legal L/D·terms L, redbox 0)
 - **Wave 2 🟡 13/15 진행·ship (2026-07-10 세션4 — +8 커밋, `1a103bd`~`adac285`)**: W2-4 ScreenHeader 10화면 / W2-1·2·3 셸(탭바 safe area·중앙 FAB GroupFab·다크 네비) / W2-6·7a Cell 히트맵 모션·a11y(D12 worklet diff 0) / W2-5·7b 요일 헤더·RealtimeStatus·ConfirmedTimeCard·focus refetch / W2-13 SearchField / W2-9·11·12·14·15 화면 마감 5종(병렬) / W2-10 친구(부분). 종료 게이트: 4렌즈 리뷰 confirmed 4건 수정(`adac285`).
-- **⏭️ Wave 2 잔여(2/15) → 완결 or Wave 3**: **W2-8** pressed 색전환 전면 sweep(~32 파일, 최저 우선) · **W2-10 requests** in-flight 잠금·pull-refresh·빈 CTA + search pull-refresh · **PlaceActionSheet** Modal 모션 rework(slide→medium+enter). 상세 handoff: `docs/superpowers/specs/2026-07-10-ui-polish-wave2-handoff.md`.
+- **✅ Wave 2 완결·ship (2026-07-10 세션5 — +3 커밋 `61a5c8f`·`2ed4282`·`4eaa3ac`)**: **W2-10** requests·search(in-flight 잠금·pull-refresh·빈 CTA·FriendRequestCard pending) · **PlaceActionSheet** 시트 모션 rework(slide→자체 medium+enter/exit·reduce-motion, D12 무접촉) · **W2-8** `src/design/press.ts` 헬퍼(rowPressBg/ctaPressBg) 신설 + 초기 sweep 8파일(양 버킷). 전부 TDD. 종료 게이트: full green + 자체 4렌즈 리뷰(Workflow는 spend limit로 불가). **승인 스코프(Wave 0~2) 종료.**
+- **⏭️ W2-8 잔여 sweep 후속(선택)**: press.ts 헬퍼는 확립·검증 완료. 잔여 화면 opacity→헬퍼 기계적 교체(terms·InviteCodeModal·map·requests/search 재채택·group[id]/index·midpoint·invite·ConfirmSlotSheet·FirstTimeModal·CalendarDatePicker·CourseRow·OriginInput·MapPlaceholder·profile). 제외 유지: Cell(D12)·아이콘 전용 버튼·ghost brand pill·캘린더 날짜셀·Gate #2 시트 CTA.
 - **패턴 확립**: Alert→Toast(useToast, 성공/안내) · Alert 확인→ConfirmSheet · raw e.message→mapError · 에러 위장→EmptyState error variant · 로딩→Spinner/Skeleton. 스크린 테스트는 SafeAreaProvider+ThemeProvider+ToastProvider 래퍼 필요.
 - **불가침**: D12 worklet diff 0 · Phase 3 코드 0 · DESIGN 토큰 외 시각 결정 0 · Gate #1·#2 로깅 1회성 불변.
-- **상태**: Jest **1177 pass / 1 skip** / tsc 0 / eslint 0 / design-guard clean / Deno 에지 8/8. branch `feat/map-maphost-m0` **push 완료**(origin 추적, `19b049b`, 세션4 +9 커밋). 로컬 deno=`/c/Users/skaeh/.deno/bin/deno.exe`(PATH 밖).
-- **마지막 update**: 2026-07-10 (세션 4 — Wave 2 13/15)
+- **상태**: Jest **1198 pass / 1 skip** / tsc 0 / eslint 0 / design-guard clean / Deno 에지 8/8. branch `feat/map-maphost-m0` **push 완료**(origin 추적, 세션5 +3 커밋 `61a5c8f`·`2ed4282`·`4eaa3ac`). 로컬 deno=`/c/Users/skaeh/.deno/bin/deno.exe`(PATH 밖).
+- **마지막 update**: 2026-07-10 (세션 5 — Wave 2 완결 15/15, W2-8 잔여 sweep은 후속)
 
 ### S16 Phase b — KakaoLocalProvider (Q-A2 허용 → D37)
 

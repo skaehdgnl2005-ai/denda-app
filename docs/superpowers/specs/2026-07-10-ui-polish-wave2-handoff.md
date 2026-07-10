@@ -82,3 +82,26 @@
 - **D12** 시간 그리드 sweep worklet 경로 diff 0(히트맵 시각 레이어만). 회귀 가드 `tests/regression/`.
 - **Phase 3 코드 0** · **Gate #1·#2 로깅 1회성 불변** · **DESIGN 토큰 외 시각 결정 0** · **한국어 UI only · KST(luxon, new Date() 금지; Date.now() 스로틀은 허용)**.
 - group 상세 pull-to-refresh는 드래그 그리드 60fps 보호 위해 focus-refetch로 대체(pull은 별도 run-denda 검증 후 도입).
+
+---
+
+## 6. ✅ 세션5 종료 기록 (2026-07-10) — Wave 2 완결
+
+세션4 잔여 2건 + 시트 모션 + W2-8 헬퍼를 TDD로 완결. **승인 스코프(Wave 0~2) 종료.** 3 커밋(`61a5c8f`·`2ed4282`·`4eaa3ac`).
+
+- **W2-10** (`61a5c8f`): FriendRequestCard `pending` prop(§17.5 surface-2+text-tertiary 회색+onPress 차단) / requests.tsx `pendingRef`(동기 더블탭)+`pendingIds`(시각) 가드 5핸들러, `loadData`(무-스켈레톤 refetch) 분리, 두 FlatList RefreshControl, 빈 CTA(친구 검색하기·모임 만들기) / search.tsx 결과 pull-to-refresh(별도 refreshing). testID 보존.
+- **PlaceActionSheet 시트 모션** (`2ed4282`): Modal `animationType` slide→none, RN Animated 자체 슬라이드 up(medium+enter)·backdrop 페이드·exit 후 언마운트(`rendered` 상태)·reduce-motion 즉시. **ConfirmSheet 선례 미러** — enter+exit 추가가 차이. Gate #2 로깅·lockRef·CTA56·scrim·grabber·radius-2xl 불변. **RN Animated=Reanimated 워클릿 아님 → D12 무접촉.**
+- **W2-8** (`4eaa3ac`): `src/design/press.ts` 신설 — `rowPressBg(pressed,colors,base='transparent')→surface[3]` · `ctaPressBg(pressed,colors)→brand[600]↔500`. light/dark 계약 7 tests. 초기 sweep 8파일(양 버킷). opacity 딤→§9.1 색전환.
+
+### 검증
+- Jest **1198 pass / 1 skip**(신규 21), tsc 0, eslint 0, design-guard clean(13 파일), D12 회귀 가드 green.
+- **자체 4렌즈 리뷰**(Workflow는 월 spend limit로 전량 실패 → 메인 루프 수행: 토큰·a11y·API·다크) — confirmed 0.
+- /run-denda 실기 = post-login keyhash env-blocked → **bundle-level(tsc+test) 인정**(디바이스 런=사용자 트랙).
+
+### ⏭️ W2-8 잔여 sweep (기계적 후속, 계약 고정)
+press.ts 헬퍼는 확립·검증 완료. 잔여 화면의 인라인 `opacity: pressed` → `rowPressBg`/`ctaPressBg` 교체만 남음. 대상: **terms·InviteCodeModal·map·requests/search 재채택·group[id]/index·midpoint·invite·ConfirmSlotSheet·FirstTimeModal·CalendarDatePicker·CourseRow·OriginInput·MapPlaceholder·profile.** 규칙: brand[500] bg→ctaPressBg / surface-N 행·카드→rowPressBg(base 넘김) / disabled·busy 분기 보존.
+**제외(후속 아님, 의도적)**: Cell.tsx(60fps/D12)·아이콘 전용 버튼(opacity 0.5/0.6 유지)·ghost brand pill(brand-50 base)·캘린더 날짜셀(stateful bg)·Gate #2 PlaceActionSheet CTA(리스크 회피).
+
+### 세션5 특이사항 (인수인계)
+- **spend limit**: 월 spend limit로 서브에이전트 전량 실패(sweep 6/6, 리뷰 Workflow). sweep·리뷰는 **메인 루프에서 직접** 수행. 다음 세션도 서브에이전트 불가 가능성 → 직접 수행 대비.
+- sweep 에이전트가 죽기 전 place-search·HostConfirmButton은 완결(검수 후 채택), everytime·ReauthModal은 import만 추가→메인 루프에서 마감.
