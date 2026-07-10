@@ -34,7 +34,8 @@ STATUS는 다음 중 하나:
   - `4eaa3ac` **W2-8** `src/design/press.ts` 순수 헬퍼 신설(rowPressBg→surface[3]/ctaPressBg→brand[600]↔500, light/dark 계약 7 tests) + 초기 sweep 8파일(양 버킷: brand CTA→ctaPressBg = HostConfirmButton·everytime·onboarding·홈·friends/index·group-new / 행·카드→rowPressBg = place-search·everytime·ReauthModal). opacity 딤→§9.1 색전환.
 - Tests: Jest **1198 pass / 1 skip** (baseline 1177 + 신규 21: FriendRequestCard 3·requests 6·search 1·PlaceActionSheet 4·press 7), tsc 0, eslint 0, design-guard clean(13 파일), D12 회귀 가드 green.
 - Verify: full suite green + tsc/eslint/design-guard + **자체 4렌즈 리뷰**(Workflow는 월 spend limit로 불가 → 메인 루프에서 토큰·a11y·API·다크 4렌즈 수행, confirmed 0). /run-denda 실기=post-login keyhash env-blocked → bundle-level(tsc+test) 인정(디바이스 런=사용자 트랙).
-- Next: **W2-8 잔여 sweep 후속** — terms·InviteCodeModal·map·requests/search 재채택·group[id]/index·midpoint·invite·ConfirmSlotSheet·FirstTimeModal·CalendarDatePicker·CourseRow·OriginInput·MapPlaceholder·profile. 제외 유지(후속 아님): Cell(D12)·아이콘 전용 버튼(opacity)·ghost brand pill·캘린더 날짜셀·Gate #2 PlaceActionSheet CTA.
+- **W2-8 잔여 sweep 완료** (`51d372d`, 세션5 후반 — spend limit 해제 후): 잔여 12 화면/컴포넌트 opacity→press 헬퍼 전면 채택(서브에이전트 5 Sonnet 병렬 → 중앙 재검증 full green). 의도적 제외: Cell(D12)·아이콘 전용 버튼·ghost brand pill·캘린더 날짜셀·stateful 선택 행·profile SettingRow·Gate #2 시트 CTA. → **W2-8·Wave 2 완전 종결.**
+- Next: Wave 3(Gate #2 ≥25% 통과 후) 또는 운영 트랙(naver_local_search 배포·네이버 Map Client ID).
 - Notes: 세션5는 spend limit로 서브에이전트(sweep·리뷰 Workflow) 전량 실패 → 메인 루프에서 직접 수행. W2-8 헬퍼는 확립·검증 완료, 잔여 sweep은 기계적 후속(계약 고정). D12 worklet·Gate #1/#2 로깅·Phase 3 경계·DESIGN 토큰 불가침 전부 준수. branch push 유지.
 
 ## UI-W2 — Wave 2 셸·그리드 시각·화면 마감 (2026-07-10, 세션4) — PARTIAL (13/15)

@@ -98,9 +98,11 @@
 - **자체 4렌즈 리뷰**(Workflow는 월 spend limit로 전량 실패 → 메인 루프 수행: 토큰·a11y·API·다크) — confirmed 0.
 - /run-denda 실기 = post-login keyhash env-blocked → **bundle-level(tsc+test) 인정**(디바이스 런=사용자 트랙).
 
-### ⏭️ W2-8 잔여 sweep (기계적 후속, 계약 고정)
-press.ts 헬퍼는 확립·검증 완료. 잔여 화면의 인라인 `opacity: pressed` → `rowPressBg`/`ctaPressBg` 교체만 남음. 대상: **terms·InviteCodeModal·map·requests/search 재채택·group[id]/index·midpoint·invite·ConfirmSlotSheet·FirstTimeModal·CalendarDatePicker·CourseRow·OriginInput·MapPlaceholder·profile.** 규칙: brand[500] bg→ctaPressBg / surface-N 행·카드→rowPressBg(base 넘김) / disabled·busy 분기 보존.
-**제외(후속 아님, 의도적)**: Cell.tsx(60fps/D12)·아이콘 전용 버튼(opacity 0.5/0.6 유지)·ghost brand pill(brand-50 base)·캘린더 날짜셀(stateful bg)·Gate #2 PlaceActionSheet CTA(리스크 회피).
+### ✅ W2-8 잔여 sweep 완료 (`51d372d`, 세션5 후반)
+spend limit 해제 후 서브에이전트 **5개(Sonnet) 병렬** sweep → 중앙 재검증(eslint --fix + tsc 0 + full test 1198 pass + design-guard clean). 잔여 12 화면/컴포넌트 채택: **terms·map·group[id]/index·midpoint·invite·requests·search·InviteCodeModal·ConfirmSlotSheet·FirstTimeModal·OriginInput·MapPlaceholder.** group[id]/index는 Gate #1 로직 무접촉(style만) 확인. → **W2-8 종결.**
+**의도적 제외(후속 아님)**: Cell.tsx(60fps/D12)·아이콘 전용 버튼(opacity 0.5/0.6 유지)·ghost brand pill(brand-50 base)·캘린더 날짜셀(stateful bg)·stateful 선택 행(invite friend row)·profile SettingRow(구조 변경 필요)·Gate #2 PlaceActionSheet CTA(리스크 회피)·이미 색전환 구현된 곳.
+
+**교훈**: 대량 mechanical sweep은 Sonnet 서브에이전트가 비용·정확도 균형 좋음(Opus 대비 spend limit 안전). 규칙에 **제외 목록을 명시**하면 에이전트가 ghost pill·stateful bg를 정확히 걸러냄.
 
 ### 세션5 특이사항 (인수인계)
 - **spend limit**: 월 spend limit로 서브에이전트 전량 실패(sweep 6/6, 리뷰 Workflow). sweep·리뷰는 **메인 루프에서 직접** 수행. 다음 세션도 서브에이전트 불가 가능성 → 직접 수행 대비.
