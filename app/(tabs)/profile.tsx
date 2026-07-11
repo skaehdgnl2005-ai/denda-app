@@ -147,7 +147,7 @@ export default function ProfileScreen() {
           <Title level="h3" color={colors.text.primary}>
             {nickname || '게스트'}
           </Title>
-          <Caption variant="default" color={colors.text.tertiary} style={{ marginTop: 4 }}>
+          <Caption variant="default" color={colors.text.tertiary} style={{ marginTop: space[1] }}>
             카카오 로그인
           </Caption>
         </View>

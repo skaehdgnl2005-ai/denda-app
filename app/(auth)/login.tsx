@@ -76,8 +76,6 @@ export default function LoginScreen() {
               style={{
                 marginTop: space[5],
                 textAlign: 'center',
-                fontSize: 17,
-                lineHeight: 26,
               }}
             >
               친구와 시간·장소·예약,{'\n'}한 번에 정해요
@@ -131,7 +129,7 @@ export default function LoginScreen() {
                 <Caption
                   variant="micro"
                   color={colors.text.tertiary}
-                  style={{ marginTop: 2, textAlign: 'center' }}
+                  style={{ marginTop: space['0.5'], textAlign: 'center' }}
                 >
                   {p.body}
                 </Caption>
@@ -180,7 +178,7 @@ export default function LoginScreen() {
           <Caption
             variant="default"
             color={colors.text.tertiary}
-            style={{ textAlign: 'center', marginTop: space[3], lineHeight: 18 }}
+            style={{ textAlign: 'center', marginTop: space[3] }}
           >
             계속하면 이용약관과 개인정보 처리방침에{'\n'}동의하는 것으로 간주합니다.
           </Caption>

@@ -265,7 +265,8 @@ function TableRow({
           paddingVertical: space[3],
           borderBottomWidth: isLast ? 0 : 1,
           borderBottomColor: colors.border.subtle,
-          backgroundColor: isHeader ? colors.surface[1] : 'transparent',
+          // 헤더 행은 surface-2로 본문 행과 구분 (surface-1은 배경과 동일해 헤더가 안 보임) — W3-4.
+          backgroundColor: isHeader ? colors.surface[2] : 'transparent',
         },
       ]}
     >

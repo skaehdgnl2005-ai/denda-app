@@ -169,7 +169,11 @@ export const ConfirmSlotSheet: React.FC<ConfirmSlotSheetProps> = ({
                           {timeLabel}
                         </Body>
                       </View>
-                      <Caption color={colors.text.tertiary} tabularNums style={{ marginTop: 2 }}>
+                      <Caption
+                        color={colors.text.tertiary}
+                        tabularNums
+                        style={{ marginTop: space['0.5'] }}
+                      >
                         {rec.count}명 가능
                       </Caption>
                     </View>

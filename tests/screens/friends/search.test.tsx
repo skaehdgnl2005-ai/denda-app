@@ -100,6 +100,23 @@ describe('FriendsSearchScreen Screen', () => {
     expect(reqButton.props.accessibilityState.disabled).toBe(true);
   });
 
+  // W3-3: 친구 요청 버튼(패딩 8+8 + 라벨 20 ≈ 36pt)은 hitSlop 없이 44pt 미달 → hitSlop 보정.
+  test('W3-3 — 친구 요청 버튼 hitSlop이 44pt 터치 타깃 확보 (DESIGN §12.1)', async () => {
+    jest.spyOn(friendsApi, 'search').mockResolvedValueOnce([{ id: 'user-10', nickname: '김하늘' }]);
+    const { getByTestId, getByText } = render(<FriendsSearchScreen />, { wrapper });
+    fireEvent.changeText(getByTestId('search-input-field'), '김하늘');
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+    await waitFor(() => {
+      expect(getByText('김하늘')).toBeTruthy();
+    });
+    const btn = getByTestId('send-request-button');
+    const hs = btn.props.hitSlop;
+    expect(hs).toBeDefined();
+    expect(36 + hs.top + hs.bottom).toBeGreaterThanOrEqual(44);
+  });
+
   test('W2-10 — 응답 전 더블탭은 sendRequest를 1번만 호출(in-flight 잠금)', async () => {
     jest.spyOn(friendsApi, 'search').mockResolvedValueOnce([{ id: 'user-10', nickname: '김하늘' }]);
     let resolveSend: () => void = () => {};

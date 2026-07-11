@@ -72,6 +72,16 @@ describe('HomeScreen', () => {
     expect(mockPush).toHaveBeenCalledWith('/schedule/map');
   });
 
+  // W3-3: "지도로 보기" 진입은 캡션 1줄(~18pt)이라 hitSlop 없이는 44pt 미달 → hitSlop 보정.
+  test('W3-3 — "지도로 보기" hitSlop이 44pt 터치 타깃 확보 (DESIGN §12.1)', async () => {
+    mockFetchMyGroups.mockResolvedValue([]);
+    const { findByTestId } = render(<HomeScreen />, { wrapper });
+    const btn = await findByTestId('schedule-map-entry');
+    const hs = btn.props.hitSlop;
+    expect(hs).toBeDefined();
+    expect(18 + hs.top + hs.bottom).toBeGreaterThanOrEqual(44);
+  });
+
   // R2: 알림 벨 제거 — 죽은 'notifications-button'이 더 이상 없어야 한다.
   test('알림 벨 제거 (notifications-button 부재)', async () => {
     mockFetchMyGroups.mockResolvedValue([]);

@@ -13,6 +13,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { Icon } from '@/components/Icon';
 import { Skeleton } from '@/components/Skeleton';
 import { BrandMark } from '@/components/brand/BrandMark';
+import { onBrandVeil } from '@/design/onBrand';
 import { ctaPressBg } from '@/design/press';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
@@ -122,21 +123,17 @@ export default function HomeScreen() {
             <View style={{ flex: 1 }}>
               <Caption
                 variant="default"
-                color="rgba(255,255,255,0.72)"
+                color={onBrandVeil(colors, 0.72)}
                 style={{ marginBottom: space[1] }}
               >
                 바로 시작하기
               </Caption>
-              <Body
-                variant="bold"
-                color={colors.text['on-brand']}
-                style={{ fontSize: 20, lineHeight: 28, letterSpacing: -0.5 }}
-              >
+              <Title level="h2" color={colors.text['on-brand']}>
                 새 모임 만들기
-              </Body>
+              </Title>
               <Caption
                 variant="default"
-                color="rgba(255,255,255,0.84)"
+                color={onBrandVeil(colors, 0.84)}
                 style={{ marginTop: space[2] }}
               >
                 시간 · 장소 · 예약을 한 번에
@@ -147,7 +144,7 @@ export default function HomeScreen() {
                 width: 44,
                 height: 44,
                 borderRadius: radius.full,
-                backgroundColor: 'rgba(255,255,255,0.18)',
+                backgroundColor: onBrandVeil(colors, 0.18),
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
@@ -167,7 +164,7 @@ export default function HomeScreen() {
             justifyContent: 'space-between',
           }}
         >
-          <Title level="h3" color={colors.text.primary} style={{ letterSpacing: -0.4 }}>
+          <Title level="h3" color={colors.text.primary}>
             다가오는 모임
           </Title>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
@@ -195,7 +192,8 @@ export default function HomeScreen() {
               onPress={() => router.push('/schedule/map')}
               accessibilityRole="button"
               accessibilityLabel="지도로 일정 보기"
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              // 캡션 1줄(~18pt) → 44pt 터치 타깃 위해 상하 hitSlop 확장 (W3-3, §12.1)
+              hitSlop={{ top: 14, bottom: 14, left: 8, right: 8 }}
               testID="schedule-map-entry"
               style={({ pressed }) => [
                 { flexDirection: 'row', alignItems: 'center', opacity: pressed ? 0.6 : 1 },
@@ -344,7 +342,7 @@ export default function HomeScreen() {
               <Caption
                 variant="default"
                 color={colors.text.tertiary}
-                style={{ textAlign: 'center', lineHeight: 18 }}
+                style={{ textAlign: 'center' }}
               >
                 첫 모임을 만들어볼까요?
               </Caption>
@@ -405,7 +403,7 @@ function StatChip({
         paddingVertical: space[3],
       }}
     >
-      <Caption variant="micro" color={colors.text.tertiary} style={{ marginBottom: 2 }}>
+      <Caption variant="micro" color={colors.text.tertiary} style={{ marginBottom: space['0.5'] }}>
         {label}
       </Caption>
       {/* baseline 정렬 보정 — tabular-nums + 같은 line-height */}

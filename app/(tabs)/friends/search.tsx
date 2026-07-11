@@ -134,6 +134,8 @@ export default function FriendsSearchScreen() {
           disabled={isSent}
           accessibilityRole="button"
           accessibilityLabel={isSent ? '친구 요청 보냄' : `${item.nickname}님께 친구 요청 보내기`}
+          // 버튼 시각 높이 ~36pt → 44pt 터치 타깃 위해 hitSlop 보정 (W3-3, §12.1)
+          hitSlop={{ top: 6, bottom: 6, left: 8, right: 8 }}
           style={({ pressed }) => [
             styles.requestButton,
             {
@@ -254,7 +256,11 @@ export default function FriendsSearchScreen() {
           <Body variant="bold" color={colors.text.primary}>
             카톡으로 친구 초대
           </Body>
-          <Caption variant="default" color={colors.text.tertiary} style={{ marginTop: 2 }}>
+          <Caption
+            variant="default"
+            color={colors.text.tertiary}
+            style={{ marginTop: space['0.5'] }}
+          >
             카카오톡 친구에게 초대 링크를 보내요.
           </Caption>
         </View>

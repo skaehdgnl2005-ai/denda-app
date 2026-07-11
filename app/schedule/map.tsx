@@ -311,7 +311,11 @@ function renderBody(args: BodyArgs): React.JSX.Element {
             <Body variant="bold" color={colors.text.primary}>
               {p.groupName}
             </Body>
-            <Caption variant="default" color={colors.text.tertiary} style={{ marginTop: 2 }}>
+            <Caption
+              variant="default"
+              color={colors.text.tertiary}
+              style={{ marginTop: space['0.5'] }}
+            >
               {p.placeName}
             </Caption>
             <Caption

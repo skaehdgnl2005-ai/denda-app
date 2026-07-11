@@ -117,7 +117,7 @@ export const FriendRequestCard: React.FC<FriendRequestCardProps> = ({
           <Body variant="bold" color={colors.text.primary}>
             {nickname}
           </Body>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: space['0.5'] }}>
             <Caption variant="micro" color={colors.text.tertiary}>
               요청 ·{' '}
             </Caption>
@@ -136,7 +136,7 @@ export const FriendRequestCard: React.FC<FriendRequestCardProps> = ({
                 backgroundColor: colors.brand[100],
                 borderRadius: radius.pill,
                 paddingHorizontal: space[3],
-                paddingVertical: 5,
+                paddingVertical: space[1],
               },
             ]}
           >
@@ -144,7 +144,7 @@ export const FriendRequestCard: React.FC<FriendRequestCardProps> = ({
             <Caption
               variant="micro"
               color={colors.brand[700]}
-              style={{ marginLeft: 4, fontWeight: '700' }}
+              style={{ marginLeft: space[1], fontWeight: '700' }}
             >
               응답 대기
             </Caption>

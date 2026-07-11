@@ -379,7 +379,7 @@ export default function GroupConfirmScreen(): React.JSX.Element {
           paddingBottom: space[2],
         }}
       >
-        <Caption color={colors.text.tertiary}>
+        <Caption color={colors.text.tertiary} tabularNums>
           멤버 {group.memberCount}명 · {group.dates.length}일 후보
         </Caption>
       </View>
