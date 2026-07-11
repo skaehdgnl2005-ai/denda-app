@@ -11,12 +11,12 @@
 import { StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@/design/theme';
-import { Caption } from '@/design/typography';
+import { Title } from '@/design/typography';
 import type { MapMarker } from '@/lib/map/mapScene';
 import { markerVisual } from '@/lib/map/markerStyle';
 
-/** 비강조 기준 지름(pt). 제휴(emphasized)는 markerVisual.sizeScale(1.4×)로 확대. */
-const BASE_DIAMETER = 28;
+/** 비강조 기준 지름(pt) — §10.5 order 배지 32pt. 제휴(emphasized)는 sizeScale(1.4×)로 확대. */
+const BASE_DIAMETER = 32;
 
 interface MapMarkerViewProps {
   marker: MapMarker;
@@ -48,9 +48,10 @@ export function MapMarkerView({ marker }: MapMarkerViewProps): React.JSX.Element
       ]}
     >
       {showNumber ? (
-        <Caption variant="micro" color={colors.text['on-brand']}>
+        // §10.5 order 숫자 = title-3 weight 700, tabular-nums (배지 정렬)
+        <Title level="h3" color={colors.text['on-brand']} tabularNums style={styles.orderNumber}>
           {String(marker.order)}
-        </Caption>
+        </Title>
       ) : null}
     </View>
   );
@@ -61,5 +62,12 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // §10.5 order 배지 숫자 — title-3 weight 700, 원 안 중앙 정렬 (Android 폰트 패딩 제거)
+  orderNumber: {
+    fontWeight: '700',
+    lineHeight: 20,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
 });

@@ -57,7 +57,14 @@ export default function NaverMapScene({
             longitude={m.coord.lng}
             anchor={{ x: 0.5, y: 0.5 }}
             caption={
-              showCaption ? { text: m.label as string, color: colors.text.primary } : undefined
+              showCaption
+                ? {
+                    text: m.label as string,
+                    color: colors.text.primary,
+                    // 지도 타일 위 가독성 — surface-0 외곽선 halo (라이트 흰/다크 근검정) (W3-4).
+                    haloColor: colors.surface[0],
+                  }
+                : undefined
             }
             onTap={actionId !== undefined ? () => onMarkerPress?.(actionId) : undefined}
           >

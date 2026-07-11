@@ -44,6 +44,27 @@ describe('MapMarkerView — 보라톤 커스텀 마커 (D40, PNG 래스터 대�
     expect(getByText('2')).toBeTruthy();
   });
 
+  it('W3-6 — 비강조 마커 기준 지름 32pt (§10.5 order 배지 diameter)', () => {
+    const { getByTestId } = render(
+      <MapMarkerView marker={marker({ kind: 'order', order: 1, label: '1' })} />,
+      { wrapper: ThemeProvider },
+    );
+    const s = flatStyle(getByTestId('map-marker-view'));
+    expect(s.width).toBe(32);
+    expect(s.height).toBe(32);
+  });
+
+  it('W3-6 — order 숫자 = title-3(18) weight 700 + tabular-nums (§10.5)', () => {
+    const { getByText } = render(
+      <MapMarkerView marker={marker({ kind: 'order', order: 2, label: '2' })} />,
+      { wrapper: ThemeProvider },
+    );
+    const s = flatStyle(getByText('2'));
+    expect(s.fontSize).toBe(18);
+    expect(s.fontWeight).toBe('700');
+    expect(s.fontVariant).toContain('tabular-nums');
+  });
+
   it('place 마커 → 마커 안에 텍스트 없음 (장소명은 caption으로 지도에 표시)', () => {
     const { queryByText } = render(<MapMarkerView marker={marker({ label: '한솥' })} />, {
       wrapper: ThemeProvider,
