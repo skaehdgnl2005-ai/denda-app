@@ -6,6 +6,7 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTheme } from '@/design/theme';
+import { useReducedMotion } from '@/lib/motion/useReducedMotion';
 
 const PATTERN: number[][] = [
   // 4 rows × 7 cols. 값 0~4가 heat ramp 인덱스
@@ -30,14 +31,15 @@ export const MiniTimeGrid: React.FC<MiniTimeGridProps> = ({
   testID,
 }) => {
   const { colors, radius } = useTheme();
+  const reduced = useReducedMotion();
   const cols = PATTERN[0]!.length;
   // 초기는 cols(다 채움) — 첫 frame이 의미 있게 보임.
   // animated=true면 짧은 delay 후 sweep cycle 시작.
   const [sweep, setSweep] = useState(cols);
 
   useEffect(() => {
-    if (!animated) {
-      // animated false 토글 시 sweep state를 cols로 reset — prop 변화 응답
+    if (!animated || reduced) {
+      // animated false 또는 모션 감소(§6.4) → 무한 sweep 미실행, 가득 찬 정적 그리드로 고정.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSweep(cols);
       return;
@@ -65,7 +67,7 @@ export const MiniTimeGrid: React.FC<MiniTimeGridProps> = ({
       timer = setTimeout(tick, step);
     }, initialHold);
     return () => clearTimeout(timer);
-  }, [animated, cols]);
+  }, [animated, cols, reduced]);
 
   return (
     <View style={styles.container} testID={testID ?? 'mini-time-grid'}>

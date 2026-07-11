@@ -2,12 +2,14 @@
 // 칩 나열 대신 실제 달력 그리드 — 사용자가 요일·주 구조를 보고 고른다.
 // §17.1/D5: 선택(보라 fill)은 "확정 의도" = 의미 있는 보라. 장식 아님.
 // KST(monthMatrix, luxon) · 한국어 only · 토큰만 사용 (hex 금지).
-import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
 
 import { Icon } from '@/components/Icon';
 import { useTheme } from '@/design/theme';
 import { Body, Caption } from '@/design/typography';
+import { motionEasing } from '@/lib/motion/easing';
+import { useReducedMotion } from '@/lib/motion/useReducedMotion';
 import {
   buildMonthMatrix,
   monthTitle,
@@ -41,10 +43,33 @@ export const CalendarDatePicker: React.FC<CalendarDatePickerProps> = ({
   monthsAhead = 3,
   testID,
 }) => {
-  const { colors, space, radius } = useTheme();
+  const { colors, space, radius, duration } = useTheme();
+  const reduced = useReducedMotion();
   const [anchorIso, setAnchorIso] = useState(todayIso);
 
   const weeks = useMemo(() => buildMonthMatrix(anchorIso), [anchorIso]);
+
+  // 월 전환 시 그리드 fade-in (§6.5). 월 변경(setAnchorIso)은 동기 유지 → 타이틀 즉시 갱신,
+  // 새 달 그리드만 opacity 0→1로 부드럽게. reduce-motion=정적(§6.4).
+  const [gridFade] = useState(() => new Animated.Value(1));
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
+    if (reduced) {
+      gridFade.setValue(1);
+      return;
+    }
+    gridFade.setValue(0);
+    Animated.timing(gridFade, {
+      toValue: 1,
+      duration: duration.short,
+      easing: motionEasing.enter,
+      useNativeDriver: true,
+    }).start();
+  }, [anchorIso, reduced, gridFade, duration.short]);
 
   const todayFirst = shiftMonth(todayIso, 0);
   const maxFirst = shiftMonth(todayIso, monthsAhead);
@@ -182,12 +207,14 @@ export const CalendarDatePicker: React.FC<CalendarDatePickerProps> = ({
         ))}
       </View>
 
-      {/* 주 단위 그리드 */}
-      {weeks.map((week, wi) => (
-        <View key={`week-${wi}`} style={styles.weekRow}>
-          {week.map(renderCell)}
-        </View>
-      ))}
+      {/* 주 단위 그리드 — 월 전환 fade */}
+      <Animated.View style={{ opacity: gridFade }}>
+        {weeks.map((week, wi) => (
+          <View key={`week-${wi}`} style={styles.weekRow}>
+            {week.map(renderCell)}
+          </View>
+        ))}
+      </Animated.View>
 
       {/* 힌트 */}
       <Caption
@@ -223,7 +250,8 @@ const styles = StyleSheet.create({
   weekdayHead: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 6,
+    // 4pt 그리드 정합 (6→8, W3-2). StyleSheet은 hook 미접근 → 그리드 정수 유지.
+    paddingVertical: 8,
   },
   cell: {
     flex: 1,

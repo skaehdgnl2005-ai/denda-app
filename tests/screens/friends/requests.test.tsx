@@ -104,6 +104,19 @@ describe('FriendsRequestsScreen Screen', () => {
     expect(cards.length).toBe(2);
   });
 
+  // W3-5: 3개 조건부 밑줄 → 단일 슬라이딩 인디케이터(translateX). 레이아웃(폭) 측정 후 렌더.
+  test('W3-5 — 탭바 레이아웃 후 단일 슬라이딩 인디케이터가 렌더된다', async () => {
+    const { getByTestId, queryByTestId } = render(<FriendsRequestsScreen />, { wrapper });
+    await waitFor(() => expect(getByTestId('requests-tabbar')).toBeTruthy());
+    expect(queryByTestId('tab-indicator')).toBeNull(); // 폭 측정 전
+    await act(async () => {
+      fireEvent(getByTestId('requests-tabbar'), 'layout', {
+        nativeEvent: { layout: { width: 300, height: 44, x: 0, y: 0 } },
+      });
+    });
+    expect(getByTestId('tab-indicator')).toBeTruthy(); // 단일 인디케이터
+  });
+
   test('switches tab to outgoing requests and displays them', async () => {
     const { getByText, getByTestId, getAllByTestId } = render(<FriendsRequestsScreen />, {
       wrapper,

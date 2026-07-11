@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { Animated, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/design/theme';
 import { rowPressBg, ctaPressBg } from '@/design/press';
+import { motionEasing } from '@/lib/motion/easing';
+import { useReducedMotion } from '@/lib/motion/useReducedMotion';
 import { Body, Caption, Title } from '@/design/typography';
 import { Icon } from '@/components/Icon';
 import { ScreenHeader } from '@/components/ScreenHeader';
@@ -17,10 +19,13 @@ import { mapError, messages } from '@/lib/i18n/messages';
 
 type RequestTab = 'incoming' | 'outgoing' | 'invitations';
 
+const TAB_ORDER: RequestTab[] = ['incoming', 'outgoing', 'invitations'];
+
 export default function FriendsRequestsScreen() {
-  const { colors, space, radius } = useTheme();
+  const { colors, space, radius, duration } = useTheme();
   const router = useRouter();
   const toast = useToast();
+  const reduced = useReducedMotion();
 
   const [activeTab, setActiveTab] = useState<RequestTab>('incoming');
   const [requests, setRequests] = useState<FriendRequest[]>([]);
@@ -28,6 +33,25 @@ export default function FriendsRequestsScreen() {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<boolean>(false);
+
+  // W3-5 탭 인디케이터 — 단일 밑줄이 활성 탭으로 translateX 슬라이드(§6.5, reduce-motion=스냅).
+  const [tabBarWidth, setTabBarWidth] = useState(0);
+  const [indicatorX] = useState(() => new Animated.Value(0));
+  const activeIndex = TAB_ORDER.indexOf(activeTab);
+  const tabWidth = tabBarWidth / TAB_ORDER.length;
+  useEffect(() => {
+    const to = activeIndex * tabWidth;
+    if (reduced || tabBarWidth === 0) {
+      indicatorX.setValue(to);
+      return;
+    }
+    Animated.timing(indicatorX, {
+      toValue: to,
+      duration: duration.short,
+      easing: motionEasing.standard,
+      useNativeDriver: true,
+    }).start();
+  }, [activeIndex, tabWidth, reduced, tabBarWidth, indicatorX, duration.short]);
 
   // W2-10 in-flight 잠금 — 요청/초대 id별 액션 진행 표시.
   //   pendingRef: 같은 tick 더블탭 즉시 차단(동기). pendingIds: 카드 회색 비활성 시각(리렌더).
@@ -334,6 +358,8 @@ export default function FriendsRequestsScreen() {
 
       {/* Tabs */}
       <View
+        testID="requests-tabbar"
+        onLayout={(e) => setTabBarWidth(e.nativeEvent.layout.width)}
         style={[
           styles.tabContainer,
           {
@@ -357,9 +383,6 @@ export default function FriendsRequestsScreen() {
           >
             받은 요청
           </Body>
-          {activeTab === 'incoming' && (
-            <View style={[styles.tabIndicator, { backgroundColor: colors.brand[500] }]} />
-          )}
         </Pressable>
 
         <Pressable
@@ -377,9 +400,6 @@ export default function FriendsRequestsScreen() {
           >
             보낸 요청
           </Body>
-          {activeTab === 'outgoing' && (
-            <View style={[styles.tabIndicator, { backgroundColor: colors.brand[500] }]} />
-          )}
         </Pressable>
 
         <Pressable
@@ -397,10 +417,22 @@ export default function FriendsRequestsScreen() {
           >
             모임 초대
           </Body>
-          {activeTab === 'invitations' && (
-            <View style={[styles.tabIndicator, { backgroundColor: colors.brand[500] }]} />
-          )}
         </Pressable>
+
+        {/* 단일 슬라이딩 인디케이터 — 활성 탭 아래로 translateX (W3-5) */}
+        {tabBarWidth > 0 ? (
+          <Animated.View
+            testID="tab-indicator"
+            style={[
+              styles.tabIndicator,
+              {
+                width: tabWidth,
+                backgroundColor: colors.brand[500],
+                transform: [{ translateX: indicatorX }],
+              },
+            ]}
+          />
+        ) : null}
       </View>
 
       {/* List — 첫 로딩=Skeleton, 로드 실패=EmptyState error(빈 상태 위장 아님) */}
@@ -502,7 +534,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     left: 0,
-    right: 0,
     height: 2,
   },
   listContent: {
