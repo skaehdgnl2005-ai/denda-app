@@ -25,6 +25,18 @@ STATUS는 다음 중 하나:
 
 ---
 
+## UI-W3 — Wave 3 (P2 디테일) 완결 (2026-07-11, 세션6) — DONE
+- Depends: UI-W0~W2b(승인 스코프 종료), 스펙 `2026-07-08-ui-polish-design.md` §6(W3-1~6) + kickoff `2026-07-10-ui-polish-wave3-kickoff.md`, DESIGN §2.2·§4·§6·§10.5·§12
+- 배경: Wave 3 = "시간 허용 시" P2 디테일(승인 스코프는 Wave 0~2였음). 사용자 우선순위 확인(step 0) → **Wave 3 P2 착수** 선택. 각 항목 TDD(RED→GREEN), 화면군 단위 커밋. step-0 grep로 W3-4 ConfirmedTimeCard(W2-7 선반영)·MapHost(S-MAP M0 도입) 등 잔여만 선별.
+- Changes (3 커밋, branch feat/map-maphost-m0 연속):
+  - `d8f6a33` **프리미티브** — typography `display` level(32/40/700 §2.2) / `onBrandVeil` 헬퍼 신설(on-brand 토큰 기반 rgba veil, 라이트 흰·다크 근검정 — 흰색 하드코딩이 다크 brand fill 위 대비 무너뜨리는 문제 해소) / HeatRampRow heat-0 hairline(border-subtle, 흰 배경 비가시 방지 §4.3) / NaverMapScene 마커 caption haloColor / MapMarkerView BASE 28→32(§10.5)+order 숫자 Title h3/700/tabular
+  - `8b3874b` **화면 적용** — W3-1 온보딩 display·홈 hero Body오버라이드→Title h2·login/home 임의 오버라이드 제거 / W3-2 inline 간격 리터럴→space[N]·off-grid 5→space[1] / W3-3 schedule-map-entry·send-request-button hitSlop 44pt(§12.1)+멤버수 tabular / W3-4 홈 hero 흰색 rgba 3곳→onBrandVeil·privacy 헤더 surface-1→2
+  - `f81daf3` **모션(W3-5)** — MiniTimeGrid reduce-motion 게이트(sweep 타이머 미예약) / 온보딩 Dot width Animated + SlideVisual 슬라이드3 확정 모먼트(scale-in emphasized §6.5) / CalendarDatePicker 월 전환 fade(월 변경 동기 유지) / requests 3 조건부 밑줄→단일 슬라이딩 인디케이터(translateX, onLayout). 전부 RN Animated+useReducedMotion(D12 무관, **Cell.tsx 0 diff**)
+- Tests: Jest **1211 pass / 1 skip**(baseline 1198 + 신규 13: typography 1·MapMarkerView 2·onBrand 3·HeatRampRow 1·MiniTimeGrid 3·home hitSlop 1·search hitSlop 1·requests 인디케이터 1), tsc 0, eslint 0, design-guard clean.
+- Verify: 자동 design-guard(hex·rgba하드코딩·indigo·gradient·new Date 0) + **4렌즈 adversarial 리뷰(Workflow, Sonnet ×4 — 토큰·a11y·API·다크, 각 ~100k토큰·git diff 실검토) confirmed 0**. /run-denda = 변경 화면 대부분 post-login keyhash env-blocked → **bundle-level(tsc+test+리뷰) 인정**(디바이스 L/D 런 = 사용자 트랙, W1/W2/W2b 선례 동일).
+- Next: 출시 운영 트랙(naver_local_search 배포·네이버 Map Client ID + EXPO_PUBLIC_MAP_ENABLED·S13 실기 cold-start·S17 QA 종합 + 안암 invite-only launch). UI 폴리시 플랜(Wave 0~3) **전량 완결**.
+- Notes: **의도적 제외(오버사이트 아님)**: TimeGrid 컴포넌트 전체(Cell/Grid/Header/RealtimeStatus/VoteGuide — D12 60fps 보호, 잔여 off-grid 6px 2건 포함) / StyleSheet.create 그리드정수 raw(코드베이스 관례=hook 미접근) / 카카오 외부 브랜드색 / ConfirmSlotSheet 기존 backdrop rgba. MiniTimeGrid 테스트는 useReducedMotion 모듈 모킹으로 결정적화(fake-timer×async 훅 flaky 회피). PlaceActionSheet 1건은 기존 real-timer flake(단독 green, 미변경 파일). D12·Gate #1/#2·Phase 3·DESIGN 토큰·KST·한국어 불가침 전부 준수. branch push 유지.
+
 ## UI-W2b — Wave 2 완결 (잔여 2건 + 시트 모션 + W2-8 헬퍼) (2026-07-10, 세션5) — DONE
 - Depends: UI-W2(세션4 13/15), 스코프 Wave 0~2 승인, DESIGN §6.5·§9.1·§17.5
 - 배경: 승인 스코프 마지막. Wave 2 잔여(W2-10 requests·search / PlaceActionSheet 시트 모션 / W2-8 pressed sweep) 완결. 각 항목 TDD(RED→GREEN 확인).

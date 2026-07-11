@@ -14,7 +14,7 @@
 
 ### UI Polish (Lane F, Wave 0~2) — 출시 전 완성도 전면 개선
 
-- **✅ Wave 0~2 승인 스코프 종료 (2026-07-10 세션5)**. **🔖 다음 세션 진입점: `docs/superpowers/specs/2026-07-10-ui-polish-wave3-kickoff.md`** (Wave 3 P2 디테일 W3-1~6 착수 순서·현황 재확인·운영팁). ⚠️ Wave 3는 "시간 허용 시" P2 — **출시 블로커 운영 트랙**(naver_local_search 배포·Map Client ID·S17 QA)과 우선순위 사용자 확인 후 착수. 이력: 기술 `2026-07-10-ui-polish-wave2-handoff.md`(§6 세션5 종료), Wave 1 `2026-07-09-ui-polish-wave1-handoff.md`.
+- **✅ Wave 0~3 전량 완결·ship (2026-07-11 세션6)**. **UI 폴리시 플랜(design.md §3~§6) 종료.** Wave 3 P2 디테일(W3-1 display 타입·W3-2 간격·W3-3 터치·tabular·W3-4 다크(onBrandVeil·heat-0 hairline·halo)·W3-5 모션(reduce-motion·dot·슬라이드3·캘린더 fade·탭 인디케이터)·W3-6 마커 32pt) 3커밋 `d8f6a33`·`8b3874b`·`f81daf3`. 4렌즈 adversarial 리뷰 confirmed 0. **🔖 다음 = 출시 운영 트랙**: naver_local_search 배포·네이버 Map Client ID+`EXPO_PUBLIC_MAP_ENABLED`·S13 실기 cold-start·**S17 QA 종합 + 안암 invite-only launch**. 이력: kickoff `2026-07-10-ui-polish-wave3-kickoff.md`, W2b·W1 handoff.
 - **상태**: **Wave 0 ✅ DONE + Wave 1 여정 3모먼트 ✅ DONE (2026-07-08~09, ship)**. 플랜 승인(스코프 Wave 0~2), 결정 4건: R1=①Lucide 합성 FAB / R2=①벨 제거 / W1-14=풀 구현(front+삭제 RPC) / overlay 토큰 승인.
 - **SSoT**: `docs/superpowers/specs/2026-07-08-ui-polish-design.md` (+ audit findings). 계통 원인 C1(프리미티브 부재)·C2(상태=시스템 Alert 15파일)·C3(모션·reduce-motion 0) 근본 해결.
 - **Wave 0 ✅ 완료·ship** (28ffaaa): 프리미티브 6종(Button·Toast·ConfirmSheet·EmptyState·ScreenHeader·Spinner) + useReducedMotion·easing 헬퍼 + overlay 토큰 + messages.ts. 전부 TDD. 다중 에이전트 리뷰 11건 확정→전부 수정.
@@ -37,8 +37,8 @@
 - **✅ W2-8 잔여 sweep도 완료 (2026-07-10 세션5 +1 커밋 `51d372d`)**: 잔여 12 화면/컴포넌트(terms·map·group[id]/index·midpoint·invite·requests·search·InviteCodeModal·ConfirmSlotSheet·FirstTimeModal·OriginInput·MapPlaceholder) opacity→press 헬퍼 전면 채택(서브에이전트 5 Sonnet 병렬 후 중앙 재검증). **의도적 제외(후속 아님)**: Cell(D12)·아이콘 전용 버튼(opacity)·ghost brand pill(brand-50 base)·캘린더 날짜셀(stateful)·stateful 선택 행·profile SettingRow(구조 변경 필요)·Gate #2 PlaceActionSheet CTA. → **W2-8 사실상 종결.**
 - **패턴 확립**: Alert→Toast(useToast, 성공/안내) · Alert 확인→ConfirmSheet · raw e.message→mapError · 에러 위장→EmptyState error variant · 로딩→Spinner/Skeleton. 스크린 테스트는 SafeAreaProvider+ThemeProvider+ToastProvider 래퍼 필요.
 - **불가침**: D12 worklet diff 0 · Phase 3 코드 0 · DESIGN 토큰 외 시각 결정 0 · Gate #1·#2 로깅 1회성 불변.
-- **상태**: Jest **1198 pass / 1 skip** / tsc 0 / eslint 0 / design-guard clean / Deno 에지 8/8. branch `feat/map-maphost-m0` **push 완료**(origin 추적, 세션5 +5 커밋 `61a5c8f`·`2ed4282`·`4eaa3ac`·docs·`51d372d`). 로컬 deno=`/c/Users/skaeh/.deno/bin/deno.exe`(PATH 밖).
-- **마지막 update**: 2026-07-10 (세션 5 — Wave 2 완결 15/15, W2-8 잔여 sweep은 후속)
+- **상태**: Jest **1211 pass / 1 skip** / tsc 0 / eslint 0 / design-guard clean / Deno 에지 8/8. branch `feat/map-maphost-m0` **push 완료**(origin 추적, 세션6 +3 코드 커밋 `d8f6a33`·`8b3874b`·`f81daf3` + docs). 로컬 deno=`/c/Users/skaeh/.deno/bin/deno.exe`(PATH 밖).
+- **마지막 update**: 2026-07-11 (세션 6 — Wave 3 완결, UI 폴리시 플랜 Wave 0~3 전량 종료)
 
 ### S16 Phase b — KakaoLocalProvider (Q-A2 허용 → D37)
 
