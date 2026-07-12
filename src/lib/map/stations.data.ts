@@ -1,6 +1,10 @@
 // S-MAP M5 — 전국 지하철역 좌표 (생성 파일 — 직접 수정 금지).
 // 출처: 공공데이터포털 "전국도시철도역사정보표준데이터" (공공누리 — 상업 이용 가능).
-// 재생성: CSV를 scripts/data/stations_raw.csv 에 두고 `node scripts/generate-stations.mjs`.
+// 재생성: KRIC 레일포털 다운로드 → CSV 변환 후 scripts/data/stations_raw.csv 에 두고 `node scripts/generate-stations.mjs`.
+//   1) https://data.kric.go.kr/rips/dataset/download.file?type=filedata&id=32&operation=1 (XLSX)
+//   2) XLSX → CSV(UTF-8) 변환
+//   3) `node scripts/generate-stations.mjs`
+//   상세는 scripts/generate-stations.mjs 헤더 참조.
 // 환승역은 역명 기준 1km 클러스터 평균 1건, 1km 초과 동명역(타 도시)은 별개 유지.
 
 import type { SubwayStation } from './stationSnap';

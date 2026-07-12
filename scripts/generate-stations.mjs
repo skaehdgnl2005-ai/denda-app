@@ -1,9 +1,12 @@
 // S-MAP M5 — 전국도시철도역사정보표준데이터 CSV → src/lib/map/stations.data.ts 생성.
 //
-// 사용법:
-//   1) 공공데이터포털에서 "전국도시철도역사정보표준데이터" CSV 다운로드 (UTF-8)
-//   2) scripts/data/stations_raw.csv 로 저장
-//   3) node scripts/generate-stations.mjs
+// 사용법 (데이터 획득):
+//   1) 공공데이터포털 https://www.data.go.kr/data/15013205/standard.do (표준데이터셋 페이지)
+//      → "URL" 필드: https://data.kric.go.kr/rips/M_01_01/detail.do?id=32
+//      → 또는 직접: https://data.kric.go.kr/rips/dataset/download.file?type=filedata&id=32&operation=1 (XLSX)
+//   2) XLSX → CSV(UTF-8) 변환
+//   3) scripts/data/stations_raw.csv 로 저장
+//   4) node scripts/generate-stations.mjs
 //
 // 처리:
 //   - 헤더에서 역사명/역위도/역경도 컬럼 탐색
@@ -135,7 +138,11 @@ const body = stations
   .join('\n');
 const file = `// S-MAP M5 — 전국 지하철역 좌표 (생성 파일 — 직접 수정 금지).
 // 출처: 공공데이터포털 "전국도시철도역사정보표준데이터" (공공누리 — 상업 이용 가능).
-// 재생성: CSV를 scripts/data/stations_raw.csv 에 두고 \`node scripts/generate-stations.mjs\`.
+// 재생성: KRIC 레일포털 다운로드 → CSV 변환 후 scripts/data/stations_raw.csv 에 두고 \`node scripts/generate-stations.mjs\`.
+//   1) https://data.kric.go.kr/rips/dataset/download.file?type=filedata&id=32&operation=1 (XLSX)
+//   2) XLSX → CSV(UTF-8) 변환
+//   3) \`node scripts/generate-stations.mjs\`
+//   상세는 scripts/generate-stations.mjs 헤더 참조.
 // 환승역은 역명 기준 1km 클러스터 평균 1건, 1km 초과 동명역(타 도시)은 별개 유지.
 
 import type { SubwayStation } from './stationSnap';
