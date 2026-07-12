@@ -24,7 +24,13 @@ describe('fetchGroupOrigins', () => {
   test('users(nickname) join + group_id 필터 + created_at 오름차순', async () => {
     const { select, eq, order } = mockSelectChain({
       data: [
-        { user_id: 'u1', label: '강남역', lat: 37.4979, lng: 127.0276, users: { nickname: '지연' } },
+        {
+          user_id: 'u1',
+          label: '강남역',
+          lat: 37.4979,
+          lng: 127.0276,
+          users: { nickname: '지연' },
+        },
         { user_id: 'u2', label: '홍대입구역', lat: 37.5572, lng: 126.9245, users: null },
       ],
       error: null,
@@ -38,7 +44,12 @@ describe('fetchGroupOrigins', () => {
     expect(order).toHaveBeenCalledWith('created_at', { ascending: true });
     expect(out).toEqual([
       { userId: 'u1', nickname: '지연', label: '강남역', coord: { lat: 37.4979, lng: 127.0276 } },
-      { userId: 'u2', nickname: '멤버', label: '홍대입구역', coord: { lat: 37.5572, lng: 126.9245 } },
+      {
+        userId: 'u2',
+        nickname: '멤버',
+        label: '홍대입구역',
+        coord: { lat: 37.5572, lng: 126.9245 },
+      },
     ]);
   });
 
