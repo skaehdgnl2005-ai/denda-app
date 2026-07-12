@@ -292,6 +292,24 @@ describe('GroupConfirmScreen', () => {
     });
   });
 
+  test('M5: 비호스트 멤버 + 확정 + 장소 미정 → 중간지점 버튼 노출 (출발지 등록 진입)', async () => {
+    mockUserId = NON_HOST_ID;
+    mockFetchGroup.mockResolvedValue({
+      id: VALID_GROUP_ID,
+      hostId: HOST_ID,
+      name: '확정된 모임',
+      dates: ['2026-06-01'],
+      memberCount: 2,
+      confirmedAt: '2026-05-30T10:00:00.000Z',
+      confirmedStartAt: '2026-06-01T10:00:00.000Z',
+      confirmedEndAt: '2026-06-01T12:00:00.000Z',
+      confirmedPlaceId: null,
+    });
+    const { findByTestId, queryByTestId } = render(<GroupConfirmScreen />, { wrapper });
+    expect(await findByTestId('midpoint-entry-button')).toBeTruthy();
+    expect(queryByTestId('place-pick-button')).toBeNull(); // 장소 확정 CTA는 여전히 호스트만
+  });
+
   test('S20: 비호스트 + 확정 + 장소 미정 → "장소 정하기" 버튼 미노출', async () => {
     mockUserId = NON_HOST_ID;
     mockFetchGroup.mockResolvedValue({

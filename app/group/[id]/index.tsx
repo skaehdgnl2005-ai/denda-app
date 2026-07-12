@@ -419,25 +419,27 @@ export default function GroupConfirmScreen(): React.JSX.Element {
             <Icon name="화살표" color={colors.text.tertiary} size={20} />
           </Pressable>
         </View>
-      ) : isConfirmed && isHost ? (
+      ) : isConfirmed ? (
         <View style={{ paddingHorizontal: space[4], paddingBottom: space[3] }}>
-          <Pressable
-            onPress={() => router.push(`/group/${groupId}/place-search`)}
-            accessibilityRole="button"
-            accessibilityLabel="장소 정하기"
-            testID="place-pick-button"
-            style={({ pressed }) => ({
-              backgroundColor: ctaPressBg(pressed, colors),
-              borderRadius: radius.md,
-              padding: space[4],
-              alignItems: 'center',
-            })}
-          >
-            <Body variant="bold" color={colors.text['on-brand']}>
-              장소 정하기
-            </Body>
-          </Pressable>
-          {/* S-MAP M3: 출발지 중간지점으로 장소 찾기 (secondary — §17 brand fill 1개 유지). */}
+          {isHost ? (
+            <Pressable
+              onPress={() => router.push(`/group/${groupId}/place-search`)}
+              accessibilityRole="button"
+              accessibilityLabel="장소 정하기"
+              testID="place-pick-button"
+              style={({ pressed }) => ({
+                backgroundColor: ctaPressBg(pressed, colors),
+                borderRadius: radius.md,
+                padding: space[4],
+                alignItems: 'center',
+              })}
+            >
+              <Body variant="bold" color={colors.text['on-brand']}>
+                장소 정하기
+              </Body>
+            </Pressable>
+          ) : null}
+          {/* S-MAP M3+M5(D41): 중간지점 진입은 전 멤버 — 각자 출발지 등록. 장소 확정은 호스트만(RLS). */}
           <Pressable
             onPress={() =>
               router.push({ pathname: '/group/[id]/midpoint', params: { id: groupId } })
@@ -446,7 +448,7 @@ export default function GroupConfirmScreen(): React.JSX.Element {
             accessibilityLabel="중간지점으로 찾기"
             testID="midpoint-entry-button"
             style={({ pressed }) => ({
-              marginTop: space[2],
+              marginTop: isHost ? space[2] : 0,
               borderRadius: radius.md,
               padding: space[4],
               flexDirection: 'row',
