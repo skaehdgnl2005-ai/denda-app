@@ -91,3 +91,6 @@ output/
 # Supabase CLI artifact — root-level lock has no root deno config;
 # canonical edge-function lock is supabase/functions/deno.lock
 /deno.lock
+
+# S-MAP M5 — 원본 지하철역 CSV/XLSX (공공데이터, 재다운로드 가능 — stations.data.ts만 커밋)
+scripts/data/
