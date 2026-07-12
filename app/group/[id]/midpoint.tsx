@@ -168,7 +168,7 @@ export default function MidpointScreen(): React.JSX.Element {
   const [category, setCategory] = useState<RecommendCategory | null>(RECOMMEND_CATEGORIES[0]);
 
   // 추천 검색 (중간지점 근처). useMapSearch는 키워드 검색 → 중간점 가까운 순으로 재정렬.
-  const { query, setQuery, results, isLoading, error } = useMapSearch();
+  const { query, setQuery, results, isLoading, error, retry } = useMapSearch();
 
   useEffect(() => {
     if (snap !== null && category !== null) {
@@ -382,7 +382,13 @@ export default function MidpointScreen(): React.JSX.Element {
                     return (
                       <Pressable
                         key={c}
-                        onPress={() => setCategory(c)}
+                        onPress={() => {
+                          if (category === c && error !== null) {
+                            retry(); // 선택된 칩 재탭 시 에러면 재시도 (그 외엔 무반응이던 갭 해소)
+                          } else {
+                            setCategory(c);
+                          }
+                        }}
                         accessibilityRole="button"
                         accessibilityState={{ selected }}
                         accessibilityLabel={`${c} 추천 보기`}
@@ -460,6 +466,23 @@ export default function MidpointScreen(): React.JSX.Element {
       {error !== null ? (
         <View style={[styles.centered, { padding: space[4] }]}>
           <Body color={colors.semantic.error.fg}>{error}</Body>
+          <Pressable
+            onPress={retry}
+            accessibilityRole="button"
+            accessibilityLabel="다시 검색"
+            testID="reco-error-retry"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={({ pressed }) => ({
+              marginTop: space[2],
+              minHeight: 44,
+              justifyContent: 'center',
+              opacity: pressed ? 0.6 : 1,
+            })}
+          >
+            <Body variant="bold" color={colors.semantic.error.fg}>
+              다시 시도
+            </Body>
+          </Pressable>
         </View>
       ) : null}
 

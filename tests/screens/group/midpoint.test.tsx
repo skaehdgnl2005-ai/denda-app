@@ -48,9 +48,11 @@ type SearchState = {
   results: PlaceSearchResult[];
   isLoading: boolean;
   error: string | null;
+  retry: () => void;
 };
 let mockState: SearchState;
 const mockSetQuery = jest.fn();
+const mockRetry = jest.fn();
 jest.mock('@/lib/places/useMapSearch', () => ({
   useMapSearch: () => mockState,
 }));
@@ -189,6 +191,7 @@ describe('MidpointScreen', () => {
       results: [],
       isLoading: false,
       error: null,
+      retry: mockRetry,
     };
     mockUserId = 'me';
     mockFetchOrigins.mockResolvedValue([]);
@@ -395,5 +398,41 @@ describe('MidpointScreen', () => {
     await findByTestId('midpoint-summary');
     expect(queryByTestId('station-card')).toBeNull();
     expect(queryByTestId('reco-chip-맛집')).toBeNull();
+  });
+
+  test('출발지 2명 미만 → 안내 카피 노출', async () => {
+    mockFetchOrigins.mockResolvedValue([]);
+    const { findByText } = render(<MidpointScreen />, { wrapper });
+    expect(
+      await findByText('출발지를 등록해주세요 · 2명 이상 모이면 중간지점을 찾아드려요'),
+    ).toBeTruthy();
+  });
+
+  test('추천 검색 에러 → 재시도 버튼 press 시 retry() 호출', async () => {
+    mockFetchOrigins.mockResolvedValue([MY_ORIGIN, OTHER_ORIGIN]);
+    mockState.error = '결과를 새로 불러오지 못했어요.';
+    const { findByTestId } = render(<MidpointScreen />, { wrapper });
+    const retryBtn = await findByTestId('reco-error-retry');
+    await act(async () => {
+      fireEvent.press(retryBtn);
+    });
+    expect(mockRetry).toHaveBeenCalledTimes(1);
+  });
+
+  test('에러 상태에서 선택된 칩 재탭 → setCategory 재발사가 아니라 retry() 경유', async () => {
+    mockSnap = SNAP; // category 기본값 '맛집' → reco-chip-맛집이 이미 selected
+    mockFetchOrigins.mockResolvedValue([MY_ORIGIN, OTHER_ORIGIN]);
+    mockState.error = '결과를 새로 불러오지 못했어요.';
+    const { findByTestId, getByTestId } = render(<MidpointScreen />, { wrapper });
+    await findByTestId('station-card');
+    const setQueryCallsBefore = mockSetQuery.mock.calls.length;
+
+    await act(async () => {
+      fireEvent.press(getByTestId('reco-chip-맛집'));
+    });
+
+    expect(mockRetry).toHaveBeenCalledTimes(1);
+    // 선택된 칩 그대로이므로 자동 재검색 useEffect(deps: snap/category/setQuery)는 재발사되지 않는다.
+    expect(mockSetQuery.mock.calls.length).toBe(setQueryCallsBefore);
   });
 });
