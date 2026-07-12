@@ -101,4 +101,16 @@ describe('toMidpointScene', () => {
   test('빈 origins + null → 마커 0', () => {
     expect(toMidpointScene([], null).markers).toEqual([]);
   });
+
+  test('midpointLabel 주입 시 midpoint 마커 라벨이 역명으로 대체된다 (M5 역 스냅)', () => {
+    const scene = toMidpointScene([], { lat: 37.5432, lng: 126.9512 }, '공덕역');
+    const mid = scene.markers.find((m) => m.kind === 'midpoint');
+    expect(mid?.label).toBe('공덕역');
+    expect(mid?.emphasized).toBe(true);
+  });
+
+  test('midpointLabel 생략 시 기본 라벨 "중간지점" (하위호환)', () => {
+    const scene = toMidpointScene([], { lat: 37.5432, lng: 126.9512 });
+    expect(scene.markers.find((m) => m.kind === 'midpoint')?.label).toBe('중간지점');
+  });
 });

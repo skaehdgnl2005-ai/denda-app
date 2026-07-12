@@ -1,8 +1,8 @@
-// S-MAP M3 — 멤버 중간지점 추천 (순수 좌표 로직, 키 0, 전부 Jest 검증).
+// S-MAP M3+M5 — 멤버 중간지점 추천 (순수 좌표 로직, 키 0, 전부 Jest 검증).
 //
-// Q-B23: 멤버 위치 = 각자 출발지 직접 입력 → 온디바이스 로컬 저장(recentOrigins) → 중간점
-// 계산도 클라(서버 미전송, PIPA 경량). 본 모듈은 좌표 산술만 — 색·핀 렌더는 NaverMapScene
-// (DESIGN 토큰)이 점등 시 그린다(EAS 운영 트랙).
+// D41(Q-B23 부분 supersede): 멤버 출발지 = 각자 서버 등록(group_origins, RLS) → 취합해
+// 중간점 계산. 최근 출발지 칩(recentOrigins)만 온디바이스 유지. 본 모듈은 좌표 산술만 —
+// 색·핀 렌더는 NaverMapScene(DESIGN 토큰)이 점등 시 그린다.
 //
 // 중간점은 산술 중심(arithmetic centroid). 베타 반경(서울 수 km)에서 구면 중심과의 오차는
 // 1m 미만이라 충분 — haversine은 추천 정렬·반경 산출에 재사용한다(distance.ts).
@@ -60,7 +60,11 @@ export function sortByDistanceTo<T extends { lat: number; lng: number }>(
  * midpoint는 emphasized(강조)로 1개. 동선이 아니므로 폴리라인 없음. 색·강조 스타일은 렌더러
  * (NaverMapScene)가 DESIGN 토큰으로만 그린다.
  */
-export function toMidpointScene(origins: OriginPoint[], midpoint: Wgs84Coord | null): MapScene {
+export function toMidpointScene(
+  origins: OriginPoint[],
+  midpoint: Wgs84Coord | null,
+  midpointLabel: string = '중간지점',
+): MapScene {
   const markers: MapMarker[] = origins.map((o, i) => ({
     id: `member-${i}-${coordKey(o.coord)}`,
     coord: o.coord,
@@ -73,7 +77,7 @@ export function toMidpointScene(origins: OriginPoint[], midpoint: Wgs84Coord | n
       id: `midpoint-${coordKey(midpoint)}`,
       coord: midpoint,
       kind: 'midpoint',
-      label: '중간지점',
+      label: midpointLabel,
       emphasized: true,
     });
   }
