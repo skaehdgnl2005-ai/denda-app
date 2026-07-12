@@ -249,6 +249,31 @@ describe('MidpointScreen', () => {
     expect(mockFetchOrigins.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 
+  test('느린 첫 fetch가 뒤늦게 resolve돼도 최신 출발지를 덮어쓰지 않는다 (load 경합 가드)', async () => {
+    // 1) mount 시 첫 load의 fetchGroupOrigins는 pending — 나중에 stale []로 resolve될 promise A.
+    let resolveFirst: (v: unknown) => void = () => {};
+    const firstFetch = new Promise((res) => {
+      resolveFirst = res;
+    });
+    mockFetchOrigins.mockImplementationOnce(() => firstFetch);
+    // 2) upsert 성공 후의 두 번째 load(promise B)는 즉시 최신 상태로 resolve.
+    mockFetchOrigins.mockResolvedValue([MY_ORIGIN, OTHER_ORIGIN]);
+
+    const { getByTestId, getByText, findByTestId } = render(<MidpointScreen />, { wrapper });
+    await act(async () => {
+      fireEvent.press(getByTestId('add-origin-a'));
+    });
+    await findByTestId('origin-progress');
+    expect(getByText(/2\/5명 입력/)).toBeTruthy();
+
+    // 3) 먼저 시작된 느린 fetch(promise A)가 이제서야 stale []로 resolve.
+    await act(async () => {
+      resolveFirst([]);
+    });
+    // 4) 최신 상태 유지 — stale 결과가 덮어쓰면 "0/5명 입력"으로 회귀.
+    expect(getByText(/2\/5명 입력/)).toBeTruthy();
+  });
+
   test('출발지 추가 → saveRecentOrigin 호출', async () => {
     const { getByTestId } = render(<MidpointScreen />, { wrapper });
     await act(async () => {

@@ -13,7 +13,7 @@
 // 네이티브 핀 렌더(중간점·출발지)는 EAS 운영 트랙 — 키 없이 MapHost fallback(리스트)로 검증.
 // 한국어 only · DESIGN 토큰 · §17 anti-AI-feel (brand-500 fill 0 — tap이 action).
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -75,16 +75,23 @@ export default function MidpointScreen(): React.JSX.Element {
     };
   }, []);
 
+  // focus 직후 fetch가 in-flight일 때 upsert/delete 후 refetch와 경합하면, 먼저 시작된 느린
+  // fetch가 뒤늦게 resolve되며 최신 상태를 덮어쓸 수 있다 → 최신 load만 state 반영.
+  const loadSeqRef = useRef(0);
+
   const load = useCallback(async (): Promise<void> => {
+    const seq = ++loadSeqRef.current;
     try {
       const [fetched, group] = await Promise.all([
         fetchGroupOrigins(groupId),
         fetchGroupForConfirm(groupId),
       ]);
+      if (seq !== loadSeqRef.current) return; // 최신 load만 반영 (연속 등록 경합 방지)
       setOrigins(fetched);
       setMemberCount(group.memberCount);
       setLoadError(null);
     } catch (e: unknown) {
+      if (seq !== loadSeqRef.current) return;
       setLoadError(
         e instanceof Error ? e.message : '출발지를 불러오지 못했어요. 잠시 후 다시 시도해주세요.',
       );
