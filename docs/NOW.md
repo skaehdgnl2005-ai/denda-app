@@ -50,17 +50,17 @@
   - `src/lib/places/KakaoLocalProvider.ts` (+`.test.ts` 8✓) — invoke 클라이언트 (NaverSearchProvider 미러)
   - typecheck 0 / eslint 0 / Naver 회귀 0
 - **🟦 결론 ([D39](DECISIONS.md#d39--장소-검색-primary--naversearchprovider-확정-kakao-local-보류-카카오맵-심사-반려), 2026-06-08)**: 카카오맵 `OPEN_MAP_AND_LOCAL` 제품 심사 **반려** + 출시 우선 → **NaverSearchProvider primary 확정**. 카카오맵 심사 재도전 안 함. Kakao 평가 트랙 보류.
-- **출시 prereq (1개)**: `supabase functions deploy naver_local_search` (현재 미배포 — 배포 즉시 앱 장소 검색 동작. NAVER_CLIENT_ID/SECRET 등록·검증 완료).
+- **출시 prereq**: ~~naver_local_search 배포~~ ✅ **원격 ACTIVE v3 확인 (2026-07-12 실사 — 2026-06-09 배포됐던 것, 본 기록이 stale이었음)**. NAVER_CLIENT_ID/SECRET 등록·검증 완료.
 - **Kakao 자산 dormant**: KakaoLocalProvider·kakao_local·kakao_local_search (TDD green 보존, 미사용 — 추후 카카오맵 승인 시 provider 주입 교체로 무비용 재활성).
 - **미ship**: `/ship-task` 미실행 (SESSION_LOG·PROGRESS·TASK_BACKLOG promote 대기)
 - **⚠️ 본 빌드와 무관한 기존 실패**: `tests/screens/schedule/map.test.tsx` 2건(S15 async point 렌더) — import 커플링 0, 별도 조사 대상 (2026-06-08 확인: 현재 6/6 green, 해소됨)
 
-### S-MAP — 지도 렌더 활성화(MapHost) + 4대 확장 — 코딩 트랙 완료 (운영 트랙만 잔여)
+### S-MAP — 지도 렌더 활성화(MapHost) + 확장 — 코딩 트랙 완료 (운영 트랙만 잔여)
 
-- **상태**: **M0+①·M2·M3·M4 전부 DONE** (2026-06-09). 4대 확장 시각·로직 레이어 완성 → SESSION_LOG promote 완료. 별도 feat 브랜치 `feat/map-maphost-m0` (미push/미PR).
-- **운영 트랙만 잔여 (사용자/운영, 코드 변경 0 점등)**:
-  - 네이버 Maps Client ID 발급 → `.env` `EXPO_PUBLIC_NAVER_MAP_CLIENT_ID` + `EXPO_PUBLIC_MAP_ENABLED=true` → `expo prebuild && expo run:android` → 네이티브 마커·폴리라인·중간점·제휴 강조 실렌더 + 60fps
-  - `supabase functions deploy naver_local_search` (라이브 장소 검색)
-  - 제휴 마커 PNG 1.5x/2x/3x 에셋(Q-B13, 디자인) → 제휴 inner stroke 점등
-  - ② 제휴 **실데이터**는 Phase 3(D3, Gate #2 ≥25% 통과 후) — 현재 `isResultPartner` stub
-- 설계 SSoT: `docs/superpowers/specs/2026-06-08-map-feature-activation-design.md` · [D38](DECISIONS.md#d38--지도-렌더-seam--maphost-단일-경계--mapscene-계약--ismapavailable-env-게이트)
+- **상태**: M0+①·M2·M3·M4 DONE (2026-06-09) + **M5 중간지점 협업 DONE (2026-07-13, SESSION_LOG promote — 멤버 출발지 서버 등록·역 스냅·자동 추천, D41)**. branch `feat/map-maphost-m0` (push 유지, PR 미생성).
+- **운영 트랙 잔여 (2026-07-13 실사 갱신 — 코드 변경 0)**:
+  - **`supabase db push` (0023 group_origins) — M5 출발지 저장의 유일 prereq. 빌드 배포 전 필수** + 0023 말미 검증 쿼리
+  - `expo run:android` 또는 EAS 빌드 → 실기 지도 렌더·60fps 검증. Android는 키·env·prebuild 완료 상태. iOS는 prebuild부터 전부 잔여 (.env.eas.example에 `EXPO_PUBLIC_MAP_ENABLED` 항목 누락 주의)
+  - ~~naver_local_search 배포~~ ✅ 원격 ACTIVE v3 확인 (2026-07-12 `supabase functions list` — 구기록 stale). ⚠️ **원격 Edge는 2개뿐** — click_log 등 나머지 14개 미배포, 출시 전 일괄 배포 체크 필요
+  - ~~Client ID 발급~~ ✅ 완료 · ~~제휴 PNG(Q-B13)~~ ✅ D40으로 불필요 · ② 제휴 **실데이터**는 Phase 3(D3) — `isResultPartner` stub 유지
+- 설계 SSoT: `2026-06-08-map-feature-activation-design.md`·[D38](DECISIONS.md#d38--지도-렌더-seam--maphost-단일-경계--mapscene-계약--ismapavailable-env-게이트) + M5 `2026-07-12-midpoint-collab-design.md`·[D41](DECISIONS.md#d41--모임-출발지-서버-저장-group_origins-q-b23-부분-supersede)

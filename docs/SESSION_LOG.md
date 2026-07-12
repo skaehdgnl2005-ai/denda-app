@@ -25,6 +25,19 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S-MAP M5 — 중간지점 협업 업그레이드 (멤버 출발지·역 스냅·자동 추천) (2026-07-13) — DONE
+- Depends: S-MAP M0~M4(MapHost seam·M3 중간지점·M2 확정 플로우), **D41 신규**(모임 출발지 서버 저장 — Q-B23 부분 supersede), D16·D18·D26·D39, 0022 RLS 헬퍼
+- 배경: 기존 M3 한계 3개(호스트 단독 입력·검색어 없이는 추천 0·온디바이스라 공유 불가) 해소. 스펙 `2026-07-12-midpoint-collab-design.md` + 플랜 `2026-07-12-midpoint-collab.md` (브레인스토밍 Q&A 4건 확정). **서브에이전트-드리븐 실행**: 태스크 10개 × (구현자 + 독립 리뷰어) + 최종 전체 브랜치 리뷰(Fable) — 리뷰 fix 5건 반영.
+- Changes (16 커밋 `61ae941..e6953da`, branch feat/map-maphost-m0 연속):
+  - **DB**: `0023_group_origins.sql` — 1인 1출발지 PK(upsert)·RLS 4정책(0022 헬퍼, self-EXISTS 0, D16 통과)·**탈퇴 소거 트리거**(리뷰 발견 — FK cascade가 group_members DELETE 미커버)·UPDATE 멤버십 재검사(respoof 차단)·set_updated_at. D41 기록 + Q-B23 표기.
+  - **역 데이터**: `stations.data.ts` 942역(공공데이터 전국도시철도, KRIC 실경로 헤더 기록·재생성 스크립트 보존)·1km 환승 dedup(동명 타도시 별개 유지 — 시청역×3)·bbox sanity 테스트 CI 상시.
+  - **순수 로직**: `stationSnap.ts`(3km 임계·결정적 동률)·`autoRecommend.ts`(맛집/카페/술집 쿼리)·`groupOrigins.ts`(CRUD, luxon UTC, 한국어 에러)·`toMidpointScene` 라벨 파라미터.
+  - **화면**: midpoint.tsx 서버 연동(n/m 진행·본인만 쓰기·focus refetch·**loadSeq 경합 가드**(리뷰 발견)) + 역 카드·칩 자동 추천(검색 0타, 수동 전환, 교외 3km 폴백, **에러 재시도 배선**(최종 리뷰 발견 — retry 버튼+칩 재탭)) / group index 중간지점 버튼 전 멤버 노출(확정 CTA는 호스트 유지) / **privacy 고지 개정(법적 P0)** — 모임 출발지 서버 저장/최근 칩 온디바이스 이원화.
+- Tests: Jest **1245 pass / 1 skip** (+34: stationSnap 5·autoRecommend 2·stations sanity 4·groupOrigins 7·midpoint scene 2·화면 18·confirm 1·privacy 1 등), tsc 0, eslint 0 errors(M5 신규 경고 0). 전 태스크 TDD RED→GREEN.
+- Verify: 태스크별 이중 게이트(스펙 준수+품질) ×10 — Important 4건 발견·전량 수정(0023 탈퇴 소거·UPDATE respoof·load 경합·재생성 경로 기록) + **최종 전체 브랜치 리뷰 "Ready to merge: Yes"**.
+- Next: **운영 — `supabase db push`(0023)가 빌드 배포 전 필수**(미push 상태로 빌드가 나가면 출발지 저장 전부 실패) → 0023 말미 검증 쿼리 → 실기 렌더 검증. 후속 백로그: 동명역 타도시 결과 반경 후필터(placeFilter 재사용)·privacy 구카피 부재 단언·D5 열거 "선택 상태" 문서화·출발지 행 밀도(대규모 모임)·users_select_visible anon 정책 점검(M5 밖 관찰).
+- Notes: 불가침 전부 준수(Gate #1·#2 로깅·MapHost/NaverMapScene·D12 워클릿 0 diff·토큰·luxon·한국어). NOW.md의 S-MAP 운영 잔여 구기록이 stale이었음을 실사로 확인 — naver_local_search는 이미 원격 ACTIVE v3(06-09 배포), Client ID·prebuild 완료. **원격 Edge 배포는 2개뿐**(naver/kakao_local_search) — click_log 등 나머지 14개 미배포는 출시 전 별도 체크 필요.
+
 ## UI-W3 — Wave 3 (P2 디테일) 완결 (2026-07-11, 세션6) — DONE
 - Depends: UI-W0~W2b(승인 스코프 종료), 스펙 `2026-07-08-ui-polish-design.md` §6(W3-1~6) + kickoff `2026-07-10-ui-polish-wave3-kickoff.md`, DESIGN §2.2·§4·§6·§10.5·§12
 - 배경: Wave 3 = "시간 허용 시" P2 디테일(승인 스코프는 Wave 0~2였음). 사용자 우선순위 확인(step 0) → **Wave 3 P2 착수** 선택. 각 항목 TDD(RED→GREEN), 화면군 단위 커밋. step-0 grep로 W3-4 ConfirmedTimeCard(W2-7 선반영)·MapHost(S-MAP M0 도입) 등 잔여만 선별.
