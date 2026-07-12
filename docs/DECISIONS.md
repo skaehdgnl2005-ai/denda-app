@@ -930,6 +930,21 @@ const BranchAttribution = lazy(() => import('@/lib/branch/attribution'));
 
 ---
 
+## D41 — 모임 출발지 서버 저장 (group_origins, Q-B23 부분 supersede)
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | 중간지점 협업(S-MAP M5)을 위해 **멤버 출발지(라벨+정확 좌표)를 모임 스코프 `group_origins` 테이블에 서버 저장**한다. 1인 1출발지(PK group_id+user_id, upsert). 보호선 = RLS(같은 모임 멤버/호스트만 SELECT + D16 차단 통과 + 본인 행만 쓰기) + ON DELETE CASCADE(모임 삭제·탈퇴 시 소거) + privacy 고지 개정. recentOrigins(최근 출발지 칩)는 여전히 온디바이스 — Q-B23의 해당 부분은 유지. |
+| 근거 | (1) 멤버 각자 입력→자동 취합이 핵심 요구 — 온디바이스로는 멤버 간 공유 불가. (2) 출발지는 검색으로 고른 장소(역·동네)라 원시 GPS보다 민감도 낮고, 모임 스코프 격리+cascade로 최소보유 원칙 충족. (3) 사용자 확정(2026-07-12): "그대로 저장 + RLS". |
+| 대안 | (a) ~500m 격자 뭉갬 저장 — 거부: 마커가 실위치와 어긋나 보이는 UX 혼란 대비 이득 작음. (b) Realtime broadcast만(비영속) — 거부: 비동기 모임 앱과 불일치(앞서 입력한 멤버 오프라인 시 취합 불가). |
+| 소유자 | Founder (2026-07-12) |
+| 결정일 | 2026-07-12 |
+| 의존 | [Q-B23](OPEN_QUESTIONS.md#q-b23--멤버-중간지점-추천의-위치-데이터-소스--pipa)(부분 supersede), 0022 RLS 헬퍼, [D16](#d16--차단신고-일관성-helper-function--rls), [D18](#d18--좌표계-정규화) |
+| 결과 영향 | (1) `supabase/migrations/0023_group_origins.sql` 신규. (2) `src/lib/map/groupOrigins.ts` 클라 모듈. (3) midpoint 화면 서버 연동 + 진입 버튼 전 멤버 노출. (4) **privacy.tsx 고지 개정 필수** — "기기 내 보관" 문구를 모임 출발지(서버)/최근 칩(온디바이스)으로 이원화. (5) 지하철역 스냅 + 자동 추천(맛집/카페/술집)은 D39 Naver 스택 재사용. |
+| 출처 | 브레인스토밍 세션 (2026-07-12) — specs/2026-07-12-midpoint-collab-design.md |
+
+---
+
 ## 향후 결정 추가 템플릿
 
 새 결정을 추가할 때 다음 형식을 복사:

@@ -232,11 +232,12 @@
 - **해결**: (a) `day_index` 채택 — `groups.dates`의 0-based offset. S05a Edge Function `votes_aggregate`에 `mapDayToIndex(rawRows, dates)` 추가 + handler에서 groups.dates SELECT 후 매핑. groups.dates에 없는 votes.day는 graceful skip (호스트가 dates 줄였을 때 안전). D11 본문 + 예제 갱신 완료 (D11 표 Payload spec 행 추가). S05b 클라이언트 헬퍼(`applyHeatmapPayload`)가 이미 (a) 가정으로 구현되어 있어 spec align 완료
 - **상태**: Closed (2026-05-26, S05a + Q-B21 patch 한 PR로 머지)
 
-### Q-B23 — 멤버 중간지점 추천의 위치 데이터 소스 + PIPA ✅ Closed (2026-06-08)
+### Q-B23 — 멤버 중간지점 추천의 위치 데이터 소스 + PIPA ✅ Closed (2026-06-08) · 부분 supersede by D41 (2026-07-12)
 - **출처**: 지도 ④ 중간지점 추천 설계 (2026-06-08, [D38](DECISIONS.md#d38--지도-렌더-seam--maphost-단일-경계--mapscene-계약--ismapavailable-env-게이트))
 - **질문**: 멤버 위치를 (a) 저장 좌표 / (b) 각자 출발지 입력 / (c) 보류 중 무엇으로? PIPA 처리.
 - **해결**: (b) **각자 출발지 직접 입력** + 자주/최근 쓴 출발지 2개 칩 추천. 출발지는 **온디바이스 로컬 저장**(zustand persist / secure-store) — 서버 미전송 + 중간점 계산도 클라 → PIPA 경량. 잔여: 처리방침에 "출발지 온디바이스 보관" 1줄(M3 구현 시).
 - **상태**: Closed (2026-06-08) — S-MAP M3(중간지점) 구현 시 적용.
+- **후속**: [D41](DECISIONS.md#d41--모임-출발지-서버-저장-group_origins-q-b23-부분-supersede) (2026-07-12) — 모임 출발지는 서버 저장(RLS)으로 전환, 최근 칩만 온디바이스 유지.
 
 ---
 
