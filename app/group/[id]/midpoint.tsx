@@ -44,6 +44,13 @@ import {
 import type { MapMarker } from '@/lib/map/mapScene';
 import { loadRecentOrigins, saveRecentOrigin } from '@/lib/map/recentOrigins';
 import { recentOriginsStorage } from '@/lib/map/recentOriginsStorage';
+import {
+  buildAutoQuery,
+  RECOMMEND_CATEGORIES,
+  type RecommendCategory,
+} from '@/lib/map/autoRecommend';
+import { nearestStation } from '@/lib/map/stationSnap';
+import { SUBWAY_STATIONS } from '@/lib/map/stations.data';
 import type { PlaceSearchResult } from '@/lib/places/PlaceSearchProvider';
 import { findResultByActionId, usePlaceConfirmAction } from '@/lib/places/usePlaceConfirmAction';
 import { useMapSearch } from '@/lib/places/useMapSearch';
@@ -152,16 +159,33 @@ export default function MidpointScreen(): React.JSX.Element {
     [originPoints],
   );
 
+  // 최근접 역 스냅(3km 초과·목록 빔 → null) → 역 카드 + 카테고리 칩 자동 추천(검색 0타).
+  const snap = useMemo(
+    () => (midpoint !== null ? nearestStation(midpoint, SUBWAY_STATIONS) : null),
+    [midpoint],
+  );
+  // category !== null = 자동 추천 모드. 수동 입력 시 null(자동 재발사 중단).
+  const [category, setCategory] = useState<RecommendCategory | null>(RECOMMEND_CATEGORIES[0]);
+
   // 추천 검색 (중간지점 근처). useMapSearch는 키워드 검색 → 중간점 가까운 순으로 재정렬.
   const { query, setQuery, results, isLoading, error } = useMapSearch();
+
+  useEffect(() => {
+    if (snap !== null && category !== null) {
+      setQuery(buildAutoQuery(snap.name, category));
+    }
+  }, [snap, category, setQuery]);
+
+  // 추천 정렬·마커·씬의 중심 = 역(스냅 시) 또는 산술 중점.
+  const recoCenter = snap !== null ? snap.coord : midpoint;
   const recommended = useMemo(
-    () => (midpoint !== null ? sortByDistanceTo(results, midpoint) : results),
-    [results, midpoint],
+    () => (recoCenter !== null ? sortByDistanceTo(results, recoCenter) : results),
+    [results, recoCenter],
   );
 
   // scene = member/midpoint 마커 + 추천 place 마커(actionId=providerPlaceId, 마커 onPress 통일용).
   const scene = useMemo(() => {
-    const base = toMidpointScene(originPoints, midpoint);
+    const base = toMidpointScene(originPoints, recoCenter, snap !== null ? snap.name : '중간지점');
     const placeMarkers: MapMarker[] = recommended.map((r) => ({
       id: r.providerPlaceId,
       coord: { lat: r.lat, lng: r.lng },
@@ -170,7 +194,11 @@ export default function MidpointScreen(): React.JSX.Element {
       actionId: r.providerPlaceId,
     }));
     return { ...base, markers: [...base.markers, ...placeMarkers] };
-  }, [originPoints, midpoint, recommended]);
+  }, [originPoints, recoCenter, snap, recommended]);
+
+  function formatDistance(m: number): string {
+    return m >= 1000 ? `${(m / 1000).toFixed(1)}km` : `${Math.round(m)}m`;
+  }
 
   const [pending, setPending] = useState<PlaceSearchResult | null>(null);
 
@@ -330,8 +358,59 @@ export default function MidpointScreen(): React.JSX.Element {
 
         {midpoint !== null ? (
           <View testID="midpoint-summary" style={{ marginTop: space[3] }}>
+            {snap !== null ? (
+              <View
+                testID="station-card"
+                style={{
+                  backgroundColor: colors.surface[1],
+                  borderRadius: radius.md,
+                  padding: space[4],
+                  marginBottom: space[2],
+                  borderWidth: 1,
+                  borderColor: colors.border.subtle,
+                }}
+              >
+                <Body variant="bold" color={colors.text.primary}>
+                  {snap.name} 근처가 중간이에요
+                </Body>
+                <Caption color={colors.text.secondary} style={{ marginTop: space[1] }} tabularNums>
+                  중간지점에서 {formatDistance(snap.distanceMeters)}
+                </Caption>
+                <View style={{ flexDirection: 'row', marginTop: space[2] }}>
+                  {RECOMMEND_CATEGORIES.map((c) => {
+                    const selected = category === c;
+                    return (
+                      <Pressable
+                        key={c}
+                        onPress={() => setCategory(c)}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected }}
+                        accessibilityLabel={`${c} 추천 보기`}
+                        testID={`reco-chip-${c}`}
+                        hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                        style={({ pressed }) => ({
+                          backgroundColor: selected
+                            ? colors.brand[50]
+                            : rowPressBg(pressed, colors, colors.surface[2]),
+                          borderRadius: radius.pill,
+                          paddingHorizontal: space[3],
+                          paddingVertical: space[2],
+                          marginRight: space[2],
+                        })}
+                      >
+                        <Caption color={selected ? colors.brand[600] : colors.text.secondary}>
+                          {c}
+                        </Caption>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : null}
             <Caption color={colors.text.secondary}>
-              중간지점을 찾았어요 · 근처에서 만날 장소를 추천해드릴게요
+              {snap !== null
+                ? '다른 곳이 좋다면 직접 검색해보세요'
+                : '중간지점을 찾았어요 · 근처에서 만날 장소를 검색해보세요'}
             </Caption>
             <View
               style={{
@@ -346,7 +425,10 @@ export default function MidpointScreen(): React.JSX.Element {
               <Icon name="검색" color={colors.text.tertiary} size={20} />
               <TextInput
                 value={query}
-                onChangeText={setQuery}
+                onChangeText={(t) => {
+                  setCategory(null); // 수동 모드 — 자동 재발사 중단
+                  setQuery(t);
+                }}
                 placeholder="중간지점 근처 장소 (식당·카페)"
                 placeholderTextColor={colors.text.disabled}
                 testID="reco-search-input"

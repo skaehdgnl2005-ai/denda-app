@@ -8,6 +8,14 @@ import MidpointScreen from '../../../app/group/[id]/midpoint';
 import { ThemeProvider } from '@/design/theme';
 import { ToastProvider } from '@/components/Toast';
 import type { PlaceSearchResult } from '@/lib/places/PlaceSearchProvider';
+import type { StationSnap } from '@/lib/map/stationSnap';
+
+let mockSnap: StationSnap | null = null;
+jest.mock('@/lib/map/stationSnap', () => ({
+  ...jest.requireActual('@/lib/map/stationSnap'),
+  nearestStation: () => mockSnap,
+}));
+jest.mock('@/lib/map/stations.data', () => ({ SUBWAY_STATIONS: [] }));
 
 const METRICS = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -172,6 +180,7 @@ const OTHER_ORIGIN = {
 describe('MidpointScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSnap = null;
     mockLoadRecent.mockResolvedValue([]);
     mockSaveRecent.mockResolvedValue([]);
     mockState = {
@@ -338,5 +347,53 @@ describe('MidpointScreen', () => {
     await act(async () => {}); // mount 시 loadRecentOrigins + 서버 fetch promise flush
     fireEvent.press(getByLabelText('뒤로 가기'));
     expect(mockBack).toHaveBeenCalled();
+  });
+
+  const SNAP: StationSnap = {
+    name: '공덕역',
+    coord: { lat: 37.5432, lng: 126.9512 },
+    distanceMeters: 420,
+  };
+
+  test('역 스냅 성공 → 역 카드 + "○○역 맛집" 자동 검색 발사', async () => {
+    mockSnap = SNAP;
+    mockFetchOrigins.mockResolvedValue([MY_ORIGIN, OTHER_ORIGIN]);
+    const { findByTestId, getByText } = render(<MidpointScreen />, { wrapper });
+    expect(await findByTestId('station-card')).toBeTruthy();
+    expect(getByText(/공덕역 근처가 중간이에요/)).toBeTruthy();
+    expect(getByText(/420m/)).toBeTruthy();
+    await waitFor(() => expect(mockSetQuery).toHaveBeenCalledWith('공덕역 맛집'));
+  });
+
+  test('카테고리 칩 전환 → 쿼리 재발사', async () => {
+    mockSnap = SNAP;
+    mockFetchOrigins.mockResolvedValue([MY_ORIGIN, OTHER_ORIGIN]);
+    const { findByTestId } = render(<MidpointScreen />, { wrapper });
+    const chip = await findByTestId('reco-chip-카페');
+    await act(async () => {
+      fireEvent.press(chip);
+    });
+    expect(mockSetQuery).toHaveBeenCalledWith('공덕역 카페');
+  });
+
+  test('수동 검색 입력 → 자동 모드 해제 (칩 selected 해제 + 입력값 그대로 검색)', async () => {
+    mockSnap = SNAP;
+    mockFetchOrigins.mockResolvedValue([MY_ORIGIN, OTHER_ORIGIN]);
+    const { findByTestId, getByTestId } = render(<MidpointScreen />, { wrapper });
+    await findByTestId('station-card');
+    await act(async () => {
+      fireEvent.changeText(getByTestId('reco-search-input'), '파스타');
+    });
+    expect(mockSetQuery).toHaveBeenCalledWith('파스타');
+    expect(getByTestId('reco-chip-맛집').props.accessibilityState?.selected).toBe(false);
+  });
+
+  test('역 3km 초과(스냅 null) → 역 카드·칩 없음, 기존 수동 검색 유지 (교외 폴백)', async () => {
+    mockSnap = null;
+    mockFetchOrigins.mockResolvedValue([MY_ORIGIN, OTHER_ORIGIN]);
+    const { findByTestId, queryByTestId } = render(<MidpointScreen />, { wrapper });
+    await findByTestId('midpoint-summary');
+    expect(queryByTestId('station-card')).toBeNull();
+    expect(queryByTestId('reco-chip-맛집')).toBeNull();
   });
 });
