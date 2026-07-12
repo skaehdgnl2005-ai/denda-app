@@ -1,4 +1,4 @@
-// S-MAP M3 — 중간지점 화면: 출발지 추가 → 중간점 계산 → 근처 추천 → 확정(M2 재사용).
+// S-MAP M5 — 중간지점 화면: 서버 출발지(n/m 진행·본인만 쓰기) → 중간점 계산 → 근처 추천 → 확정(M2 재사용).
 
 import React from 'react';
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
@@ -23,10 +23,15 @@ const wrapper = ({ children }: { children: React.ReactNode }): React.JSX.Element
 
 const mockReplace = jest.fn();
 const mockBack = jest.fn();
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: mockReplace, back: mockBack, push: jest.fn() }),
-  useLocalSearchParams: () => ({ id: 'g-1' }),
-}));
+jest.mock('expo-router', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const ReactMod = require('react') as typeof React;
+  return {
+    useRouter: () => ({ replace: mockReplace, back: mockBack, push: jest.fn() }),
+    useLocalSearchParams: () => ({ id: 'g-1' }),
+    useFocusEffect: (cb: () => void | (() => void)) => ReactMod.useEffect(cb, [cb]),
+  };
+});
 
 // 추천 검색용 useMapSearch — controllable.
 type SearchState = {
@@ -109,6 +114,26 @@ jest.mock('@/lib/groups/setConfirmedPlace', () => ({
   setConfirmedPlace: (...args: unknown[]) => mockSetConfirmedPlace(...args),
 }));
 
+let mockUserId: string | undefined = 'me';
+jest.mock('@/lib/auth/setup', () => ({
+  useAuth: (sel: (s: { session?: { user: { id: string | undefined } } }) => unknown) =>
+    sel({ session: { user: { id: mockUserId } } }),
+}));
+
+const mockFetchOrigins = jest.fn();
+const mockUpsertOrigin = jest.fn();
+const mockDeleteOrigin = jest.fn();
+jest.mock('@/lib/map/groupOrigins', () => ({
+  fetchGroupOrigins: (...a: unknown[]) => mockFetchOrigins(...a),
+  upsertMyOrigin: (...a: unknown[]) => mockUpsertOrigin(...a),
+  deleteMyOrigin: (...a: unknown[]) => mockDeleteOrigin(...a),
+}));
+
+const mockFetchGroup = jest.fn();
+jest.mock('@/lib/groups/queries', () => ({
+  fetchGroupForConfirm: (...a: unknown[]) => mockFetchGroup(...a),
+}));
+
 // 중간점(강남·홍대) ≈ (37.52755, 126.97605).
 const nearResult: PlaceSearchResult = {
   providerPlaceId: 'naver:가까운식당:37.527:126.976',
@@ -131,6 +156,19 @@ const farResult: PlaceSearchResult = {
   source: 'naver',
 };
 
+const MY_ORIGIN = {
+  userId: 'me',
+  nickname: '나',
+  label: '강남역',
+  coord: { lat: 37.4979, lng: 127.0276 },
+};
+const OTHER_ORIGIN = {
+  userId: 'u2',
+  nickname: '지연',
+  label: '홍대입구역',
+  coord: { lat: 37.5572, lng: 126.9245 },
+};
+
 describe('MidpointScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -143,15 +181,72 @@ describe('MidpointScreen', () => {
       isLoading: false,
       error: null,
     };
+    mockUserId = 'me';
+    mockFetchOrigins.mockResolvedValue([]);
+    mockUpsertOrigin.mockResolvedValue(undefined);
+    mockDeleteOrigin.mockResolvedValue(undefined);
+    mockFetchGroup.mockResolvedValue({
+      id: 'g-1',
+      hostId: 'host',
+      name: '모임',
+      dates: [],
+      memberCount: 5,
+      confirmedAt: null,
+      confirmedStartAt: null,
+      confirmedEndAt: null,
+      confirmedPlaceId: null,
+    });
   });
 
-  test('출발지 2개 추가 → 중간지점 요약 노출', async () => {
+  test('focus 시 서버 출발지 fetch → 진행 표시 "2/5명 입력" + 타인 행 읽기 전용', async () => {
+    mockFetchOrigins.mockResolvedValue([MY_ORIGIN, OTHER_ORIGIN]);
+    const { findByTestId, getByText, queryByTestId } = render(<MidpointScreen />, { wrapper });
+    await findByTestId('origin-progress');
+    expect(getByText(/2\/5명 입력/)).toBeTruthy();
+    expect(getByText(/지연 · 홍대입구역/)).toBeTruthy();
+    // 내 행에만 삭제 버튼
+    expect(queryByTestId('my-origin-remove')).toBeTruthy();
+  });
+
+  test('OriginInput 선택 → upsertMyOrigin(g-1, me, origin) + refetch', async () => {
     const { getByTestId } = render(<MidpointScreen />, { wrapper });
     await act(async () => {
       fireEvent.press(getByTestId('add-origin-a'));
-      fireEvent.press(getByTestId('add-origin-b'));
     });
-    expect(getByTestId('midpoint-summary')).toBeTruthy();
+    expect(mockUpsertOrigin).toHaveBeenCalledWith('g-1', 'me', {
+      label: '강남역',
+      coord: { lat: 37.4979, lng: 127.0276 },
+    });
+    expect(mockFetchOrigins.mock.calls.length).toBeGreaterThanOrEqual(2); // mount + upsert 후
+  });
+
+  test('내 출발지 삭제 → deleteMyOrigin(g-1, me)', async () => {
+    mockFetchOrigins.mockResolvedValue([MY_ORIGIN, OTHER_ORIGIN]);
+    const { findByTestId } = render(<MidpointScreen />, { wrapper });
+    const removeBtn = await findByTestId('my-origin-remove');
+    await act(async () => {
+      fireEvent.press(removeBtn);
+    });
+    expect(mockDeleteOrigin).toHaveBeenCalledWith('g-1', 'me');
+  });
+
+  test('서버 출발지 2개 이상 → 중간지점 요약 노출 (미입력자 제외 진행)', async () => {
+    mockFetchOrigins.mockResolvedValue([MY_ORIGIN, OTHER_ORIGIN]);
+    const { findByTestId } = render(<MidpointScreen />, { wrapper });
+    expect(await findByTestId('midpoint-summary')).toBeTruthy();
+  });
+
+  test('fetch 실패 → 한국어 에러 + 재시도 버튼이 재호출', async () => {
+    mockFetchOrigins.mockRejectedValueOnce(
+      new Error('출발지를 불러오지 못했어요. 잠시 후 다시 시도해주세요.'),
+    );
+    const { findByTestId, getByText } = render(<MidpointScreen />, { wrapper });
+    const retry = await findByTestId('origins-error-retry');
+    expect(getByText(/출발지를 불러오지 못했어요/)).toBeTruthy();
+    await act(async () => {
+      fireEvent.press(retry);
+    });
+    expect(mockFetchOrigins.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 
   test('출발지 추가 → saveRecentOrigin 호출', async () => {
@@ -165,11 +260,9 @@ describe('MidpointScreen', () => {
   test('추천 결과는 중간지점에 가까운 순으로 정렬', async () => {
     mockState.results = [farResult, nearResult];
     mockState.query = '식당';
-    const { getByTestId } = render(<MidpointScreen />, { wrapper });
-    await act(async () => {
-      fireEvent.press(getByTestId('add-origin-a'));
-      fireEvent.press(getByTestId('add-origin-b'));
-    });
+    mockFetchOrigins.mockResolvedValue([MY_ORIGIN, OTHER_ORIGIN]);
+    const { getByTestId, findByTestId } = render(<MidpointScreen />, { wrapper });
+    await findByTestId('midpoint-summary');
     // 가까운식당 이 reco-result-0 에 와야 함.
     expect(within(getByTestId('reco-result-0')).getByText('가까운식당')).toBeTruthy();
   });
@@ -179,12 +272,10 @@ describe('MidpointScreen', () => {
     mockState.query = '식당';
     mockPersistPlace.mockResolvedValue('place-uuid');
     mockSetConfirmedPlace.mockResolvedValue(undefined);
+    mockFetchOrigins.mockResolvedValue([MY_ORIGIN, OTHER_ORIGIN]);
 
-    const { getByTestId } = render(<MidpointScreen />, { wrapper });
-    await act(async () => {
-      fireEvent.press(getByTestId('add-origin-a'));
-      fireEvent.press(getByTestId('add-origin-b'));
-    });
+    const { getByTestId, findByTestId } = render(<MidpointScreen />, { wrapper });
+    await findByTestId('midpoint-summary');
     fireEvent.press(getByTestId('reco-result-0'));
     await act(async () => {
       fireEvent.press(getByTestId('mid-confirm-confirm'));
@@ -202,12 +293,10 @@ describe('MidpointScreen', () => {
     mockState.query = '식당';
     mockPersistPlace.mockResolvedValue('place-uuid');
     mockSetConfirmedPlace.mockResolvedValue(undefined);
+    mockFetchOrigins.mockResolvedValue([MY_ORIGIN, OTHER_ORIGIN]);
 
-    const { getByTestId } = render(<MidpointScreen />, { wrapper });
-    await act(async () => {
-      fireEvent.press(getByTestId('add-origin-a'));
-      fireEvent.press(getByTestId('add-origin-b'));
-    });
+    const { getByTestId, findByTestId } = render(<MidpointScreen />, { wrapper });
+    await findByTestId('midpoint-summary');
     fireEvent.press(getByTestId(`marker-${nearResult.providerPlaceId}`));
     await act(async () => {
       fireEvent.press(getByTestId('mid-confirm-confirm'));
@@ -221,7 +310,7 @@ describe('MidpointScreen', () => {
 
   test('뒤로 가기 → router.back()', async () => {
     const { getByLabelText } = render(<MidpointScreen />, { wrapper });
-    await act(async () => {}); // mount 시 loadRecentOrigins promise flush
+    await act(async () => {}); // mount 시 loadRecentOrigins + 서버 fetch promise flush
     fireEvent.press(getByLabelText('뒤로 가기'));
     expect(mockBack).toHaveBeenCalled();
   });

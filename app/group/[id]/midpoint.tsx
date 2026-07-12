@@ -1,10 +1,10 @@
-// S-MAP M3 — 멤버 중간지점 추천 화면 (Q-B23).
+// S-MAP M5 — 멤버 중간지점 추천 화면 (Q-B23, D41).
 //
 // Route: /group/[id]/midpoint
 //
 // 흐름:
-//   1. 각 멤버 출발지를 OriginInput으로 추가 (자동완성 = 장소검색 재사용 + 최근 2개 칩).
-//      출발지는 온디바이스 로컬 저장(recentOrigins, 서버 미전송 — PIPA 경량).
+//   1. 모임 출발지는 서버(group_origins, D41)에 저장 — 멤버 각자 본인 행만 쓰기, 타인 행은
+//      읽기 전용으로 실시간 진행 표시("n/m명 입력"). 최근 검색 칩(recentOrigins)만 온디바이스.
 //   2. 2곳 이상 → computeMidpoint(중간지점). toMidpointScene으로 member/midpoint 마커 산출.
 //   3. "중간지점 근처 장소" 검색(useMapSearch) → sortByDistanceTo로 중간점 가까운 순 정렬.
 //   4. 추천 tap → Alert 확인 → usePlaceConfirmAction(M2 재사용)로 확정 → place 라우트(Gate #1·#2).
@@ -16,7 +16,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { ConfirmSheet } from '@/components/ConfirmSheet';
 import { Icon } from '@/components/Icon';
@@ -27,6 +27,14 @@ import { useToast } from '@/components/Toast';
 import { rowPressBg } from '@/design/press';
 import { useTheme } from '@/design/theme';
 import { Body, Caption } from '@/design/typography';
+import { useAuth } from '@/lib/auth/setup';
+import { fetchGroupForConfirm } from '@/lib/groups/queries';
+import {
+  deleteMyOrigin,
+  fetchGroupOrigins,
+  upsertMyOrigin,
+  type GroupOrigin,
+} from '@/lib/map/groupOrigins';
 import {
   computeMidpoint,
   sortByDistanceTo,
@@ -45,8 +53,12 @@ export default function MidpointScreen(): React.JSX.Element {
   const groupId = params.id ?? '';
   const router = useRouter();
   const { colors, space, radius } = useTheme();
+  const toast = useToast();
 
-  const [origins, setOrigins] = useState<OriginPoint[]>([]);
+  const userId = useAuth((s) => s.session?.user.id);
+  const [origins, setOrigins] = useState<GroupOrigin[]>([]);
+  const [memberCount, setMemberCount] = useState(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [recents, setRecents] = useState<OriginPoint[]>([]);
 
   useEffect(() => {
@@ -63,23 +75,74 @@ export default function MidpointScreen(): React.JSX.Element {
     };
   }, []);
 
-  const handleAddOrigin = useCallback((origin: OriginPoint): void => {
-    setOrigins((prev) => [...prev, origin]);
-    saveRecentOrigin(recentOriginsStorage, origin)
-      .then((merged) => setRecents(merged))
-      .catch(() => {
-        // 저장 실패해도 이번 세션 origins는 유지 (서버 미전송 best-effort).
+  const load = useCallback(async (): Promise<void> => {
+    try {
+      const [fetched, group] = await Promise.all([
+        fetchGroupOrigins(groupId),
+        fetchGroupForConfirm(groupId),
+      ]);
+      setOrigins(fetched);
+      setMemberCount(group.memberCount);
+      setLoadError(null);
+    } catch (e: unknown) {
+      setLoadError(
+        e instanceof Error ? e.message : '출발지를 불러오지 못했어요. 잠시 후 다시 시도해주세요.',
+      );
+    }
+  }, [groupId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
+
+  const handleAddOrigin = useCallback(
+    (origin: OriginPoint): void => {
+      if (userId === undefined) return;
+      upsertMyOrigin(groupId, userId, origin)
+        .then(() => load())
+        .catch((e: unknown) => {
+          toast.show({
+            message:
+              e instanceof Error
+                ? e.message
+                : '출발지를 저장하지 못했어요. 잠시 후 다시 시도해주세요.',
+            variant: 'error',
+          });
+        });
+      saveRecentOrigin(recentOriginsStorage, origin)
+        .then((merged) => setRecents(merged))
+        .catch(() => {
+          // 온디바이스 칩 best-effort (Q-B23 유지 부분)
+        });
+    },
+    [groupId, userId, load, toast],
+  );
+
+  const handleRemoveMine = useCallback((): void => {
+    if (userId === undefined) return;
+    deleteMyOrigin(groupId, userId)
+      .then(() => load())
+      .catch((e: unknown) => {
+        toast.show({
+          message:
+            e instanceof Error
+              ? e.message
+              : '출발지를 삭제하지 못했어요. 잠시 후 다시 시도해주세요.',
+          variant: 'error',
+        });
       });
-  }, []);
+  }, [groupId, userId, load, toast]);
 
-  const handleRemoveOrigin = useCallback((index: number): void => {
-    setOrigins((prev) => prev.filter((_, i) => i !== index));
-  }, []);
-
-  // 중간지점은 출발지 2곳 이상일 때만 의미 있음.
-  const midpoint = useMemo(
-    () => (origins.length >= 2 ? computeMidpoint(origins.map((o) => o.coord)) : null),
+  // 중간점·scene은 서버 origins 기반 (OriginPoint shape로 매핑)
+  const originPoints = useMemo<OriginPoint[]>(
+    () => origins.map((o) => ({ label: o.label, coord: o.coord })),
     [origins],
+  );
+  const midpoint = useMemo(
+    () => (originPoints.length >= 2 ? computeMidpoint(originPoints.map((o) => o.coord)) : null),
+    [originPoints],
   );
 
   // 추천 검색 (중간지점 근처). useMapSearch는 키워드 검색 → 중간점 가까운 순으로 재정렬.
@@ -91,7 +154,7 @@ export default function MidpointScreen(): React.JSX.Element {
 
   // scene = member/midpoint 마커 + 추천 place 마커(actionId=providerPlaceId, 마커 onPress 통일용).
   const scene = useMemo(() => {
-    const base = toMidpointScene(origins, midpoint);
+    const base = toMidpointScene(originPoints, midpoint);
     const placeMarkers: MapMarker[] = recommended.map((r) => ({
       id: r.providerPlaceId,
       coord: { lat: r.lat, lng: r.lng },
@@ -100,9 +163,8 @@ export default function MidpointScreen(): React.JSX.Element {
       actionId: r.providerPlaceId,
     }));
     return { ...base, markers: [...base.markers, ...placeMarkers] };
-  }, [origins, midpoint, recommended]);
+  }, [originPoints, midpoint, recommended]);
 
-  const toast = useToast();
   const [pending, setPending] = useState<PlaceSearchResult | null>(null);
 
   const { confirm, inflight } = usePlaceConfirmAction(groupId, {
@@ -188,34 +250,76 @@ export default function MidpointScreen(): React.JSX.Element {
       <View style={{ paddingHorizontal: space[4], paddingBottom: space[2] }}>
         <OriginInput recentOrigins={recents} onSelect={handleAddOrigin} />
 
-        {origins.length > 0 ? (
-          <View style={styles.chipRow}>
-            {origins.map((origin, index) => (
-              <Pressable
-                key={`origin-${index}`}
-                onPress={() => handleRemoveOrigin(index)}
-                accessibilityRole="button"
-                accessibilityLabel={`${origin.label} 출발지 빼기`}
-                testID={`origin-added-${index}`}
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                style={({ pressed }) => ({
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  backgroundColor: colors.brand[50],
-                  borderRadius: radius.pill,
-                  paddingHorizontal: space[3],
-                  paddingVertical: space[2],
-                  marginRight: space[2],
-                  marginTop: space[2],
-                  opacity: pressed ? 0.7 : 1,
-                })}
-              >
-                <Caption color={colors.brand[600]}>{origin.label}</Caption>
-                <Icon name="닫기" color={colors.brand[600]} size={14} />
-              </Pressable>
-            ))}
-          </View>
+        {/* D41: 진행 표시 + 출발지 목록 (본인 행만 삭제 가능, 타인 읽기 전용) */}
+        {memberCount > 0 ? (
+          <Caption
+            color={colors.text.secondary}
+            style={{ marginTop: space[2] }}
+            testID="origin-progress"
+          >
+            {origins.length}/{memberCount}명 입력
+          </Caption>
         ) : null}
+
+        {loadError !== null ? (
+          <Pressable
+            onPress={() => void load()}
+            accessibilityRole="button"
+            accessibilityLabel="출발지 다시 불러오기"
+            testID="origins-error-retry"
+            style={({ pressed }) => ({
+              backgroundColor: rowPressBg(pressed, colors, colors.surface[1]),
+              borderRadius: radius.md,
+              padding: space[3],
+              marginTop: space[2],
+            })}
+          >
+            <Caption color={colors.semantic.error.fg}>{loadError} (탭해서 다시 시도)</Caption>
+          </Pressable>
+        ) : null}
+
+        {origins.map((origin, index) =>
+          origin.userId === userId ? (
+            <Pressable
+              key={origin.userId}
+              onPress={handleRemoveMine}
+              accessibilityRole="button"
+              accessibilityLabel={`내 출발지 ${origin.label} 빼기`}
+              testID="my-origin-remove"
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: colors.brand[50],
+                borderRadius: radius.pill,
+                paddingHorizontal: space[3],
+                paddingVertical: space[2],
+                marginTop: space[2],
+                alignSelf: 'flex-start',
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <Caption color={colors.brand[600]}>나 · {origin.label}</Caption>
+              <Icon name="닫기" color={colors.brand[600]} size={14} />
+            </Pressable>
+          ) : (
+            <View
+              key={origin.userId}
+              testID={`origin-row-${index}`}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingVertical: space[2],
+                marginTop: space[1],
+              }}
+            >
+              <Icon name="장소" color={colors.text.tertiary} size={14} />
+              <Caption color={colors.text.secondary} style={{ marginLeft: space[1] }}>
+                {origin.nickname} · {origin.label}
+              </Caption>
+            </View>
+          ),
+        )}
 
         {midpoint !== null ? (
           <View testID="midpoint-summary" style={{ marginTop: space[3] }}>
@@ -253,7 +357,7 @@ export default function MidpointScreen(): React.JSX.Element {
           </View>
         ) : (
           <Caption color={colors.text.tertiary} style={{ marginTop: space[3] }}>
-            출발지를 2곳 이상 넣으면 중간지점을 찾아드려요
+            출발지를 등록해주세요 · 2명 이상 모이면 중간지점을 찾아드려요
           </Caption>
         )}
       </View>
@@ -302,6 +406,5 @@ export default function MidpointScreen(): React.JSX.Element {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap' },
   centered: { alignItems: 'center', justifyContent: 'center' },
 });
