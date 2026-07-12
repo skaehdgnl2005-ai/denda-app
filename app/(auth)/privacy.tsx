@@ -78,9 +78,14 @@ export default function PrivacyScreen() {
             가입 후 24시간 이내 자동으로 모임에 합류시키기 위해서만 사용합니다.
           </Caption>
 
-          <SubHeading text="마. 기기 내 보관 (서버 미전송)" colors={colors} space={space} />
+          <SubHeading text="마. 중간지점 출발지" colors={colors} space={space} />
           <Bullet
-            text="중간지점 찾기에 입력한 출발지는 기기에만 저장되며 서버로 전송되지 않습니다"
+            text="중간지점 찾기에 등록한 출발지(장소명·좌표)는 해당 모임 멤버에게만 공개되며, 모임 삭제 또는 탈퇴 시 함께 삭제됩니다"
+            colors={colors}
+            space={space}
+          />
+          <Bullet
+            text="최근 출발지 칩은 기기에만 저장되며 서버로 전송되지 않습니다"
             colors={colors}
             space={space}
           />

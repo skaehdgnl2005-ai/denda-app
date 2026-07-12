@@ -49,4 +49,10 @@ describe('PrivacyScreen', () => {
     fireEvent.press(getByLabelText('뒤로 가기'));
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
+
+  test('D41: 모임 출발지 서버 저장 + 최근 칩 온디바이스 고지', () => {
+    const { getByText } = render(<PrivacyScreen />, { wrapper });
+    expect(getByText(/해당 모임 멤버에게만 공개/)).toBeTruthy();
+    expect(getByText(/최근 출발지 칩은 기기에만 저장/)).toBeTruthy();
+  });
 });
