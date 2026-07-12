@@ -108,9 +108,14 @@ COMMIT;
 -- SELECT polname FROM pg_policy WHERE polrelid = 'public.group_origins'::regclass;
 -- -- Expected: select_same_group / insert_self / update_self / delete_self 4 rows
 --
--- -- 2. 트리거 2개 존재 확인 (updated_at + member_leave cascade)
--- SELECT tgname FROM pg_trigger WHERE tgrelid = 'public.group_origins'::regclass;
--- -- Expected: group_origins_set_updated_at, group_origins_on_member_leave 2 rows
+-- -- 2. 트리거 2개 존재 확인 (updated_at on group_origins + member_leave cascade on group_members)
+-- --    member_leave 트리거는 group_members에 걸려있으므로 두 relid 모두 조회해야 한다.
+-- --    tgisinternal = false로 FK 내부 트리거(RI_ConstraintTrigger_* 등) 제외.
+-- SELECT tgname, tgrelid::regclass FROM pg_trigger
+--   WHERE tgrelid IN ('public.group_origins'::regclass, 'public.group_members'::regclass)
+--     AND tgisinternal = false;
+-- -- Expected: group_origins_set_updated_at (on group_origins),
+-- --           group_origins_on_member_leave (on group_members) — 2 rows
 --
 -- -- 3. anon 접근 차단 (RLS)
 -- -- curl -H "apikey:<anon>" "https://<ref>.supabase.co/rest/v1/group_origins?select=*&limit=1"

@@ -4,7 +4,8 @@
 //
 // 흐름:
 //   1. 모임 출발지는 서버(group_origins, D41)에 저장 — 멤버 각자 본인 행만 쓰기, 타인 행은
-//      읽기 전용으로 실시간 진행 표시("n/m명 입력"). 최근 검색 칩(recentOrigins)만 온디바이스.
+//      읽기 전용으로 focus 시 갱신되는 진행 표시("n/m명 입력", Realtime 아님 — v1 제외 D41/스펙 §0).
+//      최근 검색 칩(recentOrigins)만 온디바이스.
 //   2. 2곳 이상 → computeMidpoint(중간지점). toMidpointScene으로 member/midpoint 마커 산출.
 //   3. "중간지점 근처 장소" 검색(useMapSearch) → sortByDistanceTo로 중간점 가까운 순 정렬.
 //   4. 추천 tap → Alert 확인 → usePlaceConfirmAction(M2 재사용)로 확정 → place 라우트(Gate #1·#2).
@@ -54,6 +55,10 @@ import { SUBWAY_STATIONS } from '@/lib/map/stations.data';
 import type { PlaceSearchResult } from '@/lib/places/PlaceSearchProvider';
 import { findResultByActionId, usePlaceConfirmAction } from '@/lib/places/usePlaceConfirmAction';
 import { useMapSearch } from '@/lib/places/useMapSearch';
+
+function formatDistance(m: number): string {
+  return m >= 1000 ? `${(m / 1000).toFixed(1)}km` : `${Math.round(m)}m`;
+}
 
 export default function MidpointScreen(): React.JSX.Element {
   const params = useLocalSearchParams<{ id: string }>();
@@ -195,10 +200,6 @@ export default function MidpointScreen(): React.JSX.Element {
     }));
     return { ...base, markers: [...base.markers, ...placeMarkers] };
   }, [originPoints, recoCenter, snap, recommended]);
-
-  function formatDistance(m: number): string {
-    return m >= 1000 ? `${(m / 1000).toFixed(1)}km` : `${Math.round(m)}m`;
-  }
 
   const [pending, setPending] = useState<PlaceSearchResult | null>(null);
 
