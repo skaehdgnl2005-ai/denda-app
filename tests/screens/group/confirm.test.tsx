@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import GroupConfirmScreen from '../../../app/group/[id]/index';
@@ -251,6 +251,48 @@ describe('GroupConfirmScreen', () => {
         }),
       ),
     );
+  });
+
+  test('추천 행 더블 탭 → confirmGroup 1회만 (F5 푸시 이중 발송 차단)', async () => {
+    mockFetchGroup.mockResolvedValue({
+      id: VALID_GROUP_ID,
+      hostId: HOST_ID,
+      name: 'x',
+      dates: ['2026-06-01', '2026-06-02'],
+      memberCount: 3,
+      confirmedAt: null,
+      confirmedStartAt: null,
+      confirmedEndAt: null,
+      confirmedPlaceId: null,
+    });
+    setCell(mockCells, 0, 0, 2);
+    setCell(mockCells, 0, 1, 2);
+    // 첫 호출을 느린 네트워크로 잡아둔다 — useState 기반 가드는 재렌더 전 연타를 못 막는다.
+    let resolveConfirm: (v: unknown) => void = () => {};
+    mockConfirmGroup.mockImplementationOnce(
+      () =>
+        new Promise((res) => {
+          resolveConfirm = res;
+        }),
+    );
+
+    const { findByTestId } = render(<GroupConfirmScreen />, { wrapper });
+    fireEvent.press(await findByTestId('host-confirm-button'));
+
+    const row = await findByTestId('confirm-slot-sheet-slot-0');
+    fireEvent.press(row);
+    fireEvent.press(row); // 같은 프레임 연타
+
+    expect(mockConfirmGroup).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveConfirm({
+        ok: true,
+        confirmedAt: '2026-06-01T00:00:00.000Z',
+        alreadyConfirmed: false,
+        f5Dispatch: { fulfilled: 3, rejected: 0 },
+      });
+    });
   });
 
   test('S20: 호스트 + 확정 + 장소 미정 → "장소 정하기" 버튼 → place-search push', async () => {
