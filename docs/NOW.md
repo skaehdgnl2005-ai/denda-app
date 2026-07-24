@@ -58,9 +58,11 @@
 ### S-MAP — 지도 렌더 활성화(MapHost) + 확장 — 코딩 트랙 완료 (운영 트랙만 잔여)
 
 - **상태**: M0+①·M2·M3·M4 DONE (2026-06-09) + **M5 중간지점 협업 DONE (2026-07-13, SESSION_LOG promote — 멤버 출발지 서버 등록·역 스냅·자동 추천, D41)**. branch `feat/map-maphost-m0` (push 유지, PR 미생성).
-- **운영 트랙 잔여 (2026-07-13 실사 갱신 — 코드 변경 0)**:
-  - **`supabase db push` (0023 group_origins) — M5 출발지 저장의 유일 prereq. 빌드 배포 전 필수** + 0023 말미 검증 쿼리
-  - `expo run:android` 또는 EAS 빌드 → 실기 지도 렌더·60fps 검증. Android는 키·env·prebuild 완료 상태. iOS는 prebuild부터 전부 잔여 (.env.eas.example에 `EXPO_PUBLIC_MAP_ENABLED` 항목 누락 주의)
-  - ~~naver_local_search 배포~~ ✅ 원격 ACTIVE v3 확인 (2026-07-12 `supabase functions list` — 구기록 stale). ⚠️ **원격 Edge는 2개뿐** — click_log 등 나머지 14개 미배포, 출시 전 일괄 배포 체크 필요
+- **운영 트랙 잔여 (2026-07-25 S-DBG 세션 갱신)**:
+  - ~~`supabase db push` (0023)~~ ✅ **완료 (2026-07-25)** — migration list 검증 + anon 쓰기 401 RLS 스모크
+  - ~~원격 Edge 2개뿐~~ ✅ **16/16 ACTIVE (2026-07-25 일괄 배포)** — votes_aggregate 미배포로 원격 히트맵 broadcast가 지금껏 불가였음도 해소. secrets 완비 확인
+  - ~~.env.eas.example MAP_ENABLED 누락~~ ✅ 해소 — manifest 정합성 테스트 신설 (GOOGLE_CLIENT_ID도 보강)
+  - `expo run:android` 또는 EAS 빌드 → **실기 지도 렌더·60fps 검증** (다음 세션 — run-denda-device + DEVICE_TEST_CHECKLIST). Android 키·env·prebuild 완료. iOS는 prebuild부터 전부 잔여
+  - 🔴 **출시 전 필수 (별도 태스크)**: anon RLS 하드닝 — [BUG_HUNT_2026-07-25.md](BUG_HUNT_2026-07-25.md) §3 (SEC-1 users PII·SEC-2 guest_token 위변조, 스키마·RPC 재설계+D{N} 결정 동반)
   - ~~Client ID 발급~~ ✅ 완료 · ~~제휴 PNG(Q-B13)~~ ✅ D40으로 불필요 · ② 제휴 **실데이터**는 Phase 3(D3) — `isResultPartner` stub 유지
 - 설계 SSoT: `2026-06-08-map-feature-activation-design.md`·[D38](DECISIONS.md#d38--지도-렌더-seam--maphost-단일-경계--mapscene-계약--ismapavailable-env-게이트) + M5 `2026-07-12-midpoint-collab-design.md`·[D41](DECISIONS.md#d41--모임-출발지-서버-저장-group_origins-q-b23-부분-supersede)

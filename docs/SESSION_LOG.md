@@ -25,6 +25,20 @@ STATUS는 다음 중 하나:
 
 ---
 
+## S-DBG — 실기기 前 전면 디버깅 세션 (2026-07-25) — DONE
+- Depends: S-MAP M5, DEVICE_TEST_CHECKLIST(1d1df44). 백로그 태스크 아님 — 카운트 변경 없음.
+- 배경: 실기기 테스트 전 "기기 없이 잡을 수 있는 결함 전부 제거" 세션. 8-lens 멀티에이전트 버그 헌트(finder 42건) → adversarial 반증 검증 → 직렬 TDD fix. 전체 결과·백로그 SSoT: **[BUG_HUNT_2026-07-25.md](BUG_HUNT_2026-07-25.md)**.
+- Changes (11 커밋 f0e1e48..71a2d7a + docs):
+  - **critical**: sweep selection 기존 투표 미시드 → 재진입 첫 sweep이 투표 전체 서버 삭제 (c252489, 4-lens 독립 발견)
+  - **high**: 투표 커밋 동시 발사 순서 역전+실패 롤백 부재(6c54653) · **세션 디스크 영속 부재 — 앱 재시작마다 로그아웃**(b868b93, SecureStore 청크 어댑터+bootstrap 복원+fail-open) · 히트맵 초기 스냅샷/폴링 미배선(703ea06, votes_aggregate 응답에 payload 동봉)
+  - **medium**: midpoint hydration·groupId 가드(ada0ed1) · 출발지 쓰기 직렬화(aa1efd8)
+  - **신설**: 루트 ErrorBoundary(1410561) · EAS env manifest 정합성 테스트+누락 2키(295c514) · Deno 2.8 스위트 복구(f0e1e48) · luxon 통일(2bd78e5) · lint 에러 5건(71a2d7a) · 더블탭 반증 회귀 가드(d578ada)
+- Tests: Jest **1276 pass / 1 skip** (+31, 스위트 149), Deno **345 pass**(구기록 "8/8"은 부분 실행), web-guest e2e 18/18, tsc 0, eslint 0 errors.
+- 원격 정합화(P4, 사용자 승인): **0023 push ✅**(migration list 검증+anon 쓰기 401 스모크) · **Edge 14개 일괄 배포 → 16/16 ACTIVE** (votes_aggregate 미배포 = 원격 히트맵 broadcast 지금까지 불가였음) · secrets 완비 확인.
+- 에뮬 스모크: 크래시 0 · 콜드스타트 764ms/2000ms ✅ · 온보딩 렌더 정상 · logcat 클린. (카카오 로그인부터는 실기기 §2 몫)
+- Next: **실기기 테스트 세션** (run-denda-device, DEVICE_TEST_CHECKLIST §0→§4→§3→§2 순). 출시 전 필수 후속: **BUG_HUNT §3 보안 백로그 (SEC-1 anon users PII / SEC-2 guest_token 위변조 — 스키마·RPC 재설계 필요, D{N} 결정 동반)**.
+- Notes: 반증 3건(useMapSearch quota·자동추천 캐스케이드·확정 더블탭) 근거와 함께 기록 — 재발견 방지. maestro CLI 미설치(실기기 전 설치 권장). P2 워크플로 검증 39개가 spend limit로 중단 → 미검증 finding은 본인 인라인 검증으로 상위만 처리, 나머지 BUG_HUNT §4·§5.
+
 ## S-MAP M5 — 중간지점 협업 업그레이드 (멤버 출발지·역 스냅·자동 추천) (2026-07-13) — DONE
 - Depends: S-MAP M0~M4(MapHost seam·M3 중간지점·M2 확정 플로우), **D41 신규**(모임 출발지 서버 저장 — Q-B23 부분 supersede), D16·D18·D26·D39, 0022 RLS 헬퍼
 - 배경: 기존 M3 한계 3개(호스트 단독 입력·검색어 없이는 추천 0·온디바이스라 공유 불가) 해소. 스펙 `2026-07-12-midpoint-collab-design.md` + 플랜 `2026-07-12-midpoint-collab.md` (브레인스토밍 Q&A 4건 확정). **서브에이전트-드리븐 실행**: 태스크 10개 × (구현자 + 독립 리뷰어) + 최종 전체 브랜치 리뷰(Fable) — 리뷰 fix 5건 반영.
