@@ -24,6 +24,7 @@ import { createExpoNotificationsApi, createPlatformApi } from '@/lib/push/expoNo
 import { PushRegistrationRoot } from '@/lib/push/PushRegistrationRoot';
 import { supabase } from '@/lib/supabase/client';
 import { ThemeProvider, useTheme } from '@/design/theme';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ToastProvider, useToast } from '@/components/Toast';
 
 // Prevent splash screen from auto-hiding before asset loading is complete
@@ -78,12 +79,15 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <ThemeProvider>
           <ToastProvider>
-            <StatusBar style="auto" />
-            <CalendarSyncRootConnected />
-            <PushRegistrationConnected />
-            <AttributionRootConnected />
-            <ColdStartBadge />
-            <RootStack />
+            {/* 렌더 크래시 폴백 — Provider 하위라 테마·EmptyState 사용 가능, 앱 전체 커버 */}
+            <ErrorBoundary>
+              <StatusBar style="auto" />
+              <CalendarSyncRootConnected />
+              <PushRegistrationConnected />
+              <AttributionRootConnected />
+              <ColdStartBadge />
+              <RootStack />
+            </ErrorBoundary>
           </ToastProvider>
         </ThemeProvider>
       </SafeAreaProvider>
