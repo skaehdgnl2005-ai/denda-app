@@ -126,13 +126,30 @@ export default function MidpointScreen(): React.JSX.Element {
     });
   }, [toast]);
 
+  // 출발지 쓰기(추가·삭제)는 탭 순서대로 직렬 실행 — A 탭 직후 B로 정정하면 두 upsert가
+  // 동시 발사되어 서버 착지 순서가 뒤집힐 수 있다(마지막 탭이 아닌 값이 저장). 체인으로 순서 보장.
+  const writeChainRef = useRef<Promise<void>>(Promise.resolve());
+  // 동일 출발지 연타는 중복 요청 생략 (in-flight 동안만 기억).
+  const pendingIntentRef = useRef<OriginPoint | null>(null);
+
   const handleAddOrigin = useCallback(
     (origin: OriginPoint): void => {
       if (userId === undefined) {
         notifySessionPending();
         return;
       }
-      upsertMyOrigin(groupId, userId, origin)
+      const pending = pendingIntentRef.current;
+      if (
+        pending !== null &&
+        pending.label === origin.label &&
+        pending.coord.lat === origin.coord.lat &&
+        pending.coord.lng === origin.coord.lng
+      ) {
+        return; // 같은 출발지 연타 — 첫 요청이 이미 처리 중
+      }
+      pendingIntentRef.current = origin;
+      writeChainRef.current = writeChainRef.current
+        .then(() => upsertMyOrigin(groupId, userId, origin))
         .then(() => load())
         .catch((e: unknown) => {
           toast.show({
@@ -142,6 +159,9 @@ export default function MidpointScreen(): React.JSX.Element {
                 : '출발지를 저장하지 못했어요. 잠시 후 다시 시도해주세요.',
             variant: 'error',
           });
+        })
+        .finally(() => {
+          if (pendingIntentRef.current === origin) pendingIntentRef.current = null;
         });
       saveRecentOrigin(recentOriginsStorage, origin)
         .then((merged) => setRecents(merged))
@@ -157,7 +177,9 @@ export default function MidpointScreen(): React.JSX.Element {
       notifySessionPending();
       return;
     }
-    deleteMyOrigin(groupId, userId)
+    pendingIntentRef.current = null; // 삭제는 항상 큐잉 (추가 뒤 삭제 순서도 체인이 보장)
+    writeChainRef.current = writeChainRef.current
+      .then(() => deleteMyOrigin(groupId, userId))
       .then(() => load())
       .catch((e: unknown) => {
         toast.show({

@@ -296,6 +296,57 @@ describe('MidpointScreen', () => {
     expect(mockSaveRecent).toHaveBeenCalled();
   });
 
+  test('같은 출발지 연타 → in-flight 중복 upsert 1회로 dedupe', async () => {
+    let resolveUpsert: (v?: unknown) => void = () => {};
+    mockUpsertOrigin.mockImplementationOnce(
+      () =>
+        new Promise((res) => {
+          resolveUpsert = res;
+        }),
+    );
+    const { getByTestId } = render(<MidpointScreen />, { wrapper });
+    await act(async () => {}); // mount flush
+    fireEvent.press(getByTestId('add-origin-a'));
+    fireEvent.press(getByTestId('add-origin-a')); // 첫 upsert 미해결 상태에서 연타
+    await act(async () => {}); // 쓰기 체인 microtask flush
+    expect(mockUpsertOrigin).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      resolveUpsert();
+    });
+  });
+
+  test('A 탭 직후 B 탭(정정) → upsert가 탭 순서대로 직렬 실행 (마지막 탭이 최종 저장)', async () => {
+    // A·B upsert가 동시 발사되면 서버 착지 순서가 뒤집혀 A가 최종 저장될 수 있다 —
+    // B는 A가 resolve된 뒤에만 시작되어야 한다.
+    let resolveA: (v?: unknown) => void = () => {};
+    mockUpsertOrigin.mockImplementationOnce(
+      () =>
+        new Promise((res) => {
+          resolveA = res;
+        }),
+    );
+    const { getByTestId } = render(<MidpointScreen />, { wrapper });
+    await act(async () => {});
+    fireEvent.press(getByTestId('add-origin-a'));
+    fireEvent.press(getByTestId('add-origin-b')); // A 미해결 상태에서 정정 탭
+    await act(async () => {}); // 쓰기 체인 microtask flush — A는 시작, B는 큐 대기
+    // B upsert는 아직 시작되면 안 된다 (직렬화).
+    expect(mockUpsertOrigin).toHaveBeenCalledTimes(1);
+    expect(mockUpsertOrigin).toHaveBeenLastCalledWith('g-1', 'me', {
+      label: '강남역',
+      coord: { lat: 37.4979, lng: 127.0276 },
+    });
+    await act(async () => {
+      resolveA();
+    });
+    // A 완료 후 B가 이어서 실행 — 최종 호출은 B.
+    expect(mockUpsertOrigin).toHaveBeenCalledTimes(2);
+    expect(mockUpsertOrigin).toHaveBeenLastCalledWith('g-1', 'me', {
+      label: '홍대입구역',
+      coord: { lat: 37.5572, lng: 126.9245 },
+    });
+  });
+
   test('라우트 파라미터에 id 없음 → 안전 화면 렌더 + 빈 groupId로 fetch하지 않음', async () => {
     // 딥링크가 params 없이 착지하는 경우 — index.tsx의 `if (!groupId)` 가드와 동일 패턴.
     mockParams = {};
