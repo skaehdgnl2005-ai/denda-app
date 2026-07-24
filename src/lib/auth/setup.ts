@@ -16,7 +16,7 @@ import { useStore } from 'zustand';
 import { supabase } from '../supabase/client';
 
 import { type AuthState, createAuthStore } from './authStore';
-import { KakaoOIDCProvider, type KakaoOIDCSupabaseAuth } from './KakaoOIDCProvider';
+import { KakaoOIDCProvider, mapToAuthSession, type KakaoOIDCSupabaseAuth } from './KakaoOIDCProvider';
 
 // -------------------------------------------------------------------------
 // 환경변수 + 가드
@@ -103,6 +103,17 @@ export const authStore = createAuthStore({
     getItemAsync: SecureStore.getItemAsync,
     setItemAsync: SecureStore.setItemAsync,
     deleteItemAsync: SecureStore.deleteItemAsync,
+  },
+  // 앱 재시작 시 supabase가 디스크(secureStorage 어댑터)에서 복원한 세션을 store로 승격.
+  // 이 배선이 없으면 매 콜드 스타트마다 재로그인 (P2 버그 헌트 B1+B2).
+  restoreSession: async () => {
+    const { data, error } = await supabase.auth.getSession();
+    const session = data.session;
+    if (error !== null || session === null || session.expires_at === undefined) {
+      return null;
+    }
+    // supabase-js Session/User는 내부 SupabaseSession/SupabaseUser와 키 호환 (adapter 주석 참조)
+    return mapToAuthSession(session.user as never, session as never);
   },
   // luxon 경유로 가도 되지만, JS Date는 toISOString만 쓰므로 timezone 무관.
   // 단, design-guard rule을 만족시키려면 lib/time/kst를 통과해야 한다.

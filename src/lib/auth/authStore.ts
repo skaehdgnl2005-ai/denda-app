@@ -36,6 +36,9 @@ export type AuthStoreDeps = {
   storage: AuthStorage;
   // 테스트 시 deterministic time을 위해 주입. 프로덕션은 luxon DateTime.now()→toJSDate.
   now: () => Date;
+  // 앱 시작 시 supabase가 디스크에서 복원한 세션을 store로 승격 (setup.ts에서 주입).
+  // 미주입 시 복원 생략 — 항상 signed_out으로 시작.
+  restoreSession?: () => Promise<AuthSession | null>;
 };
 
 export type AuthState = {
@@ -72,16 +75,38 @@ export function createAuthStore(deps: AuthStoreDeps) {
       if (bootstrapPromise) {
         return bootstrapPromise;
       }
+      // 각 단계 fail-open — 어떤 실패도 앱을 무한 initializing(스플래시)에 가두지 않는다.
+      // 실패한 promise를 캐시하면 이후 bootstrap 호출도 전부 실패를 돌려주므로,
+      // 이 함수는 절대 reject하지 않는 promise만 캐시한다.
       bootstrapPromise = (async () => {
-        const [termsAgreedAt, onboarded] = await Promise.all([
-          deps.storage.getItemAsync(KEY_TERMS_AGREED_AT),
-          deps.storage.getItemAsync(KEY_ONBOARDED),
-        ]);
+        let termsAgreedAt: string | null = null;
+        let onboarded: string | null = null;
+        try {
+          [termsAgreedAt, onboarded] = await Promise.all([
+            deps.storage.getItemAsync(KEY_TERMS_AGREED_AT),
+            deps.storage.getItemAsync(KEY_ONBOARDED),
+          ]);
+        } catch {
+          // keychain 잠김 등 — 플래그 기본값으로 진행 (약관 재동의는 무해)
+        }
 
-        await deps.provider.initialize();
+        try {
+          await deps.provider.initialize();
+        } catch {
+          // SDK 초기화 실패 — provider가 내부에서 다음 signIn 시 재시도 (KakaoOIDCProvider)
+        }
+
+        // supabase가 디스크에서 복원한 세션을 store로 승격 — 없거나 실패하면 로그인 화면행
+        let restored: AuthSession | null = null;
+        try {
+          restored = (await deps.restoreSession?.()) ?? null;
+        } catch {
+          restored = null;
+        }
 
         set({
-          status: 'signed_out',
+          status: restored !== null ? 'signed_in' : 'signed_out',
+          session: restored,
           hasAgreedToTerms: termsAgreedAt !== null,
           termsAgreedAt,
           hasCompletedOnboarding: onboarded === '1',

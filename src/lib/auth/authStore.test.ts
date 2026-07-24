@@ -119,12 +119,69 @@ describe('authStore', () => {
       expect(deps.provider.initialize).toHaveBeenCalledTimes(1);
     });
 
-    it('bootstrap 완료 후 status=signed_out (세션 복원 안 함 — Supabase 자체 SecureStore 사용)', async () => {
+    it('restoreSession 미주입이면 status=signed_out (복원 생략)', async () => {
       const deps = makeDeps();
       const store = createAuthStore(deps);
 
       await store.getState().bootstrap();
 
+      expect(store.getState().status).toBe('signed_out');
+    });
+
+    it('restoreSession이 세션 반환 → signed_in + session 승격 (앱 재시작 로그인 유지)', async () => {
+      const deps = makeDeps();
+      const restored = makeSignInResult().session;
+      const store = createAuthStore({ ...deps, restoreSession: async () => restored });
+
+      await store.getState().bootstrap();
+
+      expect(store.getState().status).toBe('signed_in');
+      expect(store.getState().session).toEqual(restored);
+    });
+
+    it('restoreSession null → signed_out', async () => {
+      const deps = makeDeps();
+      const store = createAuthStore({ ...deps, restoreSession: async () => null });
+
+      await store.getState().bootstrap();
+
+      expect(store.getState().status).toBe('signed_out');
+      expect(store.getState().session).toBeNull();
+    });
+
+    it('restoreSession throw → signed_out (fail-open, 크래시·무한 로딩 금지)', async () => {
+      const deps = makeDeps();
+      const store = createAuthStore({
+        ...deps,
+        restoreSession: async () => {
+          throw new Error('secure store 잠김');
+        },
+      });
+
+      await store.getState().bootstrap();
+
+      expect(store.getState().status).toBe('signed_out');
+    });
+
+    it('storage 읽기 실패 → 플래그 기본값으로 완료 (무한 initializing 금지)', async () => {
+      const deps = makeDeps();
+      deps.storage.getItemAsync.mockRejectedValue(new Error('keychain 잠김'));
+      const store = createAuthStore(deps);
+
+      await store.getState().bootstrap();
+
+      expect(store.getState().status).toBe('signed_out');
+      expect(store.getState().hasAgreedToTerms).toBe(false);
+    });
+
+    it('provider.initialize 실패 → signed_out으로 완료 (로그인 화면 진입은 가능해야 함)', async () => {
+      const deps = makeDeps();
+      deps.provider = makeAuthProvider({
+        initialize: jest.fn().mockRejectedValue(new AuthError({ kind: 'network', message: 'SDK 실패' })),
+      });
+      const store = createAuthStore(deps);
+
+      await expect(store.getState().bootstrap()).resolves.toBeUndefined();
       expect(store.getState().status).toBe('signed_out');
     });
 
