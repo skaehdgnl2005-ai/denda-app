@@ -15,6 +15,7 @@
 // Jest tests는 uploadGoogleTokensToServer/deleteGoogleTokensFromServer/signInGoogleAndUpload만 검증 — adapter factory는 EAS Build 후 실 동작 검증.
 
 import { SupabaseClient } from '@supabase/supabase-js';
+import { DateTime } from 'luxon';
 
 import { AppleCalendarProvider, type AppleCalendarApi } from './apple';
 import {
@@ -356,7 +357,7 @@ export async function uploadGoogleTokensToServer(
     p_provider: GOOGLE_PROVIDER,
     p_access_token: state.accessToken,
     p_refresh_token: state.refreshToken,
-    p_expires_at: new Date(state.expiresAtMs).toISOString(),
+    p_expires_at: DateTime.fromMillis(state.expiresAtMs, { zone: 'utc' }).toISO(),
     p_scope: state.scope,
   });
   if (error) {
