@@ -89,8 +89,11 @@ export function useHeatmapSubscription({
   const statusRef = useRef<ConnectionStatus>('connecting');
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // requestSnapshot 함수 identity 변화가 channel 재구독을 유발하지 않도록 ref 경유
+  // (latest-ref 패턴 — 렌더 중 대입은 react-hooks/refs 위반이라 effect에서 갱신)
   const requestSnapshotRef = useRef(requestSnapshot);
-  requestSnapshotRef.current = requestSnapshot;
+  useEffect(() => {
+    requestSnapshotRef.current = requestSnapshot;
+  });
 
   const cells = useMemo(
     () => applyHeatmapPayload(makeEmptyCells(dayCount), payload, selfMarks, maxCount, dayCount),

@@ -88,6 +88,9 @@ export function useSweepGesture(options: UseSweepGestureOptions): UseSweepGestur
     onCommit(selectionToVoteSlots(snapshot, days));
   };
 
+  // worklet 내 SharedValue .value 쓰기는 Reanimated 계약 (D12 — UI 스레드 셀 상태).
+  // react-hooks/immutability는 렌더 불변성 규칙이라 여기선 오탐 — 블록 한정 해제.
+  /* eslint-disable react-hooks/immutability */
   const panGesture = Gesture.Pan()
     // 꾹 누름 후에만 sweep 활성. 그냥 드래그는 부모 ScrollView가 받아 세로 스크롤로 진행.
     .activateAfterLongPress(LONG_PRESS_MS)
@@ -122,6 +125,7 @@ export function useSweepGesture(options: UseSweepGestureOptions): UseSweepGestur
       currentCoord.value = null;
       runOnJS(jsCommit)(selection.value);
     });
+  /* eslint-enable react-hooks/immutability */
 
   return { panGesture, selection, scrollOffsetY, startCoord, currentCoord, toggleAdd };
 }
