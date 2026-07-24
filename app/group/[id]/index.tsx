@@ -91,6 +91,9 @@ export default function GroupConfirmScreen(): React.JSX.Element {
 
   // Previous committed vote slot set (JS mirror for diff)
   const prevVoteSetRef = useRef<Set<string>>(new Set());
+  // 커밋 직렬화 체인 — 연속 sweep의 INSERT/DELETE가 동시 발사되면 서버 착지 순서가
+  // 역전되어 지운 셀이 유령 투표로 되살아난다 (midpoint writeChainRef와 동일 클래스).
+  const commitChainRef = useRef<Promise<void>>(Promise.resolve());
 
   // Fail #12: group + 본인 기존 vote를 한 effect에서 fetch.
   // votes 실패는 silent (group 도착하면 빈 grid로 진입 가능). group 실패는 loadError.
@@ -178,15 +181,24 @@ export default function GroupConfirmScreen(): React.JSX.Element {
       }
       setSelectionRecord(nextSelection);
 
-      // S05c: vote diff commit
+      // S05c: vote diff commit — 체인 직렬화 (sweep 순서 = 서버 착지 순서)
       const nextSet = voteSetFromSlots(slots);
-      const { added, removed } = diffVoteSets(prevVoteSetRef.current, nextSet);
+      const prevSet = prevVoteSetRef.current;
+      const { added, removed } = diffVoteSets(prevSet, nextSet);
       if (added.length === 0 && removed.length === 0) return;
       prevVoteSetRef.current = nextSet;
-      commitVoteDiff({ groupId, userId, added, removed }).catch((e: Error) => {
-        const { silent, message } = mapError(e);
-        if (!silent) toast.show({ message, variant: 'error' });
-      });
+      commitChainRef.current = commitChainRef.current
+        .then(() => commitVoteDiff({ groupId, userId, added, removed }))
+        .catch((e: Error) => {
+          // 실패 → diff 기준선 롤백 (identity guard — 이후 sweep이 이미 전진시켰다면
+          // 유지). 다음 sweep의 diff가 실패분을 다시 added/removed로 재전송한다
+          // (0014 unique index의 23505 skip으로 재전송은 멱등).
+          if (prevVoteSetRef.current === nextSet) {
+            prevVoteSetRef.current = prevSet;
+          }
+          const { silent, message } = mapError(e);
+          if (!silent) toast.show({ message, variant: 'error' });
+        });
     },
     [group, userId, groupId, isConfirmed, toast],
   );

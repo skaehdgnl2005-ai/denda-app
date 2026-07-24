@@ -143,6 +143,106 @@ describe('GroupConfirmScreen — sweep 재진입 시드', () => {
     );
   });
 
+  test('commit1 in-flight 중 sweep2 → 커밋이 직렬화되어 착지 순서 역전이 없다', async () => {
+    mockFetchGroup.mockResolvedValue({
+      id: VALID_GROUP_ID,
+      hostId: HOST_ID,
+      name: '재진입 모임',
+      dates: ['2026-07-25', '2026-07-26'],
+      memberCount: 2,
+      confirmedAt: null,
+      confirmedStartAt: null,
+      confirmedEndAt: null,
+      confirmedPlaceId: null,
+    });
+    mockFetchUserVotes.mockResolvedValue([]);
+
+    // commit1은 느린 네트워크 — resolve를 손에 쥔다.
+    let resolveCommit1: (v?: unknown) => void = () => {};
+    (commitVoteDiff as jest.Mock)
+      .mockImplementationOnce(
+        () =>
+          new Promise((res) => {
+            resolveCommit1 = res;
+          }),
+      )
+      .mockResolvedValue(undefined);
+
+    const { findByText } = render(<GroupConfirmScreen />, { wrapper });
+    await findByText('재진입 모임');
+    const handlers = mockGridProps!.panGesture!._handlers;
+
+    // sweep1: col0 row0 추가 (INSERT in-flight)
+    await act(async () => {
+      handlers.onStart!({ x: 51, y: 1 });
+      handlers.onEnd!();
+    });
+    // sweep2: 같은 셀 다시 sweep → 제거 (DELETE). commit1 미해결 상태.
+    await act(async () => {
+      handlers.onStart!({ x: 51, y: 1 });
+      handlers.onEnd!();
+    });
+
+    // 직렬화: commit2는 commit1 resolve 전까지 발사되면 안 된다.
+    expect(commitVoteDiff).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveCommit1();
+    });
+    expect(commitVoteDiff).toHaveBeenCalledTimes(2);
+    expect(commitVoteDiff).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        added: [],
+        removed: [{ day: '2026-07-25', start_minute: 540 }],
+      }),
+    );
+  });
+
+  test('commit 실패 → diff 기준선 롤백으로 다음 sweep이 실패분을 재전송한다', async () => {
+    mockFetchGroup.mockResolvedValue({
+      id: VALID_GROUP_ID,
+      hostId: HOST_ID,
+      name: '재진입 모임',
+      dates: ['2026-07-25', '2026-07-26'],
+      memberCount: 2,
+      confirmedAt: null,
+      confirmedStartAt: null,
+      confirmedEndAt: null,
+      confirmedPlaceId: null,
+    });
+    mockFetchUserVotes.mockResolvedValue([]);
+
+    (commitVoteDiff as jest.Mock)
+      .mockRejectedValueOnce(new Error('네트워크 오류'))
+      .mockResolvedValue(undefined);
+
+    const { findByText } = render(<GroupConfirmScreen />, { wrapper });
+    await findByText('재진입 모임');
+    const handlers = mockGridProps!.panGesture!._handlers;
+
+    // sweep1: A(col0 row0) 추가 — 커밋 실패
+    await act(async () => {
+      handlers.onStart!({ x: 51, y: 1 });
+      handlers.onEnd!();
+    });
+    // sweep2: B(col1 row4) 추가 — 스냅샷엔 A도 포함(selection 유지),
+    // 기준선이 롤백됐다면 diff가 A를 다시 added로 산출해 재전송한다.
+    await act(async () => {
+      handlers.onStart!({ x: 91, y: 65 });
+      handlers.onEnd!();
+    });
+
+    expect(commitVoteDiff).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        added: expect.arrayContaining([
+          { day: '2026-07-25', start_minute: 540 },
+          { day: '2026-07-26', start_minute: 600 },
+        ]),
+        removed: [],
+      }),
+    );
+  });
+
   test('기존 투표 셀에서 sweep 시작 → add가 아닌 remove 모드로 판정 (baseline 시드)', async () => {
     mockFetchGroup.mockResolvedValue({
       id: VALID_GROUP_ID,
