@@ -310,6 +310,9 @@ async function handler(req: Request): Promise<Response> {
   return jsonResponse({
     ok: true,
     slot_count: slots.length,
+    // 클라 초기 스냅샷/폴링 경로 (useHeatmapSubscription) — broadcast를 못 받는 단절
+    // 상태에서도 서버 합산 결과를 직접 적용할 수 있게 응답에 동봉 (D11 준수).
+    payload: buildHeatmapPayload(slots),
     all_voted: isAllMembersVoted({ memberCount, voterCount }),
     f4_dispatched: f4Dispatched,
   });
