@@ -195,6 +195,8 @@ export default function GroupConfirmScreen(): React.JSX.Element {
   const { panGesture, scrollOffsetY, startCoord, currentCoord, toggleAdd } = useSweepGesture({
     days,
     layout,
+    // 기존 투표 시드 — 미전달 시 재진입 후 첫 sweep이 기존 투표 전체를 removed로 삭제
+    initialSelection: selectionRecord,
     onCommit: handleSweepCommit,
   });
 

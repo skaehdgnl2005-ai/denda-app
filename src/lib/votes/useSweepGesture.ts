@@ -25,6 +25,7 @@
 //
 // scrollOffsetY는 SharedValue로 별도 노출 — Grid의 ScrollView onScroll에서 갱신.
 
+import { useEffect } from 'react';
 import { Gesture, type PanGesture } from 'react-native-gesture-handler';
 import { runOnJS, useSharedValue, type SharedValue } from 'react-native-reanimated';
 
@@ -69,6 +70,17 @@ export function useSweepGesture(options: UseSweepGestureOptions): UseSweepGestur
   const currentCoord = useSharedValue<CellCoord | null>(null);
   const toggleAdd = useSharedValue<boolean>(true);
   const scrollOffsetY = useSharedValue<number>(0);
+
+  // useSharedValue는 첫 렌더 값만 쓰는데 실전에서 initialSelection(기존 투표)은 fetch가
+  // 마운트 후 resolve된 뒤에야 도착한다 — effect로 재시드하지 않으면 sweep 1회에 기존
+  // 투표 전체가 diff의 removed로 서버에서 삭제된다. 드래그 진행 중(startCoord 有)에는
+  // 진행 중인 selection을 훼손하지 않도록 건너뛴다 (commit 후 재렌더에서 멱등 재시드).
+  useEffect(() => {
+    if (initialSelection !== undefined && startCoord.value === null) {
+      // eslint-disable-next-line react-hooks/immutability -- SharedValue 시드 (worklet 계약)
+      selection.value = initialSelection;
+    }
+  }, [initialSelection, selection, startCoord]);
 
   // jsCommit은 매 render마다 재생성 (days/onCommit closure 캡쳐).
   // panGesture도 매 render마다 재생성 — gesture-handler가 동등성 비교로 처리.
