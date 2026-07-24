@@ -31,12 +31,13 @@ const wrapper = ({ children }: { children: React.ReactNode }): React.JSX.Element
 
 const mockReplace = jest.fn();
 const mockBack = jest.fn();
+let mockParams: Record<string, string> = { id: 'g-1' };
 jest.mock('expo-router', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const ReactMod = require('react') as typeof React;
   return {
     useRouter: () => ({ replace: mockReplace, back: mockBack, push: jest.fn() }),
-    useLocalSearchParams: () => ({ id: 'g-1' }),
+    useLocalSearchParams: () => mockParams,
     useFocusEffect: (cb: () => void | (() => void)) => ReactMod.useEffect(cb, [cb]),
   };
 });
@@ -183,6 +184,7 @@ describe('MidpointScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSnap = null;
+    mockParams = { id: 'g-1' };
     mockLoadRecent.mockResolvedValue([]);
     mockSaveRecent.mockResolvedValue([]);
     mockState = {
@@ -292,6 +294,29 @@ describe('MidpointScreen', () => {
       fireEvent.press(getByTestId('add-origin-a'));
     });
     expect(mockSaveRecent).toHaveBeenCalled();
+  });
+
+  test('라우트 파라미터에 id 없음 → 안전 화면 렌더 + 빈 groupId로 fetch하지 않음', async () => {
+    // 딥링크가 params 없이 착지하는 경우 — index.tsx의 `if (!groupId)` 가드와 동일 패턴.
+    mockParams = {};
+    const { findByText } = render(<MidpointScreen />, { wrapper });
+    expect(await findByText('모임 ID가 없어요.')).toBeTruthy();
+    expect(mockFetchOrigins).not.toHaveBeenCalled();
+    expect(mockFetchGroup).not.toHaveBeenCalled();
+  });
+
+  test('세션 hydration 전(userId undefined) 출발지 추가 → 조용한 무시 대신 안내 토스트', async () => {
+    // 콜드스타트/딥링크 직후 세션 복원 전에 진입하면 userId가 undefined —
+    // 이때 추가가 아무 피드백 없이 무시되면 사용자는 "고장"으로 인지한다.
+    mockUserId = undefined;
+    const { getByTestId, findByText } = render(<MidpointScreen />, { wrapper });
+    await act(async () => {
+      fireEvent.press(getByTestId('add-origin-a'));
+    });
+    expect(mockUpsertOrigin).not.toHaveBeenCalled();
+    // 서버 저장이 안 된 출발지를 최근 칩에 남기면 다음 진입 때 혼동 — 함께 차단.
+    expect(mockSaveRecent).not.toHaveBeenCalled();
+    expect(await findByText(/로그인 정보를 확인하는 중이에요/)).toBeTruthy();
   });
 
   test('추천 결과는 중간지점에 가까운 순으로 정렬', async () => {

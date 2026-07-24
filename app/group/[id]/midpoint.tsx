@@ -92,6 +92,7 @@ export default function MidpointScreen(): React.JSX.Element {
   const loadSeqRef = useRef(0);
 
   const load = useCallback(async (): Promise<void> => {
+    if (!groupId) return; // params 미착지 — 빈 id로 서버 조회 방지 (렌더는 아래 가드 화면)
     const seq = ++loadSeqRef.current;
     try {
       const [fetched, group] = await Promise.all([
@@ -116,9 +117,21 @@ export default function MidpointScreen(): React.JSX.Element {
     }, [load]),
   );
 
+  // 콜드스타트/딥링크 직후 세션 hydration 전엔 userId가 undefined —
+  // 조용한 무시는 "고장"으로 읽히므로 안내 토스트로 피드백 (조용한 실패 금지).
+  const notifySessionPending = useCallback((): void => {
+    toast.show({
+      message: '로그인 정보를 확인하는 중이에요. 잠시 후 다시 시도해주세요.',
+      variant: 'error',
+    });
+  }, [toast]);
+
   const handleAddOrigin = useCallback(
     (origin: OriginPoint): void => {
-      if (userId === undefined) return;
+      if (userId === undefined) {
+        notifySessionPending();
+        return;
+      }
       upsertMyOrigin(groupId, userId, origin)
         .then(() => load())
         .catch((e: unknown) => {
@@ -136,11 +149,14 @@ export default function MidpointScreen(): React.JSX.Element {
           // 온디바이스 칩 best-effort (Q-B23 유지 부분)
         });
     },
-    [groupId, userId, load, toast],
+    [groupId, userId, load, toast, notifySessionPending],
   );
 
   const handleRemoveMine = useCallback((): void => {
-    if (userId === undefined) return;
+    if (userId === undefined) {
+      notifySessionPending();
+      return;
+    }
     deleteMyOrigin(groupId, userId)
       .then(() => load())
       .catch((e: unknown) => {
@@ -152,7 +168,7 @@ export default function MidpointScreen(): React.JSX.Element {
           variant: 'error',
         });
       });
-  }, [groupId, userId, load, toast]);
+  }, [groupId, userId, load, toast, notifySessionPending]);
 
   // 중간점·scene은 서버 origins 기반 (OriginPoint shape로 매핑)
   const originPoints = useMemo<OriginPoint[]>(
@@ -278,6 +294,17 @@ export default function MidpointScreen(): React.JSX.Element {
       )}
     />
   );
+
+  // 딥링크가 params 없이 착지하면 groupId가 '' — index.tsx와 동일 가드 (빈 id로 fetch 방지).
+  if (!groupId) {
+    return (
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface[0] }]}>
+        <View style={[styles.centered, { padding: space[4] }]}>
+          <Body color={colors.text.secondary}>모임 ID가 없어요.</Body>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface[0] }]}>
