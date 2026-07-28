@@ -15,8 +15,10 @@
     "figma:dump": "jest --config jest.figma.config.js",
     "figma:build": "node tools/figma-export/plugin/build.mjs",
     "figma:typecheck": "tsc --noEmit -p tools/figma-export/plugin/tsconfig.json",
-    "figma": "npm run figma:dump && npm run figma:merge && npm run figma:typecheck && npm run figma:build",
-    "figma:merge": "node tools/figma-export/plugin/merge.mjs"
+    "figma": "npm run figma:dump && npm run figma:merge && npm run figma:typecheck && npm run figma:build && npm run figma:verify",
+    "figma:merge": "node tools/figma-export/plugin/merge.mjs",
+    "figma:verify": "node tools/figma-export/plugin/sandbox.mjs",
+    "figma:preview": "node tools/figma-export/preview.mjs"
   },
   "dependencies": {
     "@mj-studio/react-native-naver-map": "^2.9.0",

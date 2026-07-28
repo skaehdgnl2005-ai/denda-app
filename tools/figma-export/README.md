@@ -31,8 +31,19 @@ Navigation / Inputs / Sheets / Brand / Screens)로 배치된다.
 | `npm run figma:merge` | 파트 병합 → `out/dump.json` |
 | `npm run figma:typecheck` | 플러그인을 공식 Figma 타이핑으로 검사 |
 | `npm run figma:build` | dump.json을 코드에 번들 → `plugin/code.js` |
+| `npm run figma:verify` | Figma API 샌드박스에서 플러그인을 끝까지 실행 (Figma 없이 런타임 검증) |
+| `npm run figma:preview` | IR을 HTML로 재현 → `out/preview.html` (Figma 없이 눈으로 확인) |
 
 `out/`과 `plugin/code.js`는 생성물이라 커밋하지 않는다.
+
+### Figma를 열기 전에 확인하는 법
+
+- `figma:verify` — Figma Plugin API를 흉내 낸 샌드박스에서 번들을 실제로 돌린다.
+  enum 허용값·폰트 로드 순서·SVG 파싱·`resize` 하한 같은 실제 제약을 검사하고,
+  **Pretendard 설치/미설치 두 시나리오**를 모두 돌려 폴백 경로까지 확인한다.
+  플러그인 코드는 Figma 런타임 안에서만 도는 탓에 다른 테스트가 닿지 않는 유일한 지점이다.
+- `figma:preview` — 같은 IR을 CSS flexbox로 렌더한 HTML. Figma가 그릴 간격·정렬·색을
+  브라우저에서 그대로 볼 수 있다.
 
 ## 대상 추가하기
 
