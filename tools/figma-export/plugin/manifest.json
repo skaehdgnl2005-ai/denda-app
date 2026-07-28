@@ -1,0 +1,9 @@
+{
+  "name": "된다 — RN 화면 이식",
+  "id": "denda-rn-figma-export",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": { "allowedDomains": ["none"] }
+}

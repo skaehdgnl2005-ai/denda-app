@@ -11,7 +11,12 @@
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.tsx --cache",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "figma:dump": "jest --config jest.figma.config.js",
+    "figma:build": "node tools/figma-export/plugin/build.mjs",
+    "figma:typecheck": "tsc --noEmit -p tools/figma-export/plugin/tsconfig.json",
+    "figma": "npm run figma:dump && npm run figma:merge && npm run figma:typecheck && npm run figma:build",
+    "figma:merge": "node tools/figma-export/plugin/merge.mjs"
   },
   "dependencies": {
     "@mj-studio/react-native-naver-map": "^2.9.0",
@@ -48,11 +53,13 @@
     "zustand": "^5.0.13"
   },
   "devDependencies": {
+    "@figma/plugin-typings": "^1.131.0",
     "@react-native/jest-preset": "^0.85.3",
     "@testing-library/react-native": "^13.3.3",
     "@types/jest": "^29.5.14",
     "@types/react": "~19.2.2",
     "@types/react-test-renderer": "^19.1.0",
+    "esbuild": "^0.28.1",
     "eslint": "^8.57.1",
     "eslint-config-expo": "^56.0.4",
     "eslint-config-prettier": "^10.1.8",

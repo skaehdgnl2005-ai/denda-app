@@ -94,3 +94,7 @@ output/
 
 # S-MAP M5 — 원본 지하철역 CSV/XLSX (공공데이터, 재다운로드 가능 — stations.data.ts만 커밋)
 scripts/data/
+
+# figma-export — 생성물 (npm run figma로 언제든 재생성)
+tools/figma-export/out/
+tools/figma-export/plugin/code.js
