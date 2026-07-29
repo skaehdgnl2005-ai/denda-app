@@ -16,8 +16,14 @@ export type AuthUser = {
   id: string;
   // 카카오 OIDC `sub` claim 캐시. 베타에는 항상 존재.
   kakaoId: string | null;
-  // public.users.nickname (베타에는 카카오 nickname).
+  // public.users.nickname. 로그인 직후엔 카카오 클레임 값이고, 프로필 조회가 끝나면
+  // DB 값으로 교체된다 (public.users가 단일 진실 — 2026-07-29 스펙 §5).
   nickname: string;
+  // public.users.nickname_set_at. 3-상태:
+  //   string    — 사용자가 직접 정함
+  //   null      — 아직 카톡 이름 그대로 → 게이트가 닉네임 화면으로 보냄
+  //   undefined — 아직 서버에 안 물어봄 (조회 전/실패) → 게이트 판단 보류
+  nicknameSetAt?: string | null;
   // 베타에는 null (account_email scope 비즈앱 한정). Phase 3에서 채워짐.
   email: string | null;
   profileImageUrl: string | null;

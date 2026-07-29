@@ -17,7 +17,14 @@ export default function IndexRoute() {
   const status = useAuth((s) => s.status);
   const hasAgreedToTerms = useAuth((s) => s.hasAgreedToTerms);
   const hasCompletedOnboarding = useAuth((s) => s.hasCompletedOnboarding);
-  const decision = decideGate({ status, hasAgreedToTerms, hasCompletedOnboarding });
+  // undefined(프로필 조회 전)와 null(미설정)은 다른 의미다 — gate.ts 참조.
+  const nicknameSetAt = useAuth((s) => s.session?.user.nicknameSetAt);
+  const decision = decideGate({
+    status,
+    hasAgreedToTerms,
+    hasCompletedOnboarding,
+    nicknameSetAt,
+  });
 
   switch (decision.kind) {
     case 'splash':
@@ -42,6 +49,8 @@ export default function IndexRoute() {
       return <Redirect href="/(auth)/login" />;
     case 'terms':
       return <Redirect href="/(auth)/terms" />;
+    case 'nickname':
+      return <Redirect href="/(auth)/nickname" />;
     case 'onboarding':
       return <Redirect href="/(auth)/onboarding" />;
     case 'home':

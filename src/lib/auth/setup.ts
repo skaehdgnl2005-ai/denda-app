@@ -13,10 +13,15 @@ import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import { useStore } from 'zustand';
 
+import { fetchMyProfile } from '../profile/api';
 import { supabase } from '../supabase/client';
 
 import { type AuthState, createAuthStore } from './authStore';
-import { KakaoOIDCProvider, mapToAuthSession, type KakaoOIDCSupabaseAuth } from './KakaoOIDCProvider';
+import {
+  KakaoOIDCProvider,
+  mapToAuthSession,
+  type KakaoOIDCSupabaseAuth,
+} from './KakaoOIDCProvider';
 
 // -------------------------------------------------------------------------
 // 환경변수 + 가드
@@ -115,6 +120,10 @@ export const authStore = createAuthStore({
     // supabase-js Session/User는 내부 SupabaseSession/SupabaseUser와 키 호환 (adapter 주석 참조)
     return mapToAuthSession(session.user as never, session as never);
   },
+  // public.users를 닉네임 단일 진실로 삼는 배선 (2026-07-29 스펙 §5).
+  // 이 배선이 없으면 프로필 화면은 카카오 클레임 캐시를, 친구 검색은 DB를 보게 되어
+  // 닉네임을 바꿔도 프로필에는 반영되지 않는다.
+  fetchProfile: fetchMyProfile,
   // luxon 경유로 가도 되지만, JS Date는 toISOString만 쓰므로 timezone 무관.
   // 단, design-guard rule을 만족시키려면 lib/time/kst를 통과해야 한다.
   now: () => {

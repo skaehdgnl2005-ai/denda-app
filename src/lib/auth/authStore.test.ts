@@ -177,7 +177,9 @@ describe('authStore', () => {
     it('provider.initialize 실패 → signed_out으로 완료 (로그인 화면 진입은 가능해야 함)', async () => {
       const deps = makeDeps();
       deps.provider = makeAuthProvider({
-        initialize: jest.fn().mockRejectedValue(new AuthError({ kind: 'network', message: 'SDK 실패' })),
+        initialize: jest
+          .fn()
+          .mockRejectedValue(new AuthError({ kind: 'network', message: 'SDK 실패' })),
       });
       const store = createAuthStore(deps);
 
@@ -399,6 +401,157 @@ describe('authStore', () => {
       expect(store.getState().status).toBe('signed_out');
       expect(store.getState().hasAgreedToTerms).toBe(false);
       expect(store.getState().hasCompletedOnboarding).toBe(false);
+    });
+  });
+
+  // --- 닉네임: public.users 단일 진실 (2026-07-29 스펙 §5) --------------------
+  describe('프로필 반영', () => {
+    const RESTORED_SESSION = {
+      user: {
+        id: 'uuid-1234',
+        kakaoId: 'kakao-9876',
+        nickname: '카톡이름',
+        email: null,
+        profileImageUrl: null,
+      },
+      accessToken: 'a',
+      refreshToken: 'r',
+      expiresAt: 1747958400_000,
+    };
+
+    it('signIn — DB 닉네임이 카카오 클레임을 덮어쓴다', async () => {
+      const deps = makeDeps();
+      const store = createAuthStore({
+        ...deps,
+        fetchProfile: jest
+          .fn()
+          .mockResolvedValue({ nickname: '내가정한이름', nicknameSetAt: NOW_ISO }),
+      });
+      await store.getState().bootstrap();
+
+      await store.getState().signIn();
+
+      expect(store.getState().session?.user.nickname).toBe('내가정한이름');
+      expect(store.getState().session?.user.nicknameSetAt).toBe(NOW_ISO);
+    });
+
+    it('signIn — 신규 가입자는 nicknameSetAt=null (게이트가 닉네임 화면으로 보냄)', async () => {
+      const deps = makeDeps();
+      const store = createAuthStore({
+        ...deps,
+        fetchProfile: jest.fn().mockResolvedValue({ nickname: '카톡이름', nicknameSetAt: null }),
+      });
+      await store.getState().bootstrap();
+
+      await store.getState().signIn();
+
+      expect(store.getState().session?.user.nicknameSetAt).toBeNull();
+    });
+
+    it('signIn — 프로필 조회 실패 시 카카오 이름 유지 + nicknameSetAt undefined (앱 안 막힘)', async () => {
+      const deps = makeDeps();
+      const store = createAuthStore({
+        ...deps,
+        fetchProfile: jest.fn().mockRejectedValue(new Error('offline')),
+      });
+      await store.getState().bootstrap();
+
+      await store.getState().signIn();
+
+      expect(store.getState().status).toBe('signed_in');
+      expect(store.getState().session?.user.nickname).toBe('홍길동');
+      expect(store.getState().session?.user.nicknameSetAt).toBeUndefined();
+    });
+
+    it('fetchProfile 미주입이어도 signIn은 정상 동작', async () => {
+      const store = createAuthStore(makeDeps());
+      await store.getState().bootstrap();
+
+      await store.getState().signIn();
+
+      expect(store.getState().session?.user.nickname).toBe('홍길동');
+      expect(store.getState().session?.user.nicknameSetAt).toBeUndefined();
+    });
+
+    it('bootstrap — 프로필 조회를 기다리지 않는다 (D25 콜드 스타트 예산)', async () => {
+      const deps = makeDeps();
+      let resolveProfile: (v: unknown) => void = () => {};
+      const pending = new Promise((resolve) => {
+        resolveProfile = resolve;
+      });
+      const store = createAuthStore({
+        ...deps,
+        restoreSession: jest.fn().mockResolvedValue(RESTORED_SESSION),
+        fetchProfile: jest.fn().mockReturnValue(pending),
+      });
+
+      // 프로필이 영원히 pending이어도 bootstrap은 완료된다
+      await store.getState().bootstrap();
+
+      expect(store.getState().status).toBe('signed_in');
+      expect(store.getState().session?.user.nickname).toBe('카톡이름');
+      expect(store.getState().session?.user.nicknameSetAt).toBeUndefined();
+
+      // 도착하면 그때 반영
+      resolveProfile({ nickname: '내가정한이름', nicknameSetAt: NOW_ISO });
+      await pending;
+      await Promise.resolve();
+
+      expect(store.getState().session?.user.nickname).toBe('내가정한이름');
+      expect(store.getState().session?.user.nicknameSetAt).toBe(NOW_ISO);
+    });
+
+    it('bootstrap — 조회 도중 로그아웃되면 stale write를 버린다', async () => {
+      const deps = makeDeps();
+      let resolveProfile: (v: unknown) => void = () => {};
+      const pending = new Promise((resolve) => {
+        resolveProfile = resolve;
+      });
+      const store = createAuthStore({
+        ...deps,
+        restoreSession: jest.fn().mockResolvedValue(RESTORED_SESSION),
+        fetchProfile: jest.fn().mockReturnValue(pending),
+      });
+      await store.getState().bootstrap();
+
+      await store.getState().signOut();
+      resolveProfile({ nickname: '내가정한이름', nicknameSetAt: NOW_ISO });
+      await pending;
+      await Promise.resolve();
+
+      expect(store.getState().session).toBeNull();
+    });
+
+    it('bootstrap — 세션이 없으면 프로필을 조회하지 않는다', async () => {
+      const fetchProfile = jest.fn();
+      const store = createAuthStore({ ...makeDeps(), fetchProfile });
+
+      await store.getState().bootstrap();
+
+      expect(fetchProfile).not.toHaveBeenCalled();
+    });
+
+    it('applyNickname — 세션 닉네임 + nicknameSetAt 갱신 (재조회 없음)', async () => {
+      const fetchProfile = jest
+        .fn()
+        .mockResolvedValue({ nickname: '카톡이름', nicknameSetAt: null });
+      const store = createAuthStore({ ...makeDeps(), fetchProfile });
+      await store.getState().bootstrap();
+      await store.getState().signIn();
+      fetchProfile.mockClear();
+
+      store.getState().applyNickname('바꾼이름');
+
+      expect(store.getState().session?.user.nickname).toBe('바꾼이름');
+      expect(store.getState().session?.user.nicknameSetAt).toBe(NOW_ISO);
+      expect(fetchProfile).not.toHaveBeenCalled();
+    });
+
+    it('applyNickname — 세션이 없으면 no-op (크래시 없음)', () => {
+      const store = createAuthStore(makeDeps());
+
+      expect(() => store.getState().applyNickname('아무개')).not.toThrow();
+      expect(store.getState().session).toBeNull();
     });
   });
 

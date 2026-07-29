@@ -17,6 +17,8 @@ export default function AuthLayout() {
     >
       <Stack.Screen name="login" />
       <Stack.Screen name="terms" />
+      {/* 가입 필수 단계이자 프로필에서의 수정 화면 — 모드는 nicknameSetAt에서 파생 */}
+      <Stack.Screen name="nickname" />
       <Stack.Screen name="onboarding" />
     </Stack>
   );

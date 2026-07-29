@@ -176,6 +176,15 @@ export default function ProfileScreen() {
 
         {/* 설정 — 준비 중/정보 행은 비대화형(§17.5 pill·hint로 상태 명시, 죽은 Alert 제거) */}
         <Section title="설정">
+          {/* 표시되는 닉네임은 public.users 값 — authStore가 로그인·콜드 스타트에 반영한다.
+              카카오 클레임 캐시가 아니므로 여기서 바꾼 값이 친구 검색 결과와 일치한다. */}
+          <SettingRow
+            icon="프로필"
+            label="닉네임 변경"
+            hint={nickname || undefined}
+            onPress={() => router.push('/(auth)/nickname')}
+            testID="nickname-row"
+          />
           <SettingRow icon="알림 켜짐" label="알림 설정" pending testID="notifications-row" />
           <SettingRow
             icon="다크/라이트"

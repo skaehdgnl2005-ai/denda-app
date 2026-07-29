@@ -42,6 +42,18 @@ export const messages = {
     expired: '인증이 만료됐어요. 다시 시도해볼게요.',
   },
 
+  // 닉네임 설정·변경 (2026-07-29 스펙 §7).
+  nickname: {
+    signupTitle: '어떤 이름으로 부를까요?',
+    signupBody: '친구들이 이 이름으로 회원님을 찾아요',
+    editTitle: '닉네임 변경',
+    placeholder: '닉네임',
+    hint: '한글·영문·숫자·밑줄 2~12자',
+    submitSignup: '확인',
+    submitEdit: '저장',
+    saved: '닉네임을 바꿨어요!',
+  },
+
   // 빈 상태 — §11.2 3요소(title·body·cta). 아이콘·시각은 EmptyState 컴포넌트가 담당.
   empty: {
     homeGroups: {
@@ -61,6 +73,28 @@ export const messages = {
     },
   },
 } as const;
+
+/**
+ * 닉네임 실패 사유 → 사용자 카피.
+ *
+ * mapError()를 태우지 않는 이유: mapError는 raw 메시지를 버리고 큐레이션된 일반 카피로
+ * 덮어쓴다. 여기서는 "무엇이 잘못됐는지"가 사용자가 다음에 할 행동을 결정하므로
+ * 사유별 카피가 그대로 전달돼야 한다.
+ */
+export function nicknameErrorMessage(
+  reason: 'too_short' | 'too_long' | 'invalid_chars' | 'taken',
+): string {
+  switch (reason) {
+    case 'too_short':
+      return '2자 이상 입력해주세요';
+    case 'too_long':
+      return '12자까지 쓸 수 있어요';
+    case 'invalid_chars':
+      return '한글·영문·숫자·밑줄만 쓸 수 있어요';
+    case 'taken':
+      return '이미 사용 중인 닉네임이에요';
+  }
+}
 
 /** 취소류 에러인지 — 사용자가 스스로 그만둔 것이므로 에러로 표출하지 않는다. */
 function isCancelled(err: unknown): boolean {

@@ -74,7 +74,8 @@ export default function TermsScreen() {
     try {
       await authStore.getState().agreeToTerms();
       // 성공 시 router.replace로 화면 언마운트 — submitting 되돌릴 필요 없음.
-      router.replace('/(auth)/onboarding');
+      // 약관 다음은 닉네임 설정 (게이트 순서와 동일: terms → nickname → onboarding).
+      router.replace('/(auth)/nickname');
     } catch (e) {
       // SecureStore 쓰기 거부 등 → submitting 영구 true로 갇히지 않게 복원 + 인라인 에러 (raw 비노출).
       setSubmitting(false);

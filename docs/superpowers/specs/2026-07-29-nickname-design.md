@@ -113,7 +113,7 @@ DB 없이 테스트되고 입력 중 실시간 피드백에 그대로 쓰인다.
 
 `fetchProfile` 실패(오프라인 등)는 무시한다 — 카톡 이름이 남고 `nicknameSetAt`은 `undefined`라 앱을 막지 않는다.
 
-**`setNickname` 액션** — RPC 성공 시 세션의 `nickname`·`nicknameSetAt`을 그 자리에서 갱신. 재조회 왕복 없음.
+**`applyNickname(nickname)` 액션** — RPC 성공 시 세션의 `nickname`·`nicknameSetAt`을 그 자리에서 갱신. 재조회 왕복 없음. 이름이 `set*`이 아닌 이유는 네트워크 호출을 하지 않기 때문 — 저장은 `profile/api::setMyNickname`이 이미 마쳤고 이 액션은 그 결과를 세션에 비추기만 한다.
 
 ## 6. 게이트
 

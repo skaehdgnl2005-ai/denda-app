@@ -219,6 +219,31 @@ describe('ProfileScreen', () => {
     });
   });
 
+  // 2026-07-29 닉네임 스펙 §7
+  describe('닉네임', () => {
+    test('프로필 카드에 세션 닉네임 표시 (authStore가 반영한 public.users 값)', async () => {
+      const { getAllByText } = render(<ProfileScreen />, { wrapper });
+      await waitFor(() => expect(getAllByText('민지').length).toBeGreaterThan(0));
+    });
+
+    test('닉네임 변경 행은 대화형 + 현재 닉네임을 hint로 노출', async () => {
+      const { getByTestId, getAllByText } = render(<ProfileScreen />, { wrapper });
+      await waitFor(() => expect(getByTestId('nickname-row')).toBeTruthy());
+      expect(getByTestId('nickname-row').props.accessibilityRole).toBe('button');
+      // 카드 타이틀 + 행 hint 두 곳에 현재 닉네임이 보인다
+      expect(getAllByText('민지').length).toBe(2);
+    });
+
+    test('닉네임 변경 행 탭 → 닉네임 화면 push', async () => {
+      const { getByTestId } = render(<ProfileScreen />, { wrapper });
+      await waitFor(() => expect(getByTestId('nickname-row')).toBeTruthy());
+
+      fireEvent.press(getByTestId('nickname-row'));
+
+      expect(router.push).toHaveBeenCalledWith('/(auth)/nickname');
+    });
+  });
+
   describe('W2-11 회귀 — 기존 행 유지', () => {
     test('회원탈퇴·에브리타임·로그아웃 행 그대로', async () => {
       const { getByTestId } = render(<ProfileScreen />, { wrapper });

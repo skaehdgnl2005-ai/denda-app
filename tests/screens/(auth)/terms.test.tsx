@@ -133,12 +133,13 @@ describe('TermsScreen', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  test('필수 동의 후 CTA press → agreeToTerms + router.replace(onboarding)', async () => {
+  // 2026-07-29: 약관 다음은 닉네임 설정 (게이트 순서 terms → nickname → onboarding).
+  test('필수 동의 후 CTA press → agreeToTerms + router.replace(nickname)', async () => {
     const { getByLabelText } = render(<TermsScreen />, { wrapper });
     fireEvent.press(getByLabelText('필수 이용약관 동의'));
     fireEvent.press(getByLabelText('필수 개인정보 수집 및 이용 동의'));
     fireEvent.press(getByLabelText('동의하고 계속'));
     await waitFor(() => expect(mockAgreeToTerms).toHaveBeenCalledTimes(1));
-    expect(mockReplace).toHaveBeenCalledWith('/(auth)/onboarding');
+    expect(mockReplace).toHaveBeenCalledWith('/(auth)/nickname');
   });
 });

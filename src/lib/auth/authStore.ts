@@ -31,6 +31,15 @@ export type AuthStorage = {
   deleteItemAsync(key: string): Promise<void>;
 };
 
+/**
+ * public.users에서 읽어오는 프로필 조각. profile/api::MyProfile이 구조적으로 대입 가능하다
+ * (authStore가 profile 모듈을 import하지 않게 하려는 의도 — 의존 방향은 setup.ts에서만 이어진다).
+ */
+export type ProfileSnapshot = {
+  nickname: string;
+  nicknameSetAt: string | null;
+};
+
 export type AuthStoreDeps = {
   provider: AuthProvider;
   storage: AuthStorage;
@@ -39,6 +48,9 @@ export type AuthStoreDeps = {
   // 앱 시작 시 supabase가 디스크에서 복원한 세션을 store로 승격 (setup.ts에서 주입).
   // 미주입 시 복원 생략 — 항상 signed_out으로 시작.
   restoreSession?: () => Promise<AuthSession | null>;
+  // public.users에서 닉네임을 읽어 세션에 반영 (2026-07-29 스펙 §5).
+  // 미주입 시 카카오 클레임 값이 그대로 남고 nicknameSetAt은 undefined — 게이트가 판단을 보류한다.
+  fetchProfile?: (userId: string) => Promise<ProfileSnapshot | null>;
 };
 
 export type AuthState = {
@@ -56,11 +68,42 @@ export type AuthState = {
   resetForAccountDeletion: () => Promise<void>;
   agreeToTerms: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
+  /**
+   * 닉네임 저장 성공을 세션에 반영 (네트워크 호출은 하지 않는다 —
+   * profile/api::setMyNickname이 이미 했다). 재조회 왕복을 없앤다.
+   */
+  applyNickname: (nickname: string) => void;
   clearError: () => void;
 };
 
 export function createAuthStore(deps: AuthStoreDeps) {
   let bootstrapPromise: Promise<void> | null = null;
+
+  /**
+   * 세션 사용자에 DB 프로필을 덮어쓴 새 세션을 만든다. 조회 실패(null)면 세션을 그대로 둔다 —
+   * 오프라인에서 카톡 이름이라도 보이는 편이 빈 화면보다 낫고, nicknameSetAt이 undefined로
+   * 남아 게이트가 닉네임 화면을 강요하지 않는다.
+   */
+  const withProfile = (session: AuthSession, profile: ProfileSnapshot | null): AuthSession =>
+    profile === null
+      ? session
+      : {
+          ...session,
+          user: {
+            ...session.user,
+            nickname: profile.nickname,
+            nicknameSetAt: profile.nicknameSetAt,
+          },
+        };
+
+  const loadProfile = async (userId: string): Promise<ProfileSnapshot | null> => {
+    if (!deps.fetchProfile) return null;
+    try {
+      return await deps.fetchProfile(userId);
+    } catch {
+      return null;
+    }
+  };
 
   return createStore<AuthState>((set, get) => ({
     status: 'initializing',
@@ -111,6 +154,20 @@ export function createAuthStore(deps: AuthStoreDeps) {
           termsAgreedAt,
           hasCompletedOnboarding: onboarded === '1',
         });
+
+        // D25 콜드 스타트 예산: 프로필 조회를 await하지 않는다. 백그라운드로 던지고
+        // 도착하면 set() — 게이트가 자동으로 재평가된다. 대가는 이미 가입한 사용자가
+        // 홈을 잠깐 보고 닉네임 화면으로 넘어가는 1회성 전환뿐이다.
+        if (restored !== null) {
+          const userId = restored.user.id;
+          void loadProfile(userId).then((profile) => {
+            if (profile === null) return;
+            const current = get().session;
+            // 조회 중 로그아웃/계정 전환이 일어났으면 버린다 (stale write 방지).
+            if (current === null || current.user.id !== userId) return;
+            set({ session: withProfile(current, profile) });
+          });
+        }
       })();
       return bootstrapPromise;
     },
@@ -119,9 +176,12 @@ export function createAuthStore(deps: AuthStoreDeps) {
       set({ status: 'authenticating', lastError: null });
       try {
         const result = await deps.provider.signIn();
+        // bootstrap과 달리 여기선 await한다 — 이미 카카오 왕복 중이라 쿼리 하나가 체감되지
+        // 않고, 신규 가입자가 홈을 거치지 않고 곧바로 닉네임 화면으로 간다.
+        const profile = await loadProfile(result.session.user.id);
         set({
           status: 'signed_in',
-          session: result.session,
+          session: withProfile(result.session, profile),
           isNewUser: result.isNewUser,
         });
       } catch (error) {
@@ -180,6 +240,18 @@ export function createAuthStore(deps: AuthStoreDeps) {
     completeOnboarding: async () => {
       await deps.storage.setItemAsync(KEY_ONBOARDED, '1');
       set({ hasCompletedOnboarding: true });
+    },
+
+    applyNickname: (nickname) => {
+      const current = get().session;
+      if (current === null) return;
+      set({
+        session: withProfile(current, {
+          nickname,
+          // 값 자체는 게이트 통과 마커일 뿐이지만, KST 규칙(D13)에 따라 deps.now()를 쓴다.
+          nicknameSetAt: deps.now().toISOString(),
+        }),
+      });
     },
 
     clearError: () => {
