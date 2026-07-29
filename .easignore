@@ -14,33 +14,36 @@
 
 # --- 의존성 / 빌드 산출물 ---
 node_modules/
-.expo/
-.expo-shared/
-dist/
-build/
-web-build/
-coverage/
-.nyc_output/
+/.expo/
+/.expo-shared/
+/dist/
+/build/
+/web-build/
+/coverage/
+/.nyc_output/
 
 # --- 네이티브 폴더 (managed workflow — EAS가 prebuild로 재생성) ---
 /ios
 /android
 
 # --- 앱 번들과 무관한 서브 프로젝트 ---
-web-guest/
-supabase/
-maestro/
-tools/
-tests/
-scripts/
+# ⚠️ 반드시 선행 슬래시로 루트에 고정할 것. `supabase/`라고 쓰면 gitignore 문법상
+#    **모든 깊이**에 매칭되어 `src/lib/supabase/`까지 빠지고,
+#    번들이 "Unable to resolve module @/lib/supabase/client"로 죽는다 (실제로 겪음).
+/web-guest/
+/supabase/
+/maestro/
+/tools/
+/tests/
+/scripts/
 
 # --- 문서 / 하네스 ---
-docs/
-.claude/
-.superpowers/
-harness_setting/
-CLAUDE.md
-output/
+/docs/
+/.claude/
+/.superpowers/
+/harness_setting/
+/CLAUDE.md
+/output/
 
 # --- 시크릿 (EAS 환경변수로 주입되므로 업로드 불필요) ---
 .env
