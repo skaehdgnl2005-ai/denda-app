@@ -94,7 +94,29 @@ export default ({ config: _ }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     'expo-router',
-    'expo-secure-store',
+    // 권한 사용 문구(Info.plist NS*UsageDescription)는 plugin을 명시 선언해야 제어된다.
+    // 미선언 시 autolink된 plugin이 영문 기본값("Allow $(PRODUCT_NAME) to ...")을 박고,
+    // 안 쓰는 권한까지 딸려 들어간다 → 한국어 전용 베타 위반 + App Store 심사 문의 사유.
+    // 회귀 가드: tests/env/iosPermissions.test.ts
+    ['expo-secure-store', { faceIDPermission: false }], // requireAuthentication 미사용
+    [
+      'expo-calendar',
+      {
+        // S06 — 모임 확정 시 캘린더에 일정 추가. getDefaultCalendarAsync/getCalendarsAsync를
+        // 쓰므로 write-only 접근으로는 부족 (full access 유지).
+        calendarPermission: '확정된 모임 일정을 캘린더에 자동으로 추가하기 위해 사용해요.',
+        remindersPermission: false, // EKReminder 미사용
+      },
+    ],
+    [
+      'expo-image-picker',
+      {
+        // S03b — 에브리타임 시간표 스크린샷 OCR. 라이브러리 선택만 (촬영 없음).
+        photosPermission: '시간표 사진에서 수업 시간을 읽어오기 위해 사진 접근이 필요해요.',
+        cameraPermission: false,
+        microphonePermission: false,
+      },
+    ],
     ...(kakaoPlugin ? [kakaoPlugin] : []),
     ...(naverMapPlugin ? [naverMapPlugin] : []),
     // 카카오 SDK는 자체 Nexus 저장소 (devrepo.kakao.com)에서 제공 — settings.gradle에 추가

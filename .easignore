@@ -1,0 +1,64 @@
+# EAS Build 업로드 제외 목록.
+#
+# ⚠️ 이 파일이 있으면 EAS는 .gitignore 대신 **이 파일만** 본다.
+#    따라서 node_modules 같은 기본 제외도 여기 다 적어야 한다.
+#
+# 만든 이유: web-guest/.next(138MB)가 루트 .gitignore에 없어(web-guest 자체 .gitignore로만
+# 무시됨) 프로젝트 tarball이 100MB를 넘겼고, 업로드가 ECONNRESET로 끊겼다.
+# 네이티브 앱 빌드에 필요한 것만 올린다 = 업로드 실패 확률 ↓ + 빌드 큐 진입 ↑.
+#
+# 남겨야 하는 것(빌드가 실제로 씀): package.json / package-lock.json / .npmrc /
+#   app.config.ts / eas.json / babel.config.js / tsconfig.json / expo-env.d.ts /
+#   app/ · src/ · assets/ · plugins/ · patches/
+# 검증: src·app 어디서도 아래 제외 대상을 import 하지 않음을 확인함.
+
+# --- 의존성 / 빌드 산출물 ---
+node_modules/
+.expo/
+.expo-shared/
+dist/
+build/
+web-build/
+coverage/
+.nyc_output/
+
+# --- 네이티브 폴더 (managed workflow — EAS가 prebuild로 재생성) ---
+/ios
+/android
+
+# --- 앱 번들과 무관한 서브 프로젝트 ---
+web-guest/
+supabase/
+maestro/
+tools/
+tests/
+scripts/
+
+# --- 문서 / 하네스 ---
+docs/
+.claude/
+.superpowers/
+harness_setting/
+CLAUDE.md
+output/
+
+# --- 시크릿 (EAS 환경변수로 주입되므로 업로드 불필요) ---
+.env
+.env.local
+.env.development
+.env.production
+.env.*.local
+
+# --- 잡다 ---
+.git/
+*.log
+.DS_Store
+Thumbs.db
+.eslintcache
+*.tsbuildinfo
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem

@@ -164,7 +164,54 @@ adb shell pm verify-app-links --re-verify com.denda.app   # 검증
 
 ---
 
-## 6. 아직 막혀 있음 / 미루는 것 (운영 트랙)
+## 6. 디자이너 UI 피드백용 iOS 배포 (TestFlight)
+
+> 목적: 외부 UI/UX 디자이너가 **본인 아이폰**에서 실제로 써보고 피드백.
+> 시뮬레이터(맥북)는 부적합 — 마우스 드래그로는 [D12](DECISIONS.md#d12--60fps-시간-그리드-구현-spec) 시간 그리드 sweep·햅틱·44pt 터치 타깃을 평가할 수 없다.
+
+### 6.1 빌드 전 외부 콘솔 점검 (이거 안 하면 디자이너가 로그인에서 막힘) ★
+
+| # | 확인 | 안 했을 때 증상 |
+|---|---|---|
+| 1 | **카카오 개발자 콘솔 → 내 앱 → 플랫폼 → iOS 등록** (번들 ID `com.denda.app`) | **로그인 자체 불가.** 로그인 없이는 화면 0개 (`src/lib/auth/gate.ts`) → 피드백 세션 전멸 |
+| 2 | **네이버 클라우드 플랫폼 → Maps → iOS 번들 ID 등록** | 지도 탭 인증 실패. 등록 안 할 거면 EAS `production` 환경의 `EXPO_PUBLIC_MAP_ENABLED=false`로 두고 리스트 fallback으로 내보낼 것 |
+| 3 | **APNs 키** (`eas credentials -p ios`) | 푸시 F1~F5 안 옴. 알림 피드백까지 받을 거면 필수 |
+| 4 | **AASA `TEAMID` 치환 + web-guest 재배포** (§5) | 초대 링크가 앱이 아니라 사파리로 열림. 초대→자동 합류 플로우 피드백 불가 (Apple 캐시 24~48h — **빌드보다 먼저** 해둘 것) |
+
+> iOS Info.plist 권한 문구는 코드에서 이미 한국어로 고정됨 (`app.config.ts` plugin props +
+> 회귀 가드 `tests/env/iosPermissions.test.ts`). 안 쓰는 카메라·마이크·미리 알림·Face ID 권한도 제거 완료.
+
+### 6.2 빌드 → 제출
+
+```bash
+eas build --platform ios --profile production
+eas submit --platform ios --profile production
+#   App Store Connect API key 권장 (ASC → Users and Access → Integrations)
+#   빌드 처리(processing) 10~30분 소요
+```
+
+> **주의 — 디자이너 테스트 데이터가 어느 DB로 가는가**: `production` 프로파일은 EAS
+> `production` 환경변수를 쓴다. 실서비스 Supabase와 분리하고 싶으면 `preview` 환경 값을 쓰는
+> TestFlight 전용 프로파일을 따로 만들 것. 또 `production`엔 `EXPO_PUBLIC_PERF_OVERLAY`가
+> 없어 콜드스타트 배지가 안 뜬다 (UI 피드백용으론 이게 맞음 — 화면이 깨끗함).
+
+### 6.3 테스터 초대 — 내부 vs 외부
+
+| | 내부 테스터 | 외부 테스터 |
+|---|---|---|
+| 조건 | App Store Connect **사용자로 초대** (역할 제한 가능: 마케팅/고객지원) | 이메일만 |
+| 심사 | 없음 — 업로드 후 바로 | 첫 빌드만 베타 앱 심사 (보통 24h 내), 이후 자동 |
+| 인원 | 100명 | 10,000명 |
+
+외부 디자이너 1명이면 **내부 테스터가 가장 빠름**(즉시). ASC 접근 권한을 주기 싫으면 외부 테스터 + 1회 심사 대기.
+
+- 디자이너가 할 일: TestFlight 앱 설치 → 초대 메일의 코드 입력 → 설치. Xcode·맥북 불필요
+- 빌드는 **90일 후 만료** → 피드백 기간이 길면 재업로드 필요
+- 첫 실행 시 **ATT 프롬프트**(추적 허용)가 뜬다 — 거부해도 정상 동작. 디자이너에게 미리 알려줄 것
+
+---
+
+## 7. 아직 막혀 있음 / 미루는 것 (운영 트랙)
 
 - [ ] **Google Play Console 가입** — Play 배포·Internal Testing 트랙 원할 때 ($25, 본인인증)
 - [ ] **실기기 cold-start 측정** — production binary + Galaxy A14 / iPhone SE 2 (founder 실행)
