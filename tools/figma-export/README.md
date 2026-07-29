@@ -17,8 +17,17 @@ npm run figma
 2. `tools/figma-export/plugin/manifest.json` 선택
 3. Plugins → Development → **된다 — RN 화면 이식** 실행
 
-`라이트` · `다크` 두 페이지가 생기고, 그룹별(Foundations / Buttons / States /
-Navigation / Inputs / Sheets / Brand / Screens)로 배치된다.
+`라이트` · `다크` 두 페이지가 생기고 그룹별로 배치된다 — **아트보드 136개**:
+
+| 그룹 | 내용 |
+|---|---|
+| Foundations · Buttons · States · Navigation · Inputs · Sheets · Brand | 컴포넌트 카탈로그 30종 |
+| 인증 화면 | 로그인(기본·인증 중·오류) · 온보딩 · 약관 · 개인정보 · 법적 고지 |
+| 홈 화면 | 빈 상태 · 확정 모임 |
+| 탭 화면 | 지도(초기·결과·실패) · 프로필(기본·캘린더 끊김) |
+| 친구 화면 | 목록(있음·빈) · 요청함(받은·보낸·초대) · 검색(초기·결과) |
+| 모임 화면 | 새 모임 · 모임 상세(로딩·투표 중·추천 시트·확정) · 초대 · 장소 검색 · 장소 시트 |
+| 일정 화면 | 에브리타임(입력·인식 중·확인) · 일정 지도(리스트·빈·지도 모드) |
 
 > **폰트**: Pretendard Variable이 로컬에 설치돼 있으면 타이포가 정확히 재현된다.
 > 없으면 Inter로 대체하고 실행 후 알림으로 알려준다 (레이아웃은 그대로).
@@ -58,14 +67,22 @@ Navigation / Inputs / Sheets / Brand / Screens)로 배치된다.
 }
 ```
 
-**화면** — [screens.dump.tsx](screens.dump.tsx)의 `screens` 배열에 추가하고,
-그 화면의 `tests/screens/*.test.tsx`에 있는 `jest.mock` 블록을 파일 상단으로 복사한다.
-이미 통과가 검증된 mock 세트라 그대로 동작한다.
+**화면** — 해당 그룹의 `screens.<group>.dump.tsx`의 `screens` 배열에 추가한다.
+그 화면의 `tests/screens/*.test.tsx`에 있는 `jest.mock` 블록을 파일 상단으로 복사하면 된다 —
+이미 통과가 검증된 세트라 그대로 동작한다.
+
+**새 그룹**을 만들 때는 `screens.home.dump.tsx`를 복사해 `emitPart('screens-<id>', …)`와
+아트보드의 `group` 라벨만 바꾼다. 병합은 `out/parts/*.json`을 전부 주워가므로 추가 배선이 없다.
+
+> **왜 그룹마다 파일이 하나인가**: `jest.mock`은 모듈 스코프라 여러 화면을 한 파일에 넣으면
+> mock이 서로 충돌한다. Jest는 테스트 파일마다 모듈 레지스트리를 새로 주므로 파일을 나누면
+> 각 화면이 자기 테스트와 똑같은 환경에서 렌더된다.
 
 ## 구조
 
 ```
-fixtures.tsx      무엇을 그릴지 선언
+fixtures.tsx      컴포넌트 카탈로그 선언
+screens.*.dump.tsx  화면 러너 (그룹당 하나 — mock 격리)
 color.ts          RN 색 문자열 → Figma RGB (hex·rgba·이름·transparent)
 svg.ts            react-native-svg 서브트리 → SVG 문자열
 style.ts          RN 스타일 → Auto Layout · 박스 · 텍스트

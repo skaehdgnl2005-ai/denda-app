@@ -106,18 +106,30 @@ Figma 캔버스에서 눈으로 찾는 편이 훨씬 빠르다.
 - 그중 통합 테스트 1건은 **실제 `Button`을 렌더**해 IR 전 필드를 검증 —
   높이 56 · FILL · HORIZONTAL · CENTER/CENTER · padding 20 · radius 8 · brand-500 fill ·
   유령 스트로크 없음 · itemSpacing 8(margin 접힘) · 흰 라벨 · `fill="none"` 아이콘
-- 실제 산출: 아트보드 64개 (컴포넌트 30 × 2테마 + 화면 2 × 2테마), 경고 12건
-- 홈 화면 덤프 경고 **0건**
+- 플러그인 런타임은 Figma API 샌드박스(`figma:verify`)로 검증 — 번들을 실제 dump.json으로
+  끝까지 실행해 enum 허용값·폰트 로드 순서·SVG 파싱·`resize` 하한을 확인한다.
+  Pretendard 설치/미설치 두 시나리오 모두 오류 0건
+- 실제 산출: **아트보드 136개** = 컴포넌트 30종 + 화면 20종(상태 38개), 각 라이트/다크.
+  레이어 8,766개, 경고 38건(6종)
+
+### 화면 러너를 그룹별로 나눈 이유
+
+`jest.mock`은 모듈 스코프라 여러 화면을 한 파일에 넣으면 mock이 충돌한다. Jest는 테스트
+파일마다 모듈 레지스트리를 새로 주므로, 화면 그룹마다 `screens.<group>.dump.tsx`를 두면
+각 화면이 자기 테스트와 **똑같은 환경**에서 렌더된다. 파트 병합 구조(`out/parts/*.json`)가
+이를 그대로 지원해 러너를 추가해도 배선이 늘지 않는다.
 
 ## 9. 사용법
 
 ```bash
-npm run figma           # dump → merge → typecheck → build 전체
+npm run figma           # dump → merge → typecheck → build → verify
+npm run figma:preview   # Figma 없이 결과를 브라우저에서 확인
 ```
 
 Figma 데스크톱 → Plugins → Development → Import plugin from manifest… →
 `tools/figma-export/plugin/manifest.json` 선택 후 실행.
 `라이트` / `다크` 두 페이지가 생성된다.
 
-화면을 추가하려면 `screens.dump.tsx`의 `screens` 배열에 항목을 넣고, 해당 화면의
+화면을 추가하려면 해당 그룹의 `screens.<group>.dump.tsx`에 항목을 넣고, 그 화면의
 `tests/screens/*.test.tsx`에 있는 `jest.mock` 블록을 복사해 온다.
+새 그룹은 `screens.home.dump.tsx`를 복사해 `emitPart` 이름과 `group` 라벨만 바꾸면 된다.

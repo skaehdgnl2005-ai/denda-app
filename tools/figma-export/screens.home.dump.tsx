@@ -154,7 +154,7 @@ describe('figma-export 화면 덤프', () => {
 
         artboards.push({
           id: `${screen.id}/${theme}`,
-          group: 'Screens',
+          group: '홈 화면',
           name: screen.name,
           theme,
           frameWidth: SCREEN_WIDTH,
@@ -165,7 +165,7 @@ describe('figma-export 화면 덤프', () => {
       }
     }
 
-    emitPart('screens', { artboards, warnings });
+    emitPart('screens-home', { artboards, warnings });
 
     expect(artboards).toHaveLength(screens.length * 2);
   });

@@ -147,21 +147,6 @@ function countWarnings(n) {
 const groups = [];
 for (const a of doc.artboards) if (!groups.includes(a.group)) groups.push(a.group);
 
-const cards = doc.artboards
-  .map((a) => {
-    const nodes = countNodes(a.root);
-    const warns = countWarnings(a.root);
-    return `<figure class="card" data-theme-set="${a.theme}" data-group="${esc(a.group)}">
-  <div class="stage stage--${a.theme}">${render(a.root, 'NONE')}</div>
-  <figcaption>
-    <span class="cap-name">${esc(a.name)}</span>
-    <span class="cap-id">${esc(a.id.replace(/\/(light|dark)$/, ''))}</span>
-    <span class="cap-meta">${nodes}<abbr title="레이어 수">L</abbr>${warns ? `<b class="chip">⚠️ ${warns}</b>` : ''}</span>
-  </figcaption>
-</figure>`;
-  })
-  .join('\n');
-
 const nav = groups
   .map(
     (g) =>
@@ -176,8 +161,11 @@ const sections = groups
       .map((a) => {
         const nodes = countNodes(a.root);
         const warns = countWarnings(a.root);
-        return `<figure class="card" data-set="${a.theme}">
-  <div class="stage stage--${a.theme}">${render(a.root, 'NONE')}</div>
+        const framed = a.frameWidth
+          ? `<div class="frame" style="width:${a.frameWidth}px">${render(a.root, 'NONE')}</div>`
+          : render(a.root, 'NONE');
+        return `<figure class="card${a.frameWidth ? ' card--screen' : ''}" data-set="${a.theme}">
+  <div class="stage stage--${a.theme}">${framed}</div>
   <figcaption>
     <span class="cap-name">${esc(a.name)}</span>
     <span class="cap-meta"><code>${esc(a.id.replace(/\/(light|dark)$/, ''))}</code><span class="layers">${nodes}</span>${warns ? `<b class="chip">⚠ ${warns}</b>` : ''}</span>
@@ -262,6 +250,10 @@ h2{font-size:13px;line-height:18px;font-weight:600;text-transform:uppercase;
   letter-spacing:.08em;color:var(--muted);margin:0 0 16px;
   padding-bottom:10px;border-bottom:1px solid var(--hairline)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px}
+.card--screen{grid-column:span 2}
+.card--screen .stage{padding:20px;align-items:stretch}
+.frame{flex:none;margin:0 auto;position:relative}
+@media (max-width:820px){.card--screen{grid-column:span 1}}
 
 .card{margin:0;border:1px solid var(--hairline);border-radius:12px;
   background:var(--raised);overflow:hidden;display:flex;flex-direction:column}
