@@ -13,6 +13,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { authStore, useAuth } from '@/lib/auth/setup';
 import { AttributionRoot } from '@/lib/branch/AttributionRoot';
+import type { AttributionStorage } from '@/lib/branch/AttributionRoot';
 import { resolveAttribution } from '@/lib/branch/attributionApi';
 import { requestAttPermissionOnce } from '@/lib/branch/attTracking';
 import { CalendarSyncRoot } from '@/lib/calendar/CalendarSyncRoot';
@@ -208,6 +209,12 @@ const noopAttApi = {
   }),
 };
 
+// 모듈 레벨 상수 — AttributionRoot의 useEffect dep이므로 render마다 새 객체가 되면 안 된다.
+const attributionStorage: AttributionStorage = {
+  getItemAsync: SecureStore.getItemAsync,
+  setItemAsync: SecureStore.setItemAsync,
+};
+
 function AttributionRootConnected(): React.JSX.Element {
   const userId = useAuth((s) => s.session?.user.id);
   const toast = useToast();
@@ -227,5 +234,12 @@ function AttributionRootConnected(): React.JSX.Element {
     },
     [toast],
   );
-  return <AttributionRoot userId={userId} resolve={resolve} onMatched={onMatched} />;
+  return (
+    <AttributionRoot
+      userId={userId}
+      resolve={resolve}
+      onMatched={onMatched}
+      storage={attributionStorage}
+    />
+  );
 }
