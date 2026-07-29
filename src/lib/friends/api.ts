@@ -73,7 +73,9 @@ export const friendsApi = {
     const me = await requireUserId();
     const { data, error } = await supabase
       .from('friendships')
-      .select('friend_id, friend:friend_id(id, nickname, avatar_url)')
+      // users의 실제 컬럼은 profile_image_url — avatar_url로 별칭해 반환 키를 유지한다.
+      // (별칭 없이 avatar_url을 조회하면 PostgREST 42703 → 400으로 쿼리 전체가 실패)
+      .select('friend_id, friend:friend_id(id, nickname, avatar_url:profile_image_url)')
       .eq('user_id', me);
 
     if (error) {
@@ -96,7 +98,7 @@ export const friendsApi = {
     const me = await requireUserId();
     const { data, error } = await supabase
       .from('users')
-      .select('id, nickname, avatar_url')
+      .select('id, nickname, avatar_url:profile_image_url')
       .ilike('nickname', `%${trimmed}%`)
       .neq('id', me)
       .limit(20);
@@ -140,7 +142,7 @@ export const friendsApi = {
     const { data, error } = await supabase
       .from('friend_requests')
       .select(
-        'id, from_user_id, to_user_id, created_at, sender:from_user_id(id, nickname, avatar_url)',
+        'id, from_user_id, to_user_id, created_at, sender:from_user_id(id, nickname, avatar_url:profile_image_url)',
       )
       .eq('to_user_id', me)
       .eq('status', 'pending')
@@ -165,7 +167,7 @@ export const friendsApi = {
     const { data, error } = await supabase
       .from('friend_requests')
       .select(
-        'id, from_user_id, to_user_id, created_at, receiver:to_user_id(id, nickname, avatar_url)',
+        'id, from_user_id, to_user_id, created_at, receiver:to_user_id(id, nickname, avatar_url:profile_image_url)',
       )
       .eq('from_user_id', me)
       .eq('status', 'pending')

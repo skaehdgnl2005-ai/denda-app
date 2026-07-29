@@ -147,7 +147,7 @@ describe('invitationsApi.listMyInvitations', () => {
 
     expect(mockFrom).toHaveBeenCalledWith('group_invitations');
     expect(select).toHaveBeenCalledWith(
-      'id, group_id, inviter_id, invitee_id, status, created_at, group:group_id(id, name), inviter:inviter_id(id, nickname, avatar_url)',
+      'id, group_id, inviter_id, invitee_id, status, created_at, group:group_id(id, name), inviter:inviter_id(id, nickname, avatar_url:profile_image_url)',
     );
     expect(eq).toHaveBeenCalledWith('invitee_id', ME);
     expect(status).toHaveBeenCalledWith('status', 'pending');

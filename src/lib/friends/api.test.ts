@@ -61,7 +61,9 @@ describe('friendsApi.list', () => {
     const list = await friendsApi.list();
 
     expect(mockFrom).toHaveBeenCalledWith('friendships');
-    expect(select).toHaveBeenCalledWith('friend_id, friend:friend_id(id, nickname, avatar_url)');
+    expect(select).toHaveBeenCalledWith(
+      'friend_id, friend:friend_id(id, nickname, avatar_url:profile_image_url)',
+    );
     expect(eq).toHaveBeenCalledWith('user_id', ME);
     expect(list).toEqual([
       { id: 'u2', nickname: '홍길동', avatar_url: 'a2' },
@@ -119,7 +121,7 @@ describe('friendsApi.search', () => {
     const res = await friendsApi.search('김');
 
     expect(mockFrom).toHaveBeenCalledWith('users');
-    expect(select).toHaveBeenCalledWith('id, nickname, avatar_url');
+    expect(select).toHaveBeenCalledWith('id, nickname, avatar_url:profile_image_url');
     expect(ilike).toHaveBeenCalledWith('nickname', '%김%');
     expect(neq).toHaveBeenCalledWith('id', ME);
     expect(limit).toHaveBeenCalledWith(20);
@@ -222,7 +224,7 @@ describe('friendsApi.listIncomingRequests', () => {
 
     expect(mockFrom).toHaveBeenCalledWith('friend_requests');
     expect(select).toHaveBeenCalledWith(
-      'id, from_user_id, to_user_id, created_at, sender:from_user_id(id, nickname, avatar_url)',
+      'id, from_user_id, to_user_id, created_at, sender:from_user_id(id, nickname, avatar_url:profile_image_url)',
     );
     expect(eqTo).toHaveBeenCalledWith('to_user_id', ME);
     expect(eqStatus).toHaveBeenCalledWith('status', 'pending');
@@ -274,7 +276,7 @@ describe('friendsApi.listOutgoingRequests', () => {
     const res = await friendsApi.listOutgoingRequests();
 
     expect(select).toHaveBeenCalledWith(
-      'id, from_user_id, to_user_id, created_at, receiver:to_user_id(id, nickname, avatar_url)',
+      'id, from_user_id, to_user_id, created_at, receiver:to_user_id(id, nickname, avatar_url:profile_image_url)',
     );
     expect(eqFrom).toHaveBeenCalledWith('from_user_id', ME);
     expect(eqStatus).toHaveBeenCalledWith('status', 'pending');
