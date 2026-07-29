@@ -3,6 +3,16 @@
 
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
+// 색은 DESIGN 토큰 단일 진실에서 가져온다 (절대 규칙 1 — hex 직접 작성 금지).
+// tokens.ts는 import 0개의 순수 객체라 RN 런타임 없이 config 평가 시점에도 안전하다.
+//
+// require + 확장자 명시인 이유: Expo config 로더는 app.config.ts **자신만** 트랜스파일하고
+// 그 안의 import는 CJS로 해석한다 → 확장자 없으면 "Cannot find module"로 config 읽기 실패.
+// 확장자를 붙인 import 구문은 TS5097(allowImportingTsExtensions)에 걸리므로,
+// 런타임은 require(문자열), 타입은 typeof import로 분리한다.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { tokens } = require('./src/design/tokens.ts') as typeof import('./src/design/tokens');
+
 const KAKAO_NATIVE_APP_KEY = process.env.EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY ?? '';
 
 // Kakao 플러그인은 nativeAppKey 누락 시 throw — eas build:configure / expo config 같은
@@ -63,7 +73,10 @@ export default ({ config: _ }: ConfigContext): ExpoConfig => ({
   android: {
     package: 'com.denda.app',
     adaptiveIcon: {
-      backgroundColor: '#fff',
+      // DESIGN 토큰 참조 (절대 규칙 1 — hex 직접 작성 금지).
+      // 값은 6자리 hex여야 한다: '#fff' 축약형은 네이티브 빌드는 통과하지만
+      // eas update 매니페스트 검증이 거부한다 (tests/env/appConfigManifest.test.ts가 가드).
+      backgroundColor: tokens.light.surface[0],
       foregroundImage: './assets/android-icon-foreground.png',
       backgroundImage: './assets/android-icon-background.png',
       monochromeImage: './assets/android-icon-monochrome.png',
