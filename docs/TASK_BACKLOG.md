@@ -512,6 +512,21 @@
 - **Worktree 분기**: 가능
 - **Notes**: 최하 우선. 게이트 KPI 무관. 사용자 결정 — 혼합안(실연결 1 + 베타 비활성 안내 4). 정식 출시 시 알림함·신고차단관리는 정식 화면 신설(P1 차기), 화면 모드는 메뉴 자체 제거 vs `Linking.openSettings()` 딥링크 결정 필요
 
+### S25 — 홈 = 나만의 캘린더 (PRD §5.1 복귀)
+
+- **Status**: DONE (2026-07-28) | **Owner**: Mobile | **Sprint**: post-MVP | **Lane**: E
+- **Depends**: S19 ✅(fetchMyGroups), S03/S03b ✅(schedules + 에브리타임 OCR), [D42](DECISIONS.md#d42--홈--나만의-캘린더-prd-51-복귀--수동-개인-일정-활성), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc), [D14](DECISIONS.md#d14--시간-슬롯-단위-15분--db-check)
+- **Acceptance**:
+  - ✅ 홈 진입 = 월간 캘린더 + 선택일 일정 목록 + 다가오는 모임(최대 3) — 인사말·보라 CTA 카드·이번 달 스탯 제거
+  - ✅ 캘린더 = 모임(확정/투표 중) + 에브리타임 수업 + 수동 개인 일정. 마커는 모임·개인만(수업 제외, DESIGN §10.6b)
+  - ✅ 수동 일정 추가/수정/삭제 (`source='manual'`) — 15분 단위 시간 입력, 삭제는 ConfirmSheet 경유(Alert 0)
+  - ✅ 주간 RRULE 전개 — UNTIL·expires_at·start_at 경계 + UTC→KST 날짜 경계
+  - ✅ fetch 실패를 빈 상태로 위장하지 않음(W1-7) — '다가오는 모임' 섹션째 숨김
+  - ✅ 시간표 미등록 사용자에게 "시간표 불러오기" 힌트 → OCR 진입
+- **Files**: `src/lib/calendar/{recurrence,agenda}.ts(.test)` (신규), `src/components/calendar/{MonthCalendar,DayAgenda,PersonalScheduleSheet}.tsx(.test)` (신규), `src/lib/schedules/personal.ts(.test)` (신규), `src/lib/groups/list.ts(.test)` (select 확장), `app/(tabs)/index.tsx` (재작성), `tests/screens/home.test.tsx` (재작성), `src/lib/groups/stats.ts(.test)` (삭제 — dead code)
+- **Worktree 분기**: 불가 (홈 화면 전면 교체)
+- **Notes**: 마이그레이션 0 · Edge Function 0 · 신규 패키지 0 (테이블·enum·RLS 모두 기존 자산). 설계 SSoT = [spec](superpowers/specs/2026-07-28-home-calendar-design.md). **잔여**: 로그인 세션이 필요해 에뮬레이터 시각 검증 미완 — 실기 확인 시 라이트/다크 렌더 + 수동 일정 추가→수정→삭제 라운드트립 확인 필요
+
 ---
 
 ## Lane F — UI Polish (출시 전 완성도, Wave 0~2)

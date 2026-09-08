@@ -945,6 +945,51 @@ const BranchAttribution = lazy(() => import('@/lib/branch/attribution'));
 
 ---
 
+## D42 — 홈 = 나만의 캘린더 (PRD §5.1 복귀) + 수동 개인 일정 활성
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | 로그인 후 첫 화면을 **월간 캘린더 + 선택일 일정 목록 + 다가오는 모임 요약**으로 되돌린다. 캘린더에 뜨는 것 = 모임(확정/투표 중) · 에브리타임 수업 · **수동 개인 일정(`schedules.source='manual'`, 추가/수정/삭제 UI 신설)**. 기존 홈의 인사말 2줄 · 보라 "새 모임 만들기" 카드 · "이번 달 모임" 스탯 칩은 제거(모임 생성 동선은 탭바 중앙 GroupFab이 담당). 이번 범위에서 **주간 뷰·출처 필터·외부 캘린더 읽기는 제외**. |
+| 근거 | (1) [PRD](PRD.md) §4·§5.1이 처음부터 "홈 = 캘린더 + 내 일정 + 모임 일정"으로 명세했고 현 구현이 이탈해 있었다 — 새 방향이 아니라 원안 복귀. (2) 이탈의 실제 손실: `schedules` 테이블(에브리타임 OCR 산출물)의 앱 내 소비처가 **0**이었다 — P1 페르소나가 OCR로 시간표를 넣어도 볼 곳이 없었다. (3) 사용자 확정(2026-07-28): "로그인 후 진입 화면에 나만의 캘린더". |
+| 대안 | (a) 캘린더를 기존 홈 위에 얹기 — 거부: 스크롤만 길어지고 §17.3 위계 평탄화. (b) 모임 목록을 친구 탭으로 완전 이관(PRD §4 문자 그대로) — 보류: Gate #1 진입 동선을 홈에서 잃는 비용이 커 '다가오는 모임' 압축 섹션으로 유지. (c) Google/Apple 일정까지 표시 — 거부: [D19](#d19--calendar-sync-단방향-부분-실패-명시) 단방향(push 전용) + iOS write-only 권한 전제라 권한 모델 재설계가 선행돼야 함. |
+| 소유자 | Founder (2026-07-28) |
+| 결정일 | 2026-07-28 |
+| 의존 | [D13](#d13--kst-강제-db는-timestamptz-utc)(KST), [D14](#d14--시간-슬롯-단위-15분--db-check)(15분 단위 시간 입력), [D19](#d19--calendar-sync-단방향-부분-실패-명시)(유지 — 외부 캘린더 읽기 없음), [D5](#d5--purple-discipline)(보라는 '확정'에만) |
+| 결과 영향 | (1) `src/lib/calendar/recurrence.ts`(주간 RRULE 전개)·`agenda.ts`(병합/마커) 신규. (2) `src/components/calendar/` MonthCalendar·DayAgenda·PersonalScheduleSheet 신규. (3) `src/lib/schedules/personal.ts` 수동 CRUD 신규 — 테이블·enum·RLS는 기존 자산이라 **마이그레이션 0**. (4) `fetchMyGroups` select에 `confirmed_start_at·confirmed_end_at·places(name)` 추가. (5) `countGroupsThisMonthKst`(stats.ts) dead code 제거. (6) 월 그리드 마커에서 **수업 제외** — 매주 반복이라 점을 찍으면 달 전체가 균일해져 정보량이 0. |
+| 출처 | 브레인스토밍 세션 (2026-07-28) — specs/2026-07-28-home-calendar-design.md |
+
+---
+
+## D43 — RN → Figma 이식은 정적 트리 덤프 + Auto Layout 재구성 (일회성 부트스트랩)
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | 앱 컴포넌트·화면을 Figma로 옮길 때 **Jest에서 렌더한 RTL 트리를 정적으로 덤프해 Figma Auto Layout으로 재구성**한다(`tools/figma-export/`). 실기기 실측 좌표를 쓰지 않는다. **일회성 부트스트랩**이며 재동기화·컴포넌트 자동 인스턴스화는 범위 밖. 표현 불가한 스타일은 조용히 근사하지 않고 경고 + 레이어명 `⚠️` 표식을 남긴다. |
+| 근거 | (1) 목표가 "컴포넌트 먼저 → 화면은 그 조합"이라 결과물이 **편집 가능한 Auto Layout**이어야 한다 — 절대 좌표는 박제돼 이 목표와 양립 불가. (2) 앱 스타일이 전부 인라인 객체라 렌더 시점에 값이 완전히 해석된다(`Button.tsx:119-134`). (3) `tests/screens/` 22스위트가 이미 통과하므로 화면 렌더 mock 세트를 재사용할 수 있어 추가 인프라가 0. (4) 서브에이전트 12개 적대적 검증(조사 6 → 반박 6)에서 6주제 중 5건 major 반박 → 정정 후 확정. |
+| 대안 | (a) 실기기 `measureInWindow` 실측 좌표 — 거부: 픽셀 정확하지만 절대 배치라 Figma에서 편집·variant 생성 불가. (b) 하이브리드(구조는 Auto Layout, 실측은 검증용) — 거부: 일회성 부트스트랩에 과하고, 어긋난 곳은 Figma에서 손으로 고치는 편이 빠름. (c) html.to.design + Expo Web — 거부: `react-dom`/`react-native-web` 부재 + naver-map·kakao 네이티브 모듈 웹 stub 비용이 이득보다 큼. (d) yoga-layout 재구현으로 좌표 계산 — 거부: 절대 배치 16곳을 위해 레이아웃 엔진을 다시 짜는 비용이 수동 보정보다 큼. |
+| 소유자 | Founder (2026-07-28) |
+| 결정일 | 2026-07-28 |
+| 의존 | [D4](#d4--디자인-원칙-토스-풍-절제)·[D5](#d5--purple-discipline)(토큰이 곧 이식 대상), [D7](#d7--typography-pretendard-variable-단일-패밀리-셀프호스팅)(폰트명 매핑 — `'PretendardVariable'`는 expo-font 키이며 OS 폰트명은 `'Pretendard Variable'`), [D13](#d13--kst-강제-db는-timestamptz-utc)(덤프 `generatedAt`은 luxon KST), [D24](#d24--test-framework)(순수 로직 TDD) |
+| 결과 영향 | (1) `tools/figma-export/` 신규 — `ir.ts`(계약)·`color.ts`·`svg.ts`·`style.ts`·`normalize.ts`·`emit.ts`·`fixtures.tsx`·`*.dump.tsx`·`plugin/`. (2) `jest.config.js` testMatch에 `tools/figma-export/**/*.test.{ts,tsx}` 추가 — 순수 로직 104테스트가 CI 그린 대상. (3) `jest.figma.config.js` 신규 — 덤프 러너 전용(`npm test` 미포함). (4) `tsconfig.json` exclude에 `tools/figma-export/plugin` 추가(플러그인은 자체 tsconfig + 공식 Figma 타이핑). (5) devDependency `@figma/plugin-typings`·`esbuild` 추가. (6) npm scripts `figma`·`figma:dump`·`figma:merge`·`figma:typecheck`·`figma:build`. (7) `.gitignore`에 생성물(`out/`, `plugin/code.js`). **앱 런타임 코드 변경 0**. |
+| 출처 | 브레인스토밍 + 적대적 검증 세션 (2026-07-28) — specs/2026-07-28-rn-figma-export-design.md |
+
+---
+
+## D44 — 닉네임 = 사용자 지정 유니크 값, public.users가 단일 진실
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | 카카오 이름을 그대로 쓰던 것을 **사용자가 직접 정하는 유니크 닉네임**으로 바꾼다. (1) `lower(nickname)` UNIQUE 인덱스 — 대소문자 무시 중복 차단. (2) 가입 직후 **필수 설정 단계**(게이트 순서 `terms → nickname → onboarding`), 서버측 진실은 `users.nickname_set_at`(NULL=미설정). (3) 규칙 = 2~12자 · `[가-힣a-zA-Z0-9_]` · 변경 무제한. (4) **`public.users`가 닉네임 단일 진실** — 세션의 `user.nickname`을 로그인·콜드 스타트에 DB 값으로 교체. (5) 쓰기는 `set_my_nickname` RPC 단일 경로. 별도 친구코드·전화번호 검색·금칙어 필터는 범위 밖. |
+| 근거 | (1) 카톡 이름은 사용자가 고른 이름이 아니고 동명이인이 구분되지 않는데 친구 검색이 `nickname ilike`로 동작한다 — 잘못된 사람에게 요청을 보낼 수 있다. (2) **더 큰 결함**: 닉네임 소스가 갈라져 있었다 — 프로필 화면·카톡 초대 문구는 auth `user_metadata`(카카오 클레임 캐시), 친구 검색·모임 멤버·푸시 F1~F3은 `public.users`. `public.users`만 고쳐도 프로필에는 반영되지 않는 구조였다. (3) `nickname_set_at`을 서버에 두면 기기 로컬 SecureStore 플래그와 달리 재설치·기기 교체에도 따라오고 기존 사용자도 자동으로 한 번 거친다. (4) RPC로 좁히는 이유 — RLS에 컬럼 단위 제어가 없어 클라이언트 UPDATE를 허용하면 `nickname_set_at`을 위조해 설정 단계를 건너뛸 수 있다. |
+| 대안 | (a) 닉네임 자유 + 자동 생성 친구코드(`denda#4821`, 카톡 ID·디스코드 방식) — 거부: 마찰은 0이지만 새 컬럼·생성 로직·공유 UI가 붙는데, 베타 규모에서 유니크 닉네임이 같은 문제를 새 개념 0개로 푼다. (b) 중복 허용 + 검색 UX로 흡수 — 거부: 제기된 문제가 그대로 남는다. (c) auth 메타데이터를 함께 갱신하는 RPC(읽기는 메타데이터 유지, 콜드 스타트 비용 0) — 거부: auth 스키마를 직접 건드리고 토큰 갱신 전까지 구 값이 남는다. (d) 클라이언트가 `users` UPDATE + `auth.updateUser` 둘 다 호출 — 거부: 원자성이 없어 한쪽만 성공하면 지금의 드리프트가 재발한다. (e) 30일 1회 변경 제한 — 거부: 베타에서 오타 하나에 한 달을 갇히는 비용이 사칭 리스크보다 크다. |
+| 소유자 | Founder (2026-07-29) |
+| 결정일 | 2026-07-29 |
+| 의존 | [D13](#d13--kst-강제-db는-timestamptz-utc)(`nickname_set_at` TIMESTAMPTZ + `deps.now()`), [D16](#d16--차단신고-일관성-helper-function--rls)(`users` SELECT의 is_blocked 불변), [D25](#d25--cold-start-target--2초--lazy-loading)(콜드 스타트에서 프로필 조회를 await하지 않는 이유), [D29](#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede)(카카오 클레임이 초기값) |
+| 결과 영향 | (1) `0024_nickname.sql` — 컬럼·유니크 인덱스·조건부 CHECK·`handle_new_auth_user` 재작성(유니크 충돌 시 `이름_<id앞4자>` 폴백으로 **로그인 실패 방지**)·`set_my_nickname` RPC. (2) `src/lib/profile/` 신규(`nickname.ts` 검증 · `api.ts` RPC·조회). (3) `authStore`에 `fetchProfile` DI + `applyNickname` 액션 — `signIn`은 await, `bootstrap`은 백그라운드(D25). (4) `gate.ts`에 `nickname` 단계 + `nicknameSetAt` 3-상태(`undefined`=판단 보류로 콜드 스타트 깜빡임 방지). (5) `app/(auth)/nickname.tsx` 1개 화면이 가입·수정 두 모드 겸용(모드는 `nicknameSetAt`에서 파생 — 게이트와 입력이 같아야 어긋나지 않음). (6) `terms.tsx`의 다음 라우트가 onboarding → nickname. (7) 프로필 설정 섹션에 `닉네임 변경` 행. (8) 규칙이 3곳(클라 검증·RPC·CHECK)에 복제됨 — 각 위치에 상호 참조 주석. (9) **배포 시 1회성 `auth.users` 전체 삭제 필요** — 기존 중복이 있으면 유니크 인덱스 생성이 실패(의도된 안전장치). |
+| 출처 | 브레인스토밍 세션 (2026-07-29) — specs/2026-07-29-nickname-design.md |
+
+---
+
 ## 향후 결정 추가 템플릿
 
 새 결정을 추가할 때 다음 형식을 복사:
