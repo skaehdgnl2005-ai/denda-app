@@ -4,8 +4,9 @@
 // "건너뛰기"는 상단 우측 secondary로.
 
 import { router } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   Dimensions,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -19,9 +20,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MiniCalendar } from '@/components/brand/MiniCalendar';
 import { MiniMap } from '@/components/brand/MiniMap';
 import { MiniTimeGrid } from '@/components/brand/MiniTimeGrid';
+import { ctaPressBg } from '@/design/press';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { authStore } from '@/lib/auth/setup';
+import { motionEasing } from '@/lib/motion/easing';
+import { useReducedMotion } from '@/lib/motion/useReducedMotion';
 
 type Slide = {
   visual: 'grid' | 'map' | 'calendar';
@@ -46,6 +50,90 @@ const SLIDES: Slide[] = [
     body: '캘린더에 자동으로 등록되고\n친구들에게 알림이 가요.',
   },
 ];
+
+const DOT_SIZE = 8;
+const DOT_ACTIVE_WIDTH = 24;
+
+// 슬라이드 미니 시각 — 슬라이드 3(캘린더=확정)은 진입 시 1회 확정 모먼트(scale-in, §6.5).
+function SlideVisual({ slide, isActive }: { slide: Slide; isActive: boolean }): React.JSX.Element {
+  const { colors, radius, space, duration } = useTheme();
+  const reduced = useReducedMotion();
+  const celebrate = slide.visual === 'calendar';
+  const [pop] = useState(() => new Animated.Value(celebrate ? 0 : 1));
+  const playedRef = useRef(false);
+
+  useEffect(() => {
+    if (!celebrate || !isActive || playedRef.current) return;
+    playedRef.current = true;
+    if (reduced) {
+      pop.setValue(1);
+      return;
+    }
+    pop.setValue(0);
+    Animated.timing(pop, {
+      toValue: 1,
+      duration: duration.long,
+      easing: motionEasing.emphasized,
+      useNativeDriver: true,
+    }).start();
+  }, [celebrate, isActive, reduced, pop, duration.long]);
+
+  const celebrateStyle = celebrate
+    ? {
+        opacity: reduced ? 1 : pop,
+        transform: reduced
+          ? []
+          : [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) }],
+      }
+    : {};
+
+  return (
+    <Animated.View
+      testID={`onboarding-visual-${slide.visual}`}
+      style={[
+        {
+          padding: space[6],
+          borderRadius: radius['2xl'],
+          backgroundColor: colors.surface[2],
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        celebrateStyle,
+      ]}
+    >
+      {slide.visual === 'grid' && <MiniTimeGrid cellSize={26} gap={3} animated={isActive} />}
+      {slide.visual === 'map' && <MiniMap width={224} height={150} />}
+      {slide.visual === 'calendar' && <MiniCalendar cellSize={28} gap={4} />}
+    </Animated.View>
+  );
+}
+
+// 페이지 인디케이터 dot — 활성 시 width 8→24 짧은 트랜지션(§6.5, reduce-motion=스냅).
+function Dot({ active }: { active: boolean }): React.JSX.Element {
+  const { colors, duration } = useTheme();
+  const reduced = useReducedMotion();
+  const [width] = useState(() => new Animated.Value(active ? DOT_ACTIVE_WIDTH : DOT_SIZE));
+
+  useEffect(() => {
+    Animated.timing(width, {
+      toValue: active ? DOT_ACTIVE_WIDTH : DOT_SIZE,
+      duration: reduced ? 0 : duration.short,
+      easing: motionEasing.standard,
+      useNativeDriver: false, // width는 native driver 비호환
+    }).start();
+  }, [active, reduced, width, duration.short]);
+
+  return (
+    <Animated.View
+      style={{
+        width,
+        height: DOT_SIZE,
+        borderRadius: DOT_SIZE / 2,
+        backgroundColor: active ? colors.brand[500] : colors.border.subtle,
+      }}
+    />
+  );
+}
 
 export default function OnboardingScreen() {
   const { colors, space, radius } = useTheme();
@@ -84,12 +172,7 @@ export default function OnboardingScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface[0] }]}>
       {/* Top bar — 건너뛰기 */}
-      <View
-        style={[
-          styles.topBar,
-          { paddingHorizontal: space[4], paddingTop: space[3] },
-        ]}
-      >
+      <View style={[styles.topBar, { paddingHorizontal: space[4], paddingTop: space[3] }]}>
         <View style={{ flex: 1 }} />
         <Pressable
           onPress={complete}
@@ -128,36 +211,12 @@ export default function OnboardingScreen() {
                 paddingTop: space[8],
               }}
             >
-              <View
-                style={{
-                  padding: space[6],
-                  borderRadius: radius['2xl'],
-                  backgroundColor: colors.surface[2],
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {slide.visual === 'grid' && (
-                  <MiniTimeGrid cellSize={26} gap={3} animated={i === pageIndex} />
-                )}
-                {slide.visual === 'map' && <MiniMap width={224} height={150} />}
-                {slide.visual === 'calendar' && <MiniCalendar cellSize={28} gap={4} />}
-              </View>
+              <SlideVisual slide={slide} isActive={i === pageIndex} />
             </View>
 
             {/* Copy */}
             <View style={{ paddingHorizontal: space[6], paddingBottom: space[8] }}>
-              <Title
-                level="h1"
-                color={colors.text.primary}
-                style={{
-                  textAlign: 'center',
-                  fontSize: 26,
-                  lineHeight: 34,
-                  letterSpacing: -0.7,
-                  fontWeight: '700',
-                }}
-              >
+              <Title level="display" color={colors.text.primary} style={{ textAlign: 'center' }}>
                 {slide.title}
               </Title>
               <Body
@@ -165,7 +224,6 @@ export default function OnboardingScreen() {
                 color={colors.text.secondary}
                 style={{
                   marginTop: space[3],
-                  lineHeight: 24,
                   textAlign: 'center',
                 }}
               >
@@ -185,20 +243,9 @@ export default function OnboardingScreen() {
           gap: space[2],
         }}
       >
-        {SLIDES.map((_, i) => {
-          const active = i === pageIndex;
-          return (
-            <View
-              key={i}
-              style={{
-                width: active ? 24 : 8,
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: active ? colors.brand[500] : colors.border.subtle,
-              }}
-            />
-          );
-        })}
+        {SLIDES.map((_, i) => (
+          <Dot key={i} active={i === pageIndex} />
+        ))}
       </View>
 
       {/* CTA */}
@@ -210,8 +257,7 @@ export default function OnboardingScreen() {
           style={({ pressed }) => [
             styles.ctaButton,
             {
-              backgroundColor: colors.brand[500],
-              opacity: pressed ? 0.92 : 1,
+              backgroundColor: ctaPressBg(pressed, colors),
               borderRadius: radius.md,
             },
           ]}

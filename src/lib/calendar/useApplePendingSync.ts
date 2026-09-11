@@ -69,9 +69,14 @@ export function useApplePendingSync(
   // closure 안에서 latest deps + callback 사용 위해 ref
   const inFlightRef = useRef(false);
   const depsRef = useRef<ApplePendingDeps>({ supabase, apple, now });
-  depsRef.current = { supabase, apple, now };
   const onSummaryRef = useRef<UseApplePendingSyncOptions['onSummary']>(onSummary);
-  onSummaryRef.current = onSummary;
+
+  // render 후 ref 동기화 — refs during render 회피. useEffect는 매 render 후 실행되므로
+  // triggerSync(다음 render에서 호출)는 항상 latest를 본다.
+  useEffect(() => {
+    depsRef.current = { supabase, apple, now };
+    onSummaryRef.current = onSummary;
+  });
 
   const triggerSync = useCallback(async () => {
     if (inFlightRef.current) return;

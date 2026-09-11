@@ -24,7 +24,7 @@ describe('ReportBlockSheet Component', () => {
         onBlock={handleBlock}
         onReport={handleReport}
       />,
-      { wrapper }
+      { wrapper },
     );
 
     expect(getByText('차단테스트님 설정')).toBeTruthy();
@@ -46,7 +46,7 @@ describe('ReportBlockSheet Component', () => {
         onBlock={handleBlock}
         onReport={handleReport}
       />,
-      { wrapper }
+      { wrapper },
     );
 
     fireEvent.press(getByTestId('block-option'));
@@ -67,7 +67,7 @@ describe('ReportBlockSheet Component', () => {
         onBlock={handleBlock}
         onReport={handleReport}
       />,
-      { wrapper }
+      { wrapper },
     );
 
     fireEvent.press(getByTestId('report-option'));
@@ -85,11 +85,7 @@ describe('ReportBlockSheet Component', () => {
 
     fireEvent.press(getByTestId('report-submit-button'));
     // onReport는 schema enum key('spam')를 전달 — label이 아닌
-    expect(handleReport).toHaveBeenCalledWith(
-      'user-45',
-      'spam',
-      '이 사람은 매너가 좋지 않아요',
-    );
+    expect(handleReport).toHaveBeenCalledWith('user-45', 'spam', '이 사람은 매너가 좋지 않아요');
     expect(handleClose).toHaveBeenCalled();
   });
 
@@ -134,7 +130,7 @@ describe('ReportBlockSheet Component', () => {
         onBlock={handleBlock}
         onReport={handleReport}
       />,
-      { wrapper }
+      { wrapper },
     );
 
     fireEvent.press(getByTestId('sheet-backdrop'));

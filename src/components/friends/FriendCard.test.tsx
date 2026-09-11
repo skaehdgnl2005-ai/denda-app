@@ -12,21 +12,18 @@ describe('FriendCard Component', () => {
     recent_meetings_count: 3,
   };
 
-  test('renders nickname and meeting count correctly', () => {
+  test('renders nickname; 죽은 "최근 모임 N회" 필드는 제거(§17.2)', () => {
     const handleMakeGroup = jest.fn();
     const handleMore = jest.fn();
 
-    const { getByText } = render(
-      <FriendCard
-        friend={mockFriend}
-        onMakeGroup={handleMakeGroup}
-        onMore={handleMore}
-      />,
-      { wrapper }
+    const { getByText, queryByText } = render(
+      <FriendCard friend={mockFriend} onMakeGroup={handleMakeGroup} onMore={handleMore} />,
+      { wrapper },
     );
 
     expect(getByText('테스트유저')).toBeTruthy();
-    expect(getByText('최근 모임 3회')).toBeTruthy();
+    // recent_meetings_count가 있어도(=3) 항상 undefined인 필드라 렌더하지 않는다.
+    expect(queryByText(/최근 모임/)).toBeNull();
   });
 
   test('calls onMakeGroup when CTA button is pressed', () => {
@@ -34,12 +31,8 @@ describe('FriendCard Component', () => {
     const handleMore = jest.fn();
 
     const { getByTestId } = render(
-      <FriendCard
-        friend={mockFriend}
-        onMakeGroup={handleMakeGroup}
-        onMore={handleMore}
-      />,
-      { wrapper }
+      <FriendCard friend={mockFriend} onMakeGroup={handleMakeGroup} onMore={handleMore} />,
+      { wrapper },
     );
 
     const ctaButton = getByTestId('make-group-button');
@@ -54,12 +47,8 @@ describe('FriendCard Component', () => {
     const handleMore = jest.fn();
 
     const { getByTestId } = render(
-      <FriendCard
-        friend={mockFriend}
-        onMakeGroup={handleMakeGroup}
-        onMore={handleMore}
-      />,
-      { wrapper }
+      <FriendCard friend={mockFriend} onMakeGroup={handleMakeGroup} onMore={handleMore} />,
+      { wrapper },
     );
 
     const moreButton = getByTestId('more-button');

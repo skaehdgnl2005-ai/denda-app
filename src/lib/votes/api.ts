@@ -36,7 +36,8 @@ export async function commitVoteDiff(input: CommitVoteDiffInput): Promise<void> 
       end_minute: slot.start_minute + SLOT_DURATION_MINUTES,
     }));
     const { error } = await supabase.from('votes').insert(rows);
-    if (error) {
+    // 0014 unique index: race / 더블 commit 시 unique_violation(23505) 발생 — silent skip
+    if (error && error.code !== '23505') {
       throw new Error('투표를 저장하지 못했어요. 잠시 후 다시 시도해주세요.');
     }
   }

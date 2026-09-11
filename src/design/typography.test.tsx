@@ -4,6 +4,24 @@ import { Title, Body, Caption } from './typography';
 import { ThemeProvider } from './theme';
 
 describe('Typography Components', () => {
+  test('Title level="display" renders display scale 32/40/700 (DESIGN §2.2 — 온보딩 헤드라인)', () => {
+    const { getByText } = render(<Title level="display">디스플레이</Title>, {
+      wrapper: ThemeProvider,
+    });
+    const text = getByText('디스플레이');
+    expect(text.props.style).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fontSize: 32,
+          lineHeight: 40,
+          fontWeight: '700',
+          // 한글 타이틀 자간 -0.02em (§2.4)
+          letterSpacing: 32 * -0.02,
+        }),
+      ]),
+    );
+  });
+
   test('Title renders correctly with level h1, h2, h3 styles', () => {
     const { getByText, rerender } = render(<Title level="h1">제목1</Title>, {
       wrapper: ThemeProvider,

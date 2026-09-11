@@ -10,13 +10,8 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 
-import {
-  type AppleCalendarProvider,
-} from './apple';
-import {
-  CalendarProviderError,
-  type CalendarEventPayload,
-} from './google';
+import { type AppleCalendarProvider } from './apple';
+import { CalendarProviderError, type CalendarEventPayload } from './google';
 
 const TABLE = 'calendar_push_apple_pending';
 
@@ -46,9 +41,7 @@ export interface ApplePendingSummary {
   skippedUnauthorized: boolean;
 }
 
-export type ProcessOneResult =
-  | { ok: true }
-  | { ok: false; reason: string };
+export type ProcessOneResult = { ok: true } | { ok: false; reason: string };
 
 // ---------------------------------------------------------------------------
 // parsePendingRow — DB row → ApplePendingRow (방어적)

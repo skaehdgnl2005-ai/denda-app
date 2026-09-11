@@ -46,7 +46,9 @@ test.describe('web-guest base flow (supabase mock 없이 진행 가능한 분기
     await page.goto(`/g/${E2E_TOKEN}`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
 
     // mock 그룹 데이터의 모임명 (page.tsx의 NEXT_PUBLIC_IS_E2E 분기)
-    await expect(page.getByRole('heading', { name: '안암 저녁 모임' })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: '안암 저녁 모임' })).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(page.getByText('방장: 김방장')).toBeVisible();
     await expect(page.getByText('초대장')).toBeVisible();
 
@@ -71,7 +73,9 @@ test.describe('web-guest base flow (supabase mock 없이 진행 가능한 분기
     const ogTitle = await page.locator('meta[property="og:title"]').getAttribute('content');
     expect(ogTitle).toBe('안암 저녁 모임 | 모임 시간 투표 - 된다');
 
-    const ogDescription = await page.locator('meta[property="og:description"]').getAttribute('content');
+    const ogDescription = await page
+      .locator('meta[property="og:description"]')
+      .getAttribute('content');
     expect(ogDescription).toContain('김방장');
     expect(ogDescription).toContain('모임에 초대했습니다');
 

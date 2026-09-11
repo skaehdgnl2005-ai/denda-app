@@ -25,13 +25,13 @@ describe('GuestTimeGrid', () => {
     groupId: 'group-123',
     guestToken: 'guest-token-123',
     dates: ['2026-05-24', '2026-05-25'],
-    votes: [] as Array<{
+    votes: [] as {
       day: string;
       start_minute: number;
       end_minute: number;
       guest_token?: string | null;
       user_id?: string | null;
-    }>,
+    }[],
     memberCount: 2,
     onVoteStatusChange: jest.fn(),
     onVotesUpdated: jest.fn(),
@@ -448,10 +448,34 @@ describe('GuestTimeGrid', () => {
 
     test('cross-day deselect — initialVotes 사각형 영역 mousedown 후 종점 이동으로 전부 deselect', () => {
       const initialVotes = [
-        { day: '2026-05-24', start_minute: 540, end_minute: 555, guest_token: 'guest-token-123', user_id: null },
-        { day: '2026-05-24', start_minute: 555, end_minute: 570, guest_token: 'guest-token-123', user_id: null },
-        { day: '2026-05-25', start_minute: 540, end_minute: 555, guest_token: 'guest-token-123', user_id: null },
-        { day: '2026-05-25', start_minute: 555, end_minute: 570, guest_token: 'guest-token-123', user_id: null },
+        {
+          day: '2026-05-24',
+          start_minute: 540,
+          end_minute: 555,
+          guest_token: 'guest-token-123',
+          user_id: null,
+        },
+        {
+          day: '2026-05-24',
+          start_minute: 555,
+          end_minute: 570,
+          guest_token: 'guest-token-123',
+          user_id: null,
+        },
+        {
+          day: '2026-05-25',
+          start_minute: 540,
+          end_minute: 555,
+          guest_token: 'guest-token-123',
+          user_id: null,
+        },
+        {
+          day: '2026-05-25',
+          start_minute: 555,
+          end_minute: 570,
+          guest_token: 'guest-token-123',
+          user_id: null,
+        },
       ];
       const { container } = render(<GuestTimeGrid {...baseProps} votes={initialVotes} />);
       const d1m540 = container.querySelector(

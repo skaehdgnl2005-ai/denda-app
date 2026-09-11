@@ -30,7 +30,7 @@ export const tokens = {
       brand: '#7C3AED',
       'on-brand': '#FFFFFF',
     },
-    heat: ['#F3F4F6', '#EDE9FE', '#C4B5FD', '#8B5CF6', '#7C3AED'],
+    heat: ['#F9FAFB', '#EDE9FE', '#C4B5FD', '#8B5CF6', '#7C3AED'],
     semantic: {
       success: {
         bg: '#ECFDF5',
@@ -56,6 +56,10 @@ export const tokens = {
         fg: '#1D4ED8',
         solid: '#3B82F6',
       },
+    },
+    // 바텀시트·모달 backdrop scrim (W0-8). 라이트: 0.4 흑 (뒤 콘텐츠 은은히 비침).
+    overlay: {
+      scrim: 'rgba(0, 0, 0, 0.4)',
     },
   },
   dark: {
@@ -115,6 +119,10 @@ export const tokens = {
         fg: '#60A5FA',
         solid: '#3B82F6',
       },
+    },
+    // 다크 scrim은 0.6으로 더 진하게 — 이미 어두운 배경 위 시트를 분리 (W0-8).
+    overlay: {
+      scrim: 'rgba(0, 0, 0, 0.6)',
     },
   },
   space: {

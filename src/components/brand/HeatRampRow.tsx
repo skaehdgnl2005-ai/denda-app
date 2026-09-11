@@ -38,12 +38,16 @@ export const HeatRampRow: React.FC<HeatRampRowProps> = ({
           return (
             <View
               key={i}
+              testID={`${testID ?? 'heat-ramp-row'}-cell-${i}`}
               style={{
                 width: cellSize,
                 height: cellSize,
                 marginRight: i < colors.heat.length - 1 ? cellGap : 0,
                 borderRadius: radius.sm,
                 backgroundColor: active ? color : colors.surface[3],
+                // heat-0(흰색톤)이 흰 배경에서 사라지지 않도록 hairline 윤곽 (W3-4, §4.3).
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: colors.border.subtle,
                 opacity: active ? 1 : 0.3,
               }}
               accessibilityElementsHidden

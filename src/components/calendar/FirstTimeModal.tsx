@@ -19,6 +19,7 @@ import React, { useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { SupabaseClient } from '@supabase/supabase-js';
 
+import { ctaPressBg, rowPressBg } from '@/design/press';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { CalendarProviderError } from '@/lib/calendar/google';
@@ -143,7 +144,6 @@ export const FirstTimeModal: React.FC<FirstTimeModalProps> = ({
   };
 
   const confirmDisabled = selected === null || busy;
-  const confirmBg = confirmDisabled ? colors.surface[2] : colors.brand[500];
   const confirmFg = confirmDisabled ? colors.text.disabled : colors.text['on-brand'];
 
   return (
@@ -209,10 +209,7 @@ export const FirstTimeModal: React.FC<FirstTimeModalProps> = ({
                   },
                 ]}
               >
-                <Body
-                  variant="bold"
-                  color={isSelected ? colors.text.brand : colors.text.primary}
-                >
+                <Body variant="bold" color={isSelected ? colors.text.brand : colors.text.primary}>
                   {opt.label}
                 </Body>
                 <Caption color={colors.text.tertiary} style={{ marginTop: space[1] }}>
@@ -246,8 +243,7 @@ export const FirstTimeModal: React.FC<FirstTimeModalProps> = ({
                   flex: 1,
                   borderRadius: radius.md,
                   paddingVertical: space[3],
-                  backgroundColor: colors.surface[2],
-                  opacity: pressed && !busy ? 0.7 : 1,
+                  backgroundColor: rowPressBg(pressed && !busy, colors, colors.surface[2]),
                 },
               ]}
             >
@@ -269,8 +265,9 @@ export const FirstTimeModal: React.FC<FirstTimeModalProps> = ({
                   flex: 1,
                   borderRadius: radius.md,
                   paddingVertical: space[3],
-                  backgroundColor: confirmBg,
-                  opacity: pressed && !confirmDisabled ? 0.85 : 1,
+                  backgroundColor: confirmDisabled
+                    ? colors.surface[2]
+                    : ctaPressBg(pressed, colors),
                 },
               ]}
             >

@@ -12,18 +12,26 @@
 // D13: 모든 시간 표시는 KST. confirmed_*_at는 UTC ISO → ConfirmedTimeCard가 luxon 변환.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSharedValue } from 'react-native-reanimated';
 
+import { EmptyState } from '@/components/EmptyState';
 import { Icon } from '@/components/Icon';
+import { Skeleton } from '@/components/Skeleton';
 import { Grid } from '@/components/TimeGrid/Grid';
 import { RealtimeStatus } from '@/components/TimeGrid/RealtimeStatus';
+import { SelectionOverlay } from '@/components/TimeGrid/SelectionOverlay';
+import { VoteGuide } from '@/components/TimeGrid/VoteGuide';
 import { FirstTimeModal } from '@/components/calendar/FirstTimeModal';
 import { ConfirmedTimeCard } from '@/components/group/ConfirmedTimeCard';
+import { ConfirmSlotSheet } from '@/components/group/ConfirmSlotSheet';
 import { HostConfirmButton } from '@/components/group/HostConfirmButton';
+import { useToast } from '@/components/Toast';
+import { rowPressBg, ctaPressBg } from '@/design/press';
 import { useTheme } from '@/design/theme';
+import { mapError } from '@/lib/i18n/messages';
 import { Body, Caption, Title } from '@/design/typography';
 import { useAuth } from '@/lib/auth/setup';
 import { fetchCalendarPreference } from '@/lib/calendar/preference';
@@ -32,9 +40,10 @@ import {
   createGoogleCalendarProvider,
   signInGoogleAndUpload,
 } from '@/lib/calendar/setup';
+import { formatDayHeader } from '@/lib/datetime/dayHeader';
 import { confirmGroup } from '@/lib/groups/confirm';
-import { fetchGroupForConfirm, type GroupForConfirm } from '@/lib/groups/queries';
-import { selectionToConfirmRange } from '@/lib/groups/selectionToConfirmRange';
+import { fetchGroupForConfirm, fetchUserVotes, type GroupForConfirm } from '@/lib/groups/queries';
+import { recommendSlots, type RecommendedSlot } from '@/lib/groups/recommendSlots';
 import { useHeatmapSubscription } from '@/lib/heatmap/useHeatmapSubscription';
 import type { GridLayout } from '@/lib/heatmap/coords';
 import type { SlotKey } from '@/lib/heatmap/types';
@@ -44,32 +53,25 @@ import { useSweepGesture } from '@/lib/votes/useSweepGesture';
 import { diffVoteSets, voteSetFromSlots, type VoteSlot } from '@/lib/votes/voteSet';
 
 const ROW_COUNT = 60;
-const CELL_HEIGHT = 10; // Grid styles.row.height
+const CELL_HEIGHT = 16; // Grid styles.row.height (Issue 2: 10 → 14 → 16)
 const HEADER_WIDTH = 50; // Grid TIME_COLUMN_WIDTH
-
-function formatDayLabels(dates: string[]): string[] {
-  return dates.map((d) => {
-    const parts = d.split('-');
-    if (parts.length !== 3) return d;
-    const month = Number(parts[1]);
-    const day = Number(parts[2]);
-    if (!Number.isInteger(month) || !Number.isInteger(day)) return d;
-    return `${month}/${day}`;
-  });
-}
 
 export default function GroupConfirmScreen(): React.JSX.Element {
   const params = useLocalSearchParams<{ id: string }>();
   const groupId = params.id ?? '';
   const router = useRouter();
-  const { colors, space } = useTheme();
+  const { colors, space, radius } = useTheme();
+  const toast = useToast();
   const userId = useAuth((s) => s.session?.user.id);
 
   const [group, setGroup] = useState<GroupForConfirm | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [selectionRecord, setSelectionRecord] = useState<Record<SlotKey, boolean>>({});
   const [inflight, setInflight] = useState(false);
   const [showFirstTimeModal, setShowFirstTimeModal] = useState(false);
+  const [showConfirmSheet, setShowConfirmSheet] = useState(false);
+  const [recommendations, setRecommendations] = useState<RecommendedSlot[]>([]);
 
   // S06: 첫 Google/Apple sign-in callback — lazy 구성 (expo-* 패키지 미설치 환경에서 페이지
   // 진입 시점 throw 방지). createGoogleCalendarProvider/createAppleCalendarProvider는 호출 시
@@ -89,13 +91,31 @@ export default function GroupConfirmScreen(): React.JSX.Element {
 
   // Previous committed vote slot set (JS mirror for diff)
   const prevVoteSetRef = useRef<Set<string>>(new Set());
+  // 커밋 직렬화 체인 — 연속 sweep의 INSERT/DELETE가 동시 발사되면 서버 착지 순서가
+  // 역전되어 지운 셀이 유령 투표로 되살아난다 (midpoint writeChainRef와 동일 클래스).
+  const commitChainRef = useRef<Promise<void>>(Promise.resolve());
 
+  // Fail #12: group + 본인 기존 vote를 한 effect에서 fetch.
+  // votes 실패는 silent (group 도착하면 빈 grid로 진입 가능). group 실패는 loadError.
+  // userId 변경 시 재fetch — group 단일 row라 비용 작음.
   useEffect(() => {
     if (!groupId) return;
     let cancelled = false;
-    fetchGroupForConfirm(groupId)
-      .then((g) => {
-        if (!cancelled) setGroup(g);
+    const votesPromise = userId
+      ? fetchUserVotes(groupId, userId).catch(() => [] as VoteSlot[])
+      : Promise.resolve([] as VoteSlot[]);
+    Promise.all([fetchGroupForConfirm(groupId), votesPromise])
+      .then(([g, slots]) => {
+        if (cancelled) return;
+        setLoadError(null);
+        setGroup(g);
+        prevVoteSetRef.current = voteSetFromSlots(slots);
+        const next: Record<SlotKey, boolean> = {};
+        for (const slot of slots) {
+          const col = g.dates.indexOf(slot.day);
+          if (col >= 0) next[`${col}:${slot.start_minute}` as SlotKey] = true;
+        }
+        setSelectionRecord(next);
       })
       .catch((e: Error) => {
         if (!cancelled) setLoadError(e.message);
@@ -103,7 +123,21 @@ export default function GroupConfirmScreen(): React.JSX.Element {
     return (): void => {
       cancelled = true;
     };
-  }, [groupId]);
+  }, [groupId, userId, reloadKey]);
+
+  // W2-7 — 재진입 시 refetch. 멤버가 화면을 떠난 사이 호스트가 확정하면 재진입해도 stale로
+  // 남던 문제 해소. 첫 포커스(마운트)는 위 useEffect가 이미 fetch하므로 skip(중복 fetch 방지).
+  // (드래그 그리드에 pull-to-refresh는 D12 60fps 보호 위해 별도 검증 후 도입 — 본 커밋 제외.)
+  const didFocusRef = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (!didFocusRef.current) {
+        didFocusRef.current = true;
+        return;
+      }
+      setReloadKey((k) => k + 1);
+    }, []),
+  );
 
   const selfMarks = useMemo<Set<SlotKey>>(() => {
     const set = new Set<SlotKey>();
@@ -147,22 +181,34 @@ export default function GroupConfirmScreen(): React.JSX.Element {
       }
       setSelectionRecord(nextSelection);
 
-      // S05c: vote diff commit
+      // S05c: vote diff commit — 체인 직렬화 (sweep 순서 = 서버 착지 순서)
       const nextSet = voteSetFromSlots(slots);
-      const { added, removed } = diffVoteSets(prevVoteSetRef.current, nextSet);
+      const prevSet = prevVoteSetRef.current;
+      const { added, removed } = diffVoteSets(prevSet, nextSet);
       if (added.length === 0 && removed.length === 0) return;
       prevVoteSetRef.current = nextSet;
-      commitVoteDiff({ groupId, userId, added, removed }).catch((e: Error) => {
-        Alert.alert('알림', e.message);
-      });
+      commitChainRef.current = commitChainRef.current
+        .then(() => commitVoteDiff({ groupId, userId, added, removed }))
+        .catch((e: Error) => {
+          // 실패 → diff 기준선 롤백 (identity guard — 이후 sweep이 이미 전진시켰다면
+          // 유지). 다음 sweep의 diff가 실패분을 다시 added/removed로 재전송한다
+          // (0014 unique index의 23505 skip으로 재전송은 멱등).
+          if (prevVoteSetRef.current === nextSet) {
+            prevVoteSetRef.current = prevSet;
+          }
+          const { silent, message } = mapError(e);
+          if (!silent) toast.show({ message, variant: 'error' });
+        });
     },
-    [group, userId, groupId, isConfirmed],
+    [group, userId, groupId, isConfirmed, toast],
   );
 
   const days = group?.dates ?? [];
-  const { panGesture, scrollOffsetY } = useSweepGesture({
+  const { panGesture, scrollOffsetY, startCoord, currentCoord, toggleAdd } = useSweepGesture({
     days,
     layout,
+    // 기존 투표 시드 — 미전달 시 재진입 후 첫 sweep이 기존 투표 전체를 removed로 삭제
+    initialSelection: selectionRecord,
     onCommit: handleSweepCommit,
   });
 
@@ -185,30 +231,39 @@ export default function GroupConfirmScreen(): React.JSX.Element {
     [scrollOffsetY],
   );
 
-  const handleConfirm = async (): Promise<void> => {
+  // 모임 확정 = 투표(여러 날짜)와 분리. 히트맵 집계에서 "가장 많은 인원이 가능한" 단일 날짜
+  // 연속 구간 1~3순위를 뽑아 시트로 제시 → 호스트가 하나를 골라 확정한다 (selectionRecord 미사용).
+  const handleConfirm = (): void => {
     if (!group || inflight) return;
-    const range = selectionToConfirmRange(selectionRecord);
-    if (!range.ok) {
-      Alert.alert('확인', range.error);
-      return;
-    }
+    setRecommendations(recommendSlots(cells, group.dates));
+    setShowConfirmSheet(true);
+  };
+
+  const handleSelectRecommendation = async (rec: RecommendedSlot): Promise<void> => {
+    if (!group || inflight) return;
     setInflight(true);
     try {
       const result = await confirmGroup({
         groupId,
-        dayIndex: range.dayIndex,
-        startMinute: range.startMinute,
-        endMinute: range.endMinute,
+        dayIndex: rec.dayIndex,
+        startMinute: rec.startMinute,
+        endMinute: rec.endMinute,
         confirmedPlaceId: null,
       });
+      setShowConfirmSheet(false);
+      // 클라이맥스 피드백 = ConfirmedTimeCard 등장(아래 setGroup) + 보조 success 토스트.
+      // 시스템 Alert 제거 (§6.5·§11.3).
       if (result.alreadyConfirmed) {
-        Alert.alert('알림', '이미 확정된 모임이에요.');
+        toast.show({ message: '이미 확정된 모임이에요.' });
       } else if (result.f5Dispatch.rejected > 0) {
-        Alert.alert('확정했어요', '일부 멤버에게 알림을 보내지 못했어요.');
+        toast.show({
+          message: '모임이 확정됐어요! 일부 멤버는 알림을 못 받았어요.',
+          variant: 'success',
+        });
       } else {
-        Alert.alert('확정', '모임이 확정됐어요!');
+        toast.show({ message: '모임이 확정됐어요!', variant: 'success' });
       }
-      // Refresh group state to flip into read-only mode
+      // Refresh group state to flip into read-only mode (ConfirmedTimeCard 등장 트리거)
       const updated = await fetchGroupForConfirm(groupId);
       setGroup(updated);
 
@@ -224,7 +279,9 @@ export default function GroupConfirmScreen(): React.JSX.Element {
         }
       }
     } catch (e) {
-      Alert.alert('확정 실패', (e as Error).message);
+      // 확정 실패: 시트를 닫지 않아 재시도 보존 + error 토스트 (raw 메시지 비노출).
+      const { silent, message } = mapError(e);
+      if (!silent) toast.show({ message, variant: 'error' });
     } finally {
       setInflight(false);
     }
@@ -244,7 +301,19 @@ export default function GroupConfirmScreen(): React.JSX.Element {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface[0] }]}>
         <View style={[styles.centered, { padding: space[4] }]}>
-          <Body color={colors.text.secondary}>{loadError}</Body>
+          <EmptyState
+            variant="error"
+            title="모임을 불러오지 못했어요"
+            body="잠시 후 다시 시도해볼게요"
+            cta={{
+              label: '다시 시도',
+              onPress: () => {
+                setLoadError(null);
+                setReloadKey((k) => k + 1);
+              },
+            }}
+            testID="group-load-error"
+          />
         </View>
       </SafeAreaView>
     );
@@ -253,14 +322,40 @@ export default function GroupConfirmScreen(): React.JSX.Element {
   if (!group) {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface[0] }]}>
-        <View style={[styles.centered, { padding: space[4] }]}>
-          <Body color={colors.text.tertiary}>모임을 불러오는 중...</Body>
+        <View style={[styles.topBar, { paddingHorizontal: space[4], paddingVertical: space[3] }]}>
+          <Pressable
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel="뒤로 가기"
+            testID="back-button"
+            style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.6 : 1 }]}
+          >
+            <Icon name="뒤로" color={colors.text.primary} size={24} />
+          </Pressable>
+          <Skeleton width={120} height={20} />
+          <View style={styles.iconButton} />
+        </View>
+        <View
+          testID="group-loading-skeleton"
+          accessibilityRole="progressbar"
+          accessibilityLabel="모임을 불러오는 중"
+          style={{ paddingHorizontal: space[4], paddingTop: space[2] }}
+        >
+          <Skeleton width={160} height={14} />
+          <View style={{ height: space[4] }} />
+          <Skeleton height={72} borderRadius={radius.md} />
+          <View style={{ height: space[4] }} />
+          {Array.from({ length: 9 }).map((_, i) => (
+            <View key={i} style={{ marginBottom: space[2] }}>
+              <Skeleton height={12} />
+            </View>
+          ))}
         </View>
       </SafeAreaView>
     );
   }
 
-  const dayLabels = formatDayLabels(group.dates);
+  const dayHeaders = group.dates.map(formatDayHeader);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.surface[0] }]}>
@@ -277,7 +372,19 @@ export default function GroupConfirmScreen(): React.JSX.Element {
         <Title level="h2" color={colors.text.primary} numberOfLines={1} style={styles.titleFlex}>
           {group.name}
         </Title>
-        <View style={styles.iconButton} />
+        {isHost ? (
+          <Pressable
+            onPress={() => router.push(`/group/${groupId}/invite`)}
+            accessibilityRole="button"
+            accessibilityLabel="친구 초대"
+            testID="invite-button"
+            style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.6 : 1 }]}
+          >
+            <Icon name="추가" color={colors.text.primary} size={24} />
+          </Pressable>
+        ) : (
+          <View style={styles.iconButton} />
+        )}
       </View>
 
       <View
@@ -286,7 +393,7 @@ export default function GroupConfirmScreen(): React.JSX.Element {
           paddingBottom: space[2],
         }}
       >
-        <Caption color={colors.text.tertiary}>
+        <Caption color={colors.text.tertiary} tabularNums>
           멤버 {group.memberCount}명 · {group.dates.length}일 후보
         </Caption>
       </View>
@@ -301,16 +408,107 @@ export default function GroupConfirmScreen(): React.JSX.Element {
         </View>
       ) : null}
 
+      {/* S20: 장소 정하기 / 보기 — 시간 확정 이후 노출. host 만 pick 가능. */}
+      {isConfirmed && group.confirmedPlaceId !== null ? (
+        <View style={{ paddingHorizontal: space[4], paddingBottom: space[3] }}>
+          <Pressable
+            onPress={() => router.push(`/group/${groupId}/place?placeId=${group.confirmedPlaceId}`)}
+            accessibilityRole="button"
+            accessibilityLabel="정해진 장소 보기"
+            testID="place-view-button"
+            style={({ pressed }) => ({
+              backgroundColor: rowPressBg(pressed, colors, colors.surface[1]),
+              borderRadius: radius.md,
+              padding: space[4],
+              flexDirection: 'row',
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: colors.border.subtle,
+            })}
+          >
+            <Icon name="장소" color={colors.text.tertiary} size={20} />
+            <Body color={colors.text.primary} style={{ flex: 1, marginLeft: space[2] }}>
+              정해진 장소 보기
+            </Body>
+            <Icon name="화살표" color={colors.text.tertiary} size={20} />
+          </Pressable>
+        </View>
+      ) : isConfirmed ? (
+        <View style={{ paddingHorizontal: space[4], paddingBottom: space[3] }}>
+          {isHost ? (
+            <Pressable
+              onPress={() => router.push(`/group/${groupId}/place-search`)}
+              accessibilityRole="button"
+              accessibilityLabel="장소 정하기"
+              testID="place-pick-button"
+              style={({ pressed }) => ({
+                backgroundColor: ctaPressBg(pressed, colors),
+                borderRadius: radius.md,
+                padding: space[4],
+                alignItems: 'center',
+              })}
+            >
+              <Body variant="bold" color={colors.text['on-brand']}>
+                장소 정하기
+              </Body>
+            </Pressable>
+          ) : null}
+          {/* S-MAP M3+M5(D41): 중간지점 진입은 전 멤버 — 각자 출발지 등록. 장소 확정은 호스트만(RLS). */}
+          <Pressable
+            onPress={() =>
+              router.push({ pathname: '/group/[id]/midpoint', params: { id: groupId } })
+            }
+            accessibilityRole="button"
+            accessibilityLabel="중간지점으로 찾기"
+            testID="midpoint-entry-button"
+            style={({ pressed }) => ({
+              marginTop: isHost ? space[2] : 0,
+              borderRadius: radius.md,
+              padding: space[4],
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: rowPressBg(pressed, colors, colors.surface[1]),
+              borderWidth: 1,
+              borderColor: colors.border.subtle,
+            })}
+          >
+            <Icon name="장소" color={colors.text.secondary} size={18} />
+            <Body color={colors.text.primary} style={{ marginLeft: space[2] }}>
+              중간지점으로 찾기
+            </Body>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {!isConfirmed ? (
+        <View style={{ paddingHorizontal: space[4], paddingBottom: space[3] }}>
+          <VoteGuide hasSelection={selfMarks.size > 0} testID="vote-guide" />
+        </View>
+      ) : null}
+
       <RealtimeStatus isConnected={isConnected} testID="realtime-status" />
 
       <View style={styles.gridContainer}>
         <Grid
           cells={cells}
-          dayLabels={dayLabels}
+          dayHeaders={dayHeaders}
+          colCount={dayCount}
           panGesture={isConfirmed ? undefined : panGesture}
           onCellWidthChange={handleCellWidthChange}
           onScrollY={handleScrollY}
           testID="time-grid"
+          overlay={
+            isConfirmed ? null : (
+              <SelectionOverlay
+                layout={layout}
+                startCoord={startCoord}
+                currentCoord={currentCoord}
+                toggleAdd={toggleAdd}
+                testID="selection-overlay"
+              />
+            )
+          }
         />
       </View>
 
@@ -324,6 +522,15 @@ export default function GroupConfirmScreen(): React.JSX.Element {
           />
         </View>
       ) : null}
+
+      <ConfirmSlotSheet
+        visible={showConfirmSheet}
+        recommendations={recommendations}
+        onSelect={handleSelectRecommendation}
+        onClose={() => setShowConfirmSheet(false)}
+        inflight={inflight}
+        testID="confirm-slot-sheet"
+      />
 
       {userId ? (
         <FirstTimeModal

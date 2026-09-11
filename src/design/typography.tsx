@@ -10,7 +10,7 @@ export interface BaseTextProps extends RNTextProps {
 
 // 1. Title Component
 export interface TitleProps extends BaseTextProps {
-  level: 'h1' | 'h2' | 'h3';
+  level: 'display' | 'h1' | 'h2' | 'h3';
 }
 
 export const Title: React.FC<TitleProps> = ({
@@ -27,7 +27,12 @@ export const Title: React.FC<TitleProps> = ({
   let lineHeight = 24;
   let fontWeight: TextStyle['fontWeight'] = '600';
 
-  if (level === 'h1') {
+  if (level === 'display') {
+    // display — 온보딩 슬라이드 헤드라인 / 마케팅 히어로 (§2.2)
+    fontSize = 32;
+    lineHeight = 40;
+    fontWeight = '700';
+  } else if (level === 'h1') {
     // title-1
     fontSize = 24;
     lineHeight = 32;

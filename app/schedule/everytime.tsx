@@ -5,12 +5,19 @@
 //   D2 OCR keep, D13 KST, D15 source='everytime' enum 격리
 
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { ctaPressBg, rowPressBg } from '@/design/press';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
+import { ConfirmSheet } from '@/components/ConfirmSheet';
 import { Icon } from '@/components/Icon';
+import { ScreenHeader } from '@/components/ScreenHeader';
+import { Skeleton } from '@/components/Skeleton';
+import { Spinner } from '@/components/Spinner';
+import { useToast } from '@/components/Toast';
+import { mapError } from '@/lib/i18n/messages';
 import { SemesterInput } from '@/components/everytime/SemesterInput';
 import { CourseRow } from '@/components/everytime/CourseRow';
 import {
@@ -32,6 +39,7 @@ type Step = 'input' | 'ocr_loading' | 'preview' | 'confirming' | 'success';
 export default function EverytimeImportScreen() {
   const { colors, space, radius } = useTheme();
   const router = useRouter();
+  const toast = useToast();
 
   const [step, setStep] = useState<Step>('input');
   const [semesterStart, setSemesterStart] = useState('');
@@ -39,15 +47,14 @@ export default function EverytimeImportScreen() {
   const [courses, setCourses] = useState<OcrCourse[]>([]);
   const [replaceExisting, setReplaceExisting] = useState(false);
   const [insertedCount, setInsertedCount] = useState(0);
+  const [permissionSheet, setPermissionSheet] = useState(false);
 
   const semesterReady = isSemesterValid(semesterStart, semesterEnd);
   const canConfirm = semesterReady && courses.length > 0 && !hasAnyValidationError(courses);
 
   const handlePickAndOcr = async () => {
-    if (!semesterReady) {
-      Alert.alert('학기 입력', '학기 시작·종료일을 먼저 입력해주세요.');
-      return;
-    }
+    // 학기 미입력은 버튼 disabled + 인라인 힌트로 이미 안내 (Alert 제거, §11.3 폼 패턴).
+    if (!semesterReady) return;
     try {
       setStep('ocr_loading');
       const picked = await pickImageFromLibrary();
@@ -56,23 +63,26 @@ export default function EverytimeImportScreen() {
         mimeType: picked.mimeType,
       });
       if (result.courses.length === 0) {
-        Alert.alert('OCR 결과', '강의를 찾지 못했어요. 다른 스크린샷으로 시도해주세요.');
+        toast.show({
+          message: '강의를 찾지 못했어요. 다른 스크린샷으로 시도해주세요.',
+          variant: 'error',
+        });
         setStep('input');
         return;
       }
       setCourses(result.courses);
       setStep('preview');
     } catch (e) {
-      if (e instanceof ImagePickerUnavailableError) {
-        Alert.alert('곧 활성화돼요', e.message);
-      } else if (e instanceof ImagePickerPermissionDeniedError) {
-        Alert.alert('권한 필요', e.message);
-      } else if (e instanceof Error && e.message === 'canceled') {
-        // 사용자 취소 — silent
-      } else {
-        Alert.alert('OCR 실패', (e as Error).message ?? '잠시 후 다시 시도해주세요.');
-      }
       setStep('input');
+      if (e instanceof ImagePickerUnavailableError) {
+        toast.show({ message: '사진 가져오기는 곧 준비돼요. 조금만 기다려주세요.' });
+      } else if (e instanceof ImagePickerPermissionDeniedError) {
+        setPermissionSheet(true);
+      } else {
+        // 취소류는 mapError가 silent 처리 — raw e.message는 노출하지 않는다.
+        const { silent, message } = mapError(e);
+        if (!silent) toast.show({ message, variant: 'error' });
+      }
     }
   };
 
@@ -89,27 +99,14 @@ export default function EverytimeImportScreen() {
       setInsertedCount(result.inserted);
       setStep('success');
     } catch (e) {
-      Alert.alert('저장 실패', (e as Error).message ?? '잠시 후 다시 시도해주세요.');
+      const { silent, message } = mapError(e);
+      if (!silent) toast.show({ message, variant: 'error' });
       setStep('preview');
     }
   };
 
   const renderHeader = () => (
-    <View style={[styles.topBar, { paddingHorizontal: space[4], paddingVertical: space[3] }]}>
-      <Pressable
-        onPress={() => router.back()}
-        accessibilityRole="button"
-        accessibilityLabel="뒤로 가기"
-        testID="back-button"
-        style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.6 : 1 }]}
-      >
-        <Icon name="뒤로" color={colors.text.primary} size={24} />
-      </Pressable>
-      <Title level="h2" color={colors.text.primary}>
-        에브리타임 가져오기
-      </Title>
-      <View style={styles.iconButton} />
-    </View>
+    <ScreenHeader title="에브리타임 가져오기" onBack={() => router.back()} />
   );
 
   const renderInput = () => (
@@ -139,11 +136,10 @@ export default function EverytimeImportScreen() {
         style={({ pressed }) => [
           styles.primaryButton,
           {
-            backgroundColor: semesterReady ? colors.brand[500] : colors.surface[2],
+            backgroundColor: semesterReady ? ctaPressBg(pressed, colors) : colors.surface[2],
             borderRadius: radius.md,
             paddingVertical: space[3],
             paddingHorizontal: space[4],
-            opacity: pressed && semesterReady ? 0.92 : 1,
           },
         ]}
       >
@@ -164,11 +160,40 @@ export default function EverytimeImportScreen() {
     </ScrollView>
   );
 
-  const renderLoading = (label: string) => (
-    <View style={[styles.centered, { padding: space[4] }]}>
-      <ActivityIndicator color={colors.brand[500]} size="large" />
+  // OCR 진행(수 초)은 스피너 대신 결과 프리뷰 형태 Skeleton으로 체감 대기를 낮춘다 (§11.1).
+  const renderOcrLoading = () => (
+    <ScrollView contentContainerStyle={{ padding: space[4] }} testID="ocr-loading">
+      <Title level="h3" color={colors.text.primary}>
+        시간표를 읽고 있어요...
+      </Title>
+      <Body variant="sm" color={colors.text.secondary} style={{ marginTop: space[2] }}>
+        강의 정보를 하나씩 정리하는 중이에요.
+      </Body>
+      <View style={{ height: space[5] }} />
+      {[0, 1, 2, 3].map((i) => (
+        <View
+          key={i}
+          style={{
+            borderWidth: 1,
+            borderColor: colors.border.subtle,
+            borderRadius: radius.md,
+            padding: space[4],
+            marginBottom: space[3],
+          }}
+        >
+          <Skeleton width="60%" height={18} />
+          <Skeleton width="40%" height={14} style={{ marginTop: space[2] }} />
+        </View>
+      ))}
+    </ScrollView>
+  );
+
+  // 저장(confirm)은 짧은 액션 — Skeleton이 아닌 Spinner (§11.1).
+  const renderConfirming = () => (
+    <View style={[styles.centered, { padding: space[4] }]} testID="confirming">
+      <Spinner />
       <Body variant="sm" color={colors.text.secondary} style={{ marginTop: space[3] }}>
-        {label}
+        일정을 저장하는 중이에요...
       </Body>
     </View>
   );
@@ -204,7 +229,7 @@ export default function EverytimeImportScreen() {
             borderRadius: radius.md,
             paddingVertical: space[3],
             alignItems: 'center',
-            backgroundColor: pressed ? colors.surface[2] : colors.surface[0],
+            backgroundColor: rowPressBg(pressed, colors, colors.surface[0]),
             marginBottom: space[4],
           },
         ]}
@@ -224,7 +249,9 @@ export default function EverytimeImportScreen() {
           styles.toggleRow,
           {
             paddingVertical: space[3],
-            opacity: pressed ? 0.8 : 1,
+            paddingHorizontal: space[2],
+            borderRadius: radius.md,
+            backgroundColor: rowPressBg(pressed, colors),
           },
         ]}
       >
@@ -256,11 +283,10 @@ export default function EverytimeImportScreen() {
         style={({ pressed }) => [
           styles.primaryButton,
           {
-            backgroundColor: canConfirm ? colors.brand[500] : colors.surface[2],
+            backgroundColor: canConfirm ? ctaPressBg(pressed, colors) : colors.surface[2],
             borderRadius: radius.md,
             paddingVertical: space[3],
             paddingHorizontal: space[4],
-            opacity: pressed && canConfirm ? 0.92 : 1,
           },
         ]}
       >
@@ -310,12 +336,11 @@ export default function EverytimeImportScreen() {
         style={({ pressed }) => [
           styles.primaryButton,
           {
-            backgroundColor: colors.brand[500],
+            backgroundColor: ctaPressBg(pressed, colors),
             borderRadius: radius.md,
             paddingVertical: space[3],
             paddingHorizontal: space[8],
             marginTop: space[6],
-            opacity: pressed ? 0.92 : 1,
           },
         ]}
       >
@@ -330,10 +355,25 @@ export default function EverytimeImportScreen() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.surface[0] }]} edges={['top']}>
       {renderHeader()}
       {step === 'input' && renderInput()}
-      {step === 'ocr_loading' && renderLoading('사진을 분석하는 중이에요...')}
+      {step === 'ocr_loading' && renderOcrLoading()}
       {step === 'preview' && renderPreview()}
-      {step === 'confirming' && renderLoading('일정을 저장하는 중이에요...')}
+      {step === 'confirming' && renderConfirming()}
       {step === 'success' && renderSuccess()}
+
+      {/* 사진 권한 거부 → 시스템 Alert 대신 설정 이동 ConfirmSheet */}
+      <ConfirmSheet
+        visible={permissionSheet}
+        onClose={() => setPermissionSheet(false)}
+        title="사진 접근 권한이 필요해요"
+        message="시간표 사진을 불러오려면 설정에서 사진 접근을 허용해 주세요."
+        confirmLabel="설정 열기"
+        cancelLabel="다음에"
+        onConfirm={() => {
+          setPermissionSheet(false);
+          void Linking.openSettings();
+        }}
+        testID="permission-sheet"
+      />
     </SafeAreaView>
   );
 }
@@ -341,17 +381,6 @@ export default function EverytimeImportScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   primaryButton: {
     alignItems: 'center',

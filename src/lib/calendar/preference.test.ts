@@ -2,7 +2,10 @@
 
 import { fetchCalendarPreference, type CalendarPreference } from './preference';
 
-type Single = { data: { calendar_preference: CalendarPreference | null } | null; error: { message: string } | null };
+type Single = {
+  data: { calendar_preference: CalendarPreference | null } | null;
+  error: { message: string } | null;
+};
 
 function buildMock(single: Single): { from: jest.Mock } {
   const singleFn = jest.fn().mockResolvedValue(single);
@@ -48,8 +51,6 @@ describe('fetchCalendarPreference', () => {
 
   test('에러 → 한국어 메시지 throw', async () => {
     const supabase = buildMock({ data: null, error: { message: 'permission denied' } });
-    await expect(fetchCalendarPreference(supabase as never, USER_ID)).rejects.toThrow(
-      /설정/,
-    );
+    await expect(fetchCalendarPreference(supabase as never, USER_ID)).rejects.toThrow(/설정/);
   });
 });

@@ -34,8 +34,26 @@ describe('Grid Component', () => {
 
     const { getAllByTestId } = render(<Grid cells={mockCells} />, { wrapper });
 
-    const cells = getAllByTestId(/^grid-cell-/);
+    const cells = getAllByTestId(/^grid-cell-\d+-\d+$/);
     expect(cells.length).toBe(420); // 60 slots * 7 days = 420 cells
+  });
+
+  test('W2-5 — dayHeaders 제공 시 요일 + 날짜 2줄 헤더 렌더', () => {
+    const { getByText } = render(
+      <Grid
+        cells={generateMockCells('empty')}
+        colCount={2}
+        dayHeaders={[
+          { weekday: '수', date: '7/8' },
+          { weekday: '목', date: '7/9' },
+        ]}
+      />,
+      { wrapper },
+    );
+    expect(getByText('수')).toBeTruthy();
+    expect(getByText('7/8')).toBeTruthy();
+    expect(getByText('목')).toBeTruthy();
+    expect(getByText('7/9')).toBeTruthy();
   });
 
   test('triggers onCellPress with correct slot and day coordinates', () => {
@@ -51,6 +69,44 @@ describe('Grid Component', () => {
     fireEvent.press(targetCell);
 
     expect(onCellPressMock).toHaveBeenCalledWith(5, 3);
+  });
+
+  test('colCount=3 prop: 60×3 = 180 cells만 렌더 (Issue 3 fix)', () => {
+    const mockCells: CellState[][] = [];
+    for (let slot = 0; slot < 60; slot++) {
+      const row: CellState[] = [];
+      for (let day = 0; day < 3; day++) {
+        row.push({ state: 'empty', count: 0 });
+      }
+      mockCells.push(row);
+    }
+    const { getAllByTestId } = render(
+      <Grid cells={mockCells} colCount={3} dayLabels={['6/5', '6/6', '6/7']} />,
+      { wrapper },
+    );
+    const cells = getAllByTestId(/^grid-cell-\d+-\d+$/);
+    expect(cells.length).toBe(180);
+  });
+
+  test('colCount=3 + cellWidth: 분모가 3으로 계산 (Issue 3 fix)', () => {
+    const mockCells: CellState[][] = [];
+    for (let slot = 0; slot < 60; slot++) {
+      mockCells.push([
+        { state: 'empty', count: 0 },
+        { state: 'empty', count: 0 },
+        { state: 'empty', count: 0 },
+      ]);
+    }
+    const onCellWidthChange = jest.fn();
+    const { UNSAFE_root } = render(
+      <Grid cells={mockCells} colCount={3} onCellWidthChange={onCellWidthChange} />,
+      { wrapper },
+    );
+    const layoutEvent = { nativeEvent: { layout: { x: 0, y: 0, width: 350, height: 600 } } };
+    const onLayoutViews = UNSAFE_root.findAll((node) => typeof node.props.onLayout === 'function');
+    onLayoutViews[0]?.props.onLayout(layoutEvent);
+    // (350-50)/3 = 100
+    expect(onCellWidthChange).toHaveBeenCalledWith(100);
   });
 
   test('panGesture mode: onCellPress가 호출되지 않음 (sweep mode 우선)', () => {

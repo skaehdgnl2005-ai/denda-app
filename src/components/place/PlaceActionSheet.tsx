@@ -1,0 +1,348 @@
+// S08-ui — 장소 액션 바텀시트 (DESIGN §10.3)
+//
+// 마커 탭 → trigger sheet. 두 CTA:
+//   1) "예약하기" — Gate #2 click 로깅 (caller가 onReservationPress 내부에서 logReservationClick 호출)
+//   2) "장소만 정하기" — 카톡 공유 (caller가 onSharePress 내부에서 sharePlaceToKakao 호출)
+//
+// Phase 1+2 baseline: 보증금/환불 정책 영역(DESIGN §10.3 spec의 결제 line)은
+// 🔒 Phase 3 코드 작성 금지 정책에 따라 미노출. 대신 "예약은 준비 중" info chip.
+//
+// §17 anti-AI-feel:
+//   - brand-500 fill CTA 1개 ("예약하기"), secondary "장소만 정하기" (surface-2)
+//   - inflight = ActivityIndicator (CTA disable + 더블 탭 방어)
+//   - 친근체 micro-copy (founder review 대기 — Q-B12 closure 시 본문 교체 가능)
+
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Modal, Pressable, StyleSheet, View } from 'react-native';
+
+import { PartnerBadge } from '@/components/place/PartnerBadge';
+import { useTheme } from '@/design/theme';
+import { Body, Caption, Title } from '@/design/typography';
+import { motionEasing } from '@/lib/motion/easing';
+import { useReducedMotion } from '@/lib/motion/useReducedMotion';
+
+// 시트를 화면 아래에서 밀어 올리는 거리 (측정 대신 충분값 — ConfirmSheet 선례).
+const SLIDE_DISTANCE = 480;
+
+export interface PlaceSheetPlace {
+  id: string;
+  name: string;
+  category?: string;
+  address?: string;
+}
+
+export interface PlaceActionSheetProps {
+  visible: boolean;
+  onClose: () => void;
+  place: PlaceSheetPlace;
+  groupName: string;
+  /** 제휴 식당 여부 (places.partnership_id 기존 스키마 플래그). true면 §10.2 제휴 배지 노출 (M4 시각 capability). */
+  isPartnership: boolean;
+  /**
+   * "예약하기" press. caller가 내부에서 `logReservationClick({groupId, placeId, partnershipId})` 호출.
+   * 성공 → 시트 close. 실패 throw → 한국어 메시지 노출 + 시트 유지.
+   */
+  onReservationPress: () => Promise<void>;
+  /**
+   * "장소만 정하기" press. caller가 내부에서 `sharePlaceToKakao(args, opts)` 호출.
+   * 성공 → 시트 close. 실패 throw → 한국어 메시지 노출 + 시트 유지.
+   */
+  onSharePress: () => Promise<void>;
+  testID?: string;
+}
+
+type BusyState = 'idle' | 'reservation' | 'share';
+
+export const PlaceActionSheet: React.FC<PlaceActionSheetProps> = ({
+  visible,
+  onClose,
+  place,
+  // groupName는 caller의 onReservationPress/onSharePress가 사용 — 본 component는 prop으로 보관만
+  isPartnership,
+  onReservationPress,
+  onSharePress,
+  testID,
+}) => {
+  const { colors, space, radius, shadow, duration } = useTheme();
+  const reduced = useReducedMotion();
+  const [anim] = useState(() => new Animated.Value(0));
+  const [rendered, setRendered] = useState(visible);
+  const [busy, setBusy] = useState<BusyState>('idle');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // 동기 lock — busy useState는 비동기라 같은 tick 더블탭에 stale closure로 둘 다 통과할 수 있다.
+  // ref로 두 번째 press를 즉시 차단해 "예약하기" click(Gate #2)을 정확히 1회만 로그한다.
+  const lockRef = useRef(false);
+
+  // 시트 열림=슬라이드 업(§6.5 바텀시트 up = medium+enter)·backdrop 페이드 / 닫힘=슬라이드
+  // 다운(medium+exit) 후 언마운트. 모션 감소 시 duration 0 즉시(§6.4). RN Animated —
+  // Reanimated 워클릿이 아니므로 D12 드래그 그리드 60fps 경로와 무관.
+  useEffect(() => {
+    if (visible) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setRendered(true);
+      anim.setValue(0);
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: reduced ? 0 : duration.medium,
+        easing: motionEasing.enter,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(anim, {
+        toValue: 0,
+        duration: reduced ? 0 : duration.medium,
+        easing: motionEasing.exit,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) setRendered(false);
+      });
+    }
+  }, [visible, reduced, duration.medium, anim]);
+
+  if (!rendered) return null;
+
+  const isBusy = busy !== 'idle';
+  const sheetTestID = testID ?? 'place-action-sheet';
+  const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [SLIDE_DISTANCE, 0] });
+
+  const handleClose = (): void => {
+    if (isBusy) return;
+    setBusy('idle');
+    setErrorMsg(null);
+    onClose();
+  };
+
+  const handleReservation = async (): Promise<void> => {
+    if (lockRef.current || isBusy) return;
+    lockRef.current = true;
+    setBusy('reservation');
+    setErrorMsg(null);
+    try {
+      await onReservationPress();
+      setBusy('idle');
+      onClose();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '예약을 기록하지 못했어요.';
+      setErrorMsg(message);
+      setBusy('idle');
+    } finally {
+      lockRef.current = false;
+    }
+  };
+
+  const handleShare = async (): Promise<void> => {
+    if (lockRef.current || isBusy) return;
+    lockRef.current = true;
+    setBusy('share');
+    setErrorMsg(null);
+    try {
+      await onSharePress();
+      setBusy('idle');
+      onClose();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '공유에 실패했어요.';
+      setErrorMsg(message);
+      setBusy('idle');
+    } finally {
+      lockRef.current = false;
+    }
+  };
+
+  const reservationBg = isBusy ? colors.surface[2] : colors.brand[500];
+  const reservationFg = isBusy ? colors.text.disabled : colors.text['on-brand'];
+  const shareBg = isBusy ? colors.surface[2] : colors.surface[2];
+  const shareFg = isBusy ? colors.text.disabled : colors.text.secondary;
+
+  return (
+    <Modal
+      visible
+      transparent
+      animationType="none"
+      onRequestClose={handleClose}
+      testID={sheetTestID}
+    >
+      <View style={styles.root}>
+        <Animated.View style={[styles.backdrop, { opacity: anim }]}>
+          <Pressable
+            testID={`${sheetTestID}-backdrop`}
+            accessibilityLabel="시트 닫기"
+            onPress={handleClose}
+            style={[StyleSheet.absoluteFill, { backgroundColor: colors.overlay.scrim }]}
+          />
+        </Animated.View>
+
+        <Animated.View
+          testID={`${sheetTestID}-sheet`}
+          style={[
+            styles.container,
+            shadow.e3,
+            {
+              backgroundColor: colors.surface[1],
+              borderTopLeftRadius: radius['2xl'],
+              borderTopRightRadius: radius['2xl'],
+              paddingBottom: space[6],
+              transform: reduced ? [] : [{ translateY }],
+            },
+          ]}
+        >
+          <View style={[styles.grabberRow, { paddingTop: space[2], paddingBottom: space[3] }]}>
+            <View
+              testID={`${sheetTestID}-grabber`}
+              style={[
+                styles.grabber,
+                { backgroundColor: colors.surface[3], borderRadius: radius.full },
+              ]}
+            />
+          </View>
+
+          <View style={{ paddingHorizontal: space[4] }}>
+            {isPartnership ? (
+              <View style={{ marginBottom: space[2] }}>
+                <PartnerBadge />
+              </View>
+            ) : null}
+
+            <Title level="h2" color={colors.text.primary}>
+              {place.name}
+            </Title>
+
+            {place.category ? (
+              <Caption color={colors.text.tertiary} style={{ marginTop: space[1] }}>
+                {place.category}
+              </Caption>
+            ) : null}
+
+            {place.address ? (
+              <Body variant="sm" color={colors.text.secondary} style={{ marginTop: space[2] }}>
+                {place.address}
+              </Body>
+            ) : null}
+
+            <View
+              testID="phase12-notice"
+              style={[
+                styles.notice,
+                {
+                  backgroundColor: colors.semantic.info.bg,
+                  borderColor: colors.semantic.info.border,
+                  borderRadius: radius.md,
+                  marginTop: space[4],
+                  padding: space[3],
+                },
+              ]}
+            >
+              <Body variant="sm" color={colors.semantic.info.fg}>
+                예약 기능은 준비 중이에요. 지금은 식당 정보만 공유할 수 있어요.
+              </Body>
+            </View>
+
+            {errorMsg ? (
+              <Body
+                variant="sm"
+                color={colors.semantic.error.fg}
+                testID="error-message"
+                style={{ marginTop: space[3] }}
+              >
+                {errorMsg}
+              </Body>
+            ) : null}
+
+            <View style={{ marginTop: space[5], gap: space[2] }}>
+              <Pressable
+                testID="reservation-cta"
+                accessibilityRole="button"
+                accessibilityLabel="예약하기"
+                accessibilityState={{ disabled: isBusy, busy: busy === 'reservation' }}
+                disabled={isBusy}
+                onPress={handleReservation}
+                style={({ pressed }) => [
+                  styles.cta,
+                  {
+                    backgroundColor: reservationBg,
+                    borderRadius: radius.md,
+                    paddingVertical: space[3],
+                    opacity: pressed && !isBusy ? 0.85 : 1,
+                  },
+                ]}
+              >
+                <View style={styles.ctaContent}>
+                  {busy === 'reservation' ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={reservationFg}
+                      testID="reservation-cta-spinner"
+                    />
+                  ) : null}
+                  <Body variant="bold" color={reservationFg}>
+                    예약하기
+                  </Body>
+                </View>
+              </Pressable>
+
+              <Pressable
+                testID="share-cta"
+                accessibilityRole="button"
+                accessibilityLabel="장소만 정하기"
+                accessibilityState={{ disabled: isBusy, busy: busy === 'share' }}
+                disabled={isBusy}
+                onPress={handleShare}
+                style={({ pressed }) => [
+                  styles.cta,
+                  {
+                    backgroundColor: shareBg,
+                    borderRadius: radius.md,
+                    paddingVertical: space[3],
+                    opacity: pressed && !isBusy ? 0.85 : 1,
+                  },
+                ]}
+              >
+                <View style={styles.ctaContent}>
+                  {busy === 'share' ? (
+                    <ActivityIndicator size="small" color={shareFg} testID="share-cta-spinner" />
+                  ) : null}
+                  <Body variant="bold" color={shareFg}>
+                    장소만 정하기
+                  </Body>
+                </View>
+              </Pressable>
+            </View>
+          </View>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+};
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFill,
+  },
+  container: {
+    width: '100%',
+  },
+  grabberRow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  grabber: {
+    width: 36,
+    height: 4,
+  },
+  notice: {
+    borderWidth: 1,
+  },
+  cta: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 56,
+  },
+  ctaContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+});

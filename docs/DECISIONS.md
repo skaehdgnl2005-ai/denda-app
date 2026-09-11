@@ -23,7 +23,7 @@
 | 결정일 | 2026-05-21 |
 | 마감 게이트 | **2026-05-28 (W1 deadline)** — Kakao 답변 미수신 시 즉시 Step 16 (backup providers) lane eager 활성 |
 | 의존 | OPEN: Kakao 디벨로퍼스 1:1 문의 2건 답변 |
-| 결과 영향 | S01 (Auth) baseline = D29 OIDC 표준 (Q-A1 closed). S10 (Map) baseline = Kakao Local API (Q-A2 답변 대기). Step 16은 lazy interface 추상화만. Apple 심사 시 Apple ID 추가는 Phase 3 |
+| 결과 영향 | S01 (Auth) baseline = D29 OIDC 표준 (Q-A1 closed). S10 (Map): Q-A2 "허용" 답변 수신(2026-06-01 → [D37](#d37--q-a2-카카오-local-api-약관-허용-답변-수신--kakaolocalprovider-평가-트랙)). 현 primary = D36 NaverSearchProvider, KakaoLocalProvider 평가 트랙 개시(우위 시 교체). Step 16은 lazy interface 추상화만. Apple 심사 시 Apple ID 추가는 Phase 3 |
 | 출처 | ENG_REVIEW §1.2 |
 
 ---
@@ -850,6 +850,143 @@ const BranchAttribution = lazy(() => import('@/lib/branch/attribution'));
 | 의존 | [D19](#d19--calendar-sync-단방향-부분-실패-명시) (단방향 + token 만료 명시), [D20](#d20--calendar-push-fan-out--background-queue) (worker가 events.insert 호출), [D29](#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede) (Kakao OIDC는 `auth.identities` 단독 사용 — Google은 별도 storage) |
 | 결과 영향 | (1) `supabase/migrations/0012_user_oauth_tokens.sql` 신규: table + RLS + `upsert_user_oauth_tokens(p_provider, p_access_token, p_refresh_token, p_expires_at, p_scope)` RPC. (2) `supabase/functions/_lib/google_calendar.ts` 신규: server-side `refreshAccessToken` + `insertCalendarEvent` 순수 함수(Deno fetch 기반). (3) `src/lib/calendar/google.ts` 클라이언트에 OAuth 완료 후 token 서버 업로드 wrapper 추가는 별도 sub-task(S06-setup) — 본 sub-task는 server-side path만. (4) `calendar_push_worker.pushToMemberCalendar`이 `users.calendar_preference` + `user_oauth_tokens` SELECT → 분기 처리. (5) Token 갱신: `expires_at` 임박 또는 401 응답 시 `refresh_token`으로 POST `oauth2.googleapis.com/token` → `access_token` + 새 `expires_at` UPDATE. refresh_token 회전 시(응답에 새 refresh_token 포함) 함께 UPDATE. (6) refresh_token 만료(401 with `invalid_grant`) → D19 token 만료 path: `partial_fail_list`에 `reason='token_expired'` 마킹 → 호스트 알림 + 사용자 재인증 모달(S06-ui-reauth-modal) trigger. |
 | 출처 | 본 세션 (2026-05-26) — S06-worker-google-integration prereq. worker가 events.insert 호출 위해 server-side token storage 결정 필요 |
+
+---
+
+## D36 — S16 장소 검색 fallback = NaverSearchProvider eager (Q-A2 no-answer) + Edge proxy
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | [D1](#d1--kakao-oauth--local-api-정책-verify-track--lazy-backup)의 no-answer 액션을 발동: Q-A2(카카오 Local API on Naver Maps 약관) 답변 미수신 상태에서 장소 검색 데이터 소스를 **네이버 지역검색 Open API**로 eager 활성. `PlaceSearchProvider` 인터페이스(Phase a, 항상) 뒤에 `NaverSearchProvider`(Phase b)를 plug-in. 네이버 지역검색은 **Client Secret 필요 → Edge Function `naver_local_search` proxy 경유**(CLAUDE.md rule 7), 클라이언트는 `supabase.functions.invoke`만. 좌표는 Edge에서 WGS84 정규화([D18](#d18--좌표계-정규화-layer)) 후 반환. |
+| 근거 | (1) 마감(2026-05-28) 하루 전이지만 founder가 선제 활성 결정(2026-05-27) — 인터페이스 추상화로 추후 카카오 "허용" 답변 시 `KakaoLocalProvider`를 같은 인터페이스로 추가 + provider 주입만 교체(caller 무변경)하면 되어 선제 진행의 매몰 비용 0. (2) `PlaceSearchProvider` 인터페이스 + 좌표 정규화는 카카오 채택 시에도 그대로 재사용(Phase a "항상"). (3) Naver secret은 client expose 절대 금지(rule 7) → Kakao(D26 "server proxy 미도입")와 달리 proxy 필수. (4) 시각 지도 화면(S10: Naver Maps SDK 렌더·뷰포트 debounce·클러스터링)은 native 모듈/EAS Build 의존이라 본 결정 범위 밖 — provider 레이어(검색·데이터)만 활성. |
+| 대안 | (a) 마감(2026-05-28)까지 대기 후 활성 — 거부: 인터페이스 추상화로 선제 진행이 무위험 + 일정 여유 확보. (b) 카카오 REST key 클라이언트 expose하여 Kakao Local 강행 — 거부: 약관 미확인 + rule 7. (c) 클라이언트가 네이버 직접 호출 — 거부: Client Secret expose(rule 7). |
+| 소유자 | Founder (활성 결정) + Backend (proxy 아키텍처) |
+| 결정일 | 2026-05-27 |
+| 의존 | [D1](#d1--kakao-oauth--local-api-정책-verify-track--lazy-backup) (no-answer 액션 명시), [D18](#d18--좌표계-정규화-layer) (좌표 WGS84 정규화 — Naver는 Edge 측 mapx/mapy 변환), [Q-A2](OPEN_QUESTIONS.md#q-a2--kakao-local-api-약관-외부-지도-sdk-위-표시) (답변 미수신 → 본 fallback. 답변 수신 시 KakaoLocalProvider 추가 평가) |
+| 결과 영향 | (1) `supabase/functions/_lib/naver_local.ts` 신규: stripHtmlTags + normalizeNaverCoord(WGS84×10^7 가정) + isPlausibleKoreaWgs84(좌표 format mismatch 안전망) + parseNaverLocalResponse + buildPlaceSearchResults + fetchNaverLocal(fetch DI). (2) `supabase/functions/naver_local_search/index.ts` Edge: POST {query, display?} → auth.getUser(quota 보호) → NAVER_CLIENT_ID/SECRET env → fetch → PlaceSearchResult[]. rate_limit→429("잠시 후 다시"), 그 외 외부 오류→502. (3) `src/lib/places/PlaceSearchProvider.ts` 인터페이스 + `NaverSearchProvider.ts` 클라이언트(invoke). (4) **운영 prereq(별도 트랙)**: NAVER_CLIENT_ID/SECRET 등록 + Edge env set + live API로 좌표 format(WGS84×10^7 vs TM128) 검증(isPlausibleKoreaWgs84가 mismatch 시 마커 제외로 조기 감지) + 지역검색 display 최대 5 한계 수용. (5) S10(지도 화면)이 본 provider를 소비 — S10 unblock 시 viewport debounce/캐싱(D26) + Naver Maps SDK 렌더 wire-up. |
+| 출처 | 본 세션 (2026-05-27) — 사용자 "답변 안 옴 → fallback" 지시. D1 no-answer 액션 실행 |
+
+---
+
+## D37 — Q-A2 카카오 Local API 약관 허용 답변 수신 → KakaoLocalProvider 평가 트랙
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | Q-A2(네이버 지도 위 카카오 Local API 매장 데이터 표시) 카카오 디벨로퍼스 공식 답변 = **허용**(C.L 카카오 인증 계정, ≈2026-05-27 수신: "타사 API와 함께 사용 별도 제한 없음 / 서비스 이용 약관·운영 정책 준수 시 사용 가능 / 카카오맵 SDK 동반은 권고일 뿐 의무 아님"). [D1](#d1--kakao-oauth--local-api-정책-verify-track--lazy-backup) "허용 시" 경로 + [D36](#d36--s16-장소-검색-fallback--naversearchprovider-eager-q-a2-no-answer--edge-proxy) "답변 수신 시 KakaoLocalProvider 추가 평가" 발동. `KakaoLocalProvider`를 동일 `PlaceSearchProvider` 인터페이스 + Edge proxy(`kakao_local_search`, REST key는 Edge env — rule 7) 패턴으로 추가해 NaverSearchProvider와 데이터 quality(카테고리·POI 밀도·display 한계) 비교, **우위 시 primary 교체 / 열위 시 Naver 유지**. 비교 확정 전까지 NaverSearchProvider(D36) primary 유지. |
+| 근거 | (1) D1이 요구한 "Kakao 서면 답변" 충족 — 공식 인증 계정 서면. (2) D36 인터페이스 추상화로 provider 추가 매몰비용 0(caller 무변경). (3) Kakao Local은 stable place ID·카테고리 depth·display(최대 15/page + pagination)에서 네이버 지역검색(안정 ID 없음·display 최대 5)보다 구조적 우위 가능성 → 경험적 평가 가치. (4) 답변 #3 "가급적 카카오 지도와 같이"는 soft 권고지 의무 아님 → Naver Maps SDK 유지가 위반 아님. |
+| 대안 | (a) 즉시 Kakao primary 전환(비교 생략) — 거부: 경험적 검증 없이 커밋. (b) 기록만·Naver 영구 유지 — 거부: D1·D36 명시 평가 경로 포기 + Kakao 데이터 우위 가능성 미활용. (c) 출처표기·표시범위 요건 정책문서 선검증 후 기록 — 보류: 사용자 판단으로 생략(답변 캡처 증빙 보관). |
+| 소유자 | Founder |
+| 결정일 | 2026-06-01 |
+| 의존 | [Q-A2](OPEN_QUESTIONS.md#q-a2--kakao-local-api-약관-외부-지도-sdk-위-표시) (본 답변으로 closed), [D1](#d1--kakao-oauth--local-api-정책-verify-track--lazy-backup), [D36](#d36--s16-장소-검색-fallback--naversearchprovider-eager-q-a2-no-answer--edge-proxy) (인터페이스·Edge proxy·좌표 정규화 재사용 = 평가 트랙 전제), [D18](#d18--좌표계-정규화-layer) (Kakao 좌표 WGS84 정규화), rule 7 (Kakao REST key Edge only) |
+| 결과 영향 | (1) Q-A2 Closed by D37. (2) **신규 코드(평가 트랙·미착수)**: `supabase/functions/_lib/kakao_local.ts` + `kakao_local_search/index.ts` + `src/lib/places/KakaoLocalProvider.ts`(naver_local 미러, TDD). Kakao 키워드검색 `dapi.kakao.com/v2/local/search/keyword.json` — `Authorization: KakaoAK {KAKAO_REST_API_KEY}`, 응답 `documents[]`(x=lng/y=lat WGS84 decimal·stable `id`·`category_name`·`road_address_name`·`phone`). (3) **운영 prereq(별도 트랙·founder)**: NAVER_CLIENT_ID/SECRET는 **이미 Supabase Edge secret 등록 확인됨**(2026-06-01 `supabase secrets list` + placeholder 해시 불일치로 실값 검증 — SESSION_LOG·D36의 "미등록" 기재는 stale). 남은 운영 prereq는 **KAKAO_REST_API_KEY 등록**뿐 — 등록 즉시 live 데이터 quality 비교 가능. 비교 결과로 primary 확정(후속 D 또는 본 D37 갱신). (4) 답변 #2(출처표기 방식)는 직답 없이 정책문서로 갈음 → 미검증, 답변 캡처 증빙 보관. (5) S10·S16 provider 소비 코드 무변경(인터페이스 동일). |
+| 출처 | 본 세션 (2026-06-01) — 카카오 1:1 문의 답변 캡처(C.L 카카오, "5일 전"≈2026-05-27) |
+
+> ⚠️ **보류 by [D39](#d39--장소-검색-primary--naversearchprovider-확정-kakao-local-보류-카카오맵-심사-반려) (2026-06-08)**: 카카오맵 `OPEN_MAP_AND_LOCAL` 제품 심사 반려 + 출시 우선 → 본 "평가 트랙(우위 시 primary 교체)" 비활성, NaverSearchProvider primary 확정. Kakao 코드는 dormant 보존. Q-A2 ToS "허용"은 유효 — 막힌 건 제품 심사 게이트(별개).
+
+---
+
+## D38 — 지도 렌더 seam = MapHost 단일 경계 + MapScene 계약 + isMapAvailable() env 게이트
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | 네이티브 지도 렌더를 단일 경계 컴포넌트 `MapHost`로 격리. 화면은 순수 `MapScene`(markers/polylines/region) 데이터만 만들어 넘기고, `MapHost`만 `isMapAvailable()`로 분기해 `NaverMapScene`(lazy import — D25) 또는 `MapPlaceholder`를 렌더한다. `isMapAvailable()` = `EXPO_PUBLIC_MAP_ENABLED==='true'` && `EXPO_PUBLIC_NAVER_MAP_CLIENT_ID`가 placeholder 아님. `app.config.ts`의 네이버 플러그인은 키 있을 때만 포함(Kakao 조건부 플러그인 패턴 복제). → 네이버 Client ID 발급 + EAS 빌드 후 env만 켜면 **코드 변경 0으로 점등**(S1 설치+게이트). |
+| 근거 | (1) S10·S15 데이터·로직은 완성·테스트 통과인데 native 렌더만 EAS deferred → 키 없이 검증 가능한 "주변"을 지금 활성화하면서 점등 경로를 staging. (2) 4대 확장(동선·일정/제휴 마커/검색→확정/중간지점)이 동일 렌더 경로(MapScene) 공유 → 일관성·검증 표면 최대. (3) 기존 `MapViewMode` 주석이 의도한 "placeholder 1줄 교체"를 형식화. (4) lazy import로 native 모듈 평가를 지도 진입 시점까지 지연(D25). |
+| 대안 | (a) 화면별 인라인 조건부 — 거부: 2화면×4기능 렌더/마커 로직 중복·DESIGN 일관성 깨짐·재작업. (b) 렌더 전면 보류(리스트-only) — 거부: "키 오면 1-flip 점등" 불가(큰 빌드 회귀). (c) 패키지 비설치 간접화(S2) — 보류: 활성화가 1-flip 아님(설치+와이어링 필요). 속도 우선 방침으로 S1 채택. |
+| 소유자 | Founder |
+| 결정일 | 2026-06-08 |
+| 의존 | [D18](#d18--좌표계-정규화-layer)(좌표 정규화), [D25](#d25--cold-start-target--2초--lazy-loading)(lazy), [D36](#d36--s16-장소-검색-fallback--naversearchprovider-eager-q-a2-no-answer--edge-proxy)·[D37](#d37--q-a2-카카오-local-api-약관-허용-답변-수신--kakaolocalprovider-평가-트랙)(provider), S10·S15(데이터 레이어), [Q-B23](OPEN_QUESTIONS.md)(④ 멤버 위치), [Q-B13](OPEN_QUESTIONS.md#q-b13--제휴-마커-png-export)(② 마커 PNG) |
+| 결과 영향 | 신규 `src/lib/map/{mapScene,mapAvailability}.ts` + `src/components/map/{MapHost,MapPlaceholder,MapLoading,NaverMapScene}.tsx`(+테스트 14). `app/schedule/map.tsx` placeholder→MapHost(① 동선·일정 데이터 연결). `app.config.ts` 조건부 naver 플러그인 + `@mj-studio/react-native-naver-map@2.9.0` 설치. `.env.example` `EXPO_PUBLIC_MAP_ENABLED`. `tsconfig.json` `scripts` 제외(Deno). 설계: [2026-06-08-map-feature-activation-design.md](superpowers/specs/2026-06-08-map-feature-activation-design.md). 운영 prereq(별도 트랙): 네이버 Maps Client ID + Local ID/Secret 등록 + EAS 네이티브 빌드 + 실기기 60fps. ②(제휴 마커) partnership 데이터는 Phase 3(D3) → 시각 capability까지만. |
+| 출처 | 본 세션 (2026-06-08) — 지도 기능 활성화 브레인스토밍 + 통합 로드맵 spec |
+
+---
+
+## D39 — 장소 검색 primary = NaverSearchProvider 확정 (Kakao Local 보류, 카카오맵 심사 반려)
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | 장소 검색 데이터 소스 primary = **NaverSearchProvider 확정**(Phase 1+2). [D37](#d37--q-a2-카카오-local-api-약관-허용-답변-수신--kakaolocalprovider-평가-트랙)의 "KakaoLocalProvider 평가 트랙(우위 시 primary 교체)"은 **보류** — 카카오맵 `OPEN_MAP_AND_LOCAL` 제품 심사 **반려** + 출시 우선순위. KakaoLocalProvider·`kakao_local`·`kakao_local_search` 코드는 **dormant**(삭제 X — `PlaceSearchProvider` 인터페이스 뒤 보존, 추후 카카오맵 승인 시 provider 주입 교체로 무비용 재활성). |
+| 근거 | (1) 카카오맵 제품 심사 반려로 Kakao Local 즉시 사용 불가(403 `App disabled OPEN_MAP_AND_LOCAL service`). 재도전은 승인 불확실 + 출시 지연. (2) Naver raw API 검증 완료 — 6쿼리 5/5, 카테고리·주소 채움 100%(2026-06-08 `compare-place-providers`). 출시 데이터 품질 충분. (3) D36 인터페이스 추상화로 Kakao 코드 보존 비용 0 → 폐기보다 dormant가 합리적(재평가 옵션 유지). (4) 출시 timeline > 데이터 소스 최적화(founder 판단). |
+| 대안 | (a) 카카오맵 심사 재도전(스크린샷 보강) — 거부: 출시 지연 + 승인 불확실. (b) Kakao 코드 삭제 — 거부: 인터페이스 뒤 보존이 무비용, 재활성 옵션 상실. (c) Naver+Kakao 병행 — 거부: 미승인 Kakao는 호출 불가(403), 무의미. |
+| 소유자 | Founder |
+| 결정일 | 2026-06-08 |
+| 의존 | [D36](#d36--s16-장소-검색-fallback--naversearchprovider-eager-q-a2-no-answer--edge-proxy)(NaverSearchProvider + 인터페이스), [D37](#d37--q-a2-카카오-local-api-약관-허용-답변-수신--kakaolocalprovider-평가-트랙)(평가 트랙 — 본 결정으로 보류), [Q-A2](OPEN_QUESTIONS.md#q-a2--kakao-local-api-약관-외부-지도-sdk-위-표시)(ToS "허용"은 유효, 제품 심사는 별개 게이트), [D38](#d38--지도-렌더-seam--maphost-단일-경계--mapscene-계약--ismapavailable-env-게이트)(MapHost provider 소비) |
+| 결과 영향 | (1) **출시 prereq**: `naver_local_search` Edge 함수 **배포 필요**(현재 미배포) — NAVER_CLIENT_ID/SECRET은 등록 완료(검증됨). 배포 즉시 앱 장소 검색 동작. (2) Kakao 자산 dormant: `src/lib/places/KakaoLocalProvider.ts`, `supabase/functions/_lib/kakao_local.ts`, `supabase/functions/kakao_local_search/`(ACTIVE 배포돼 있으나 호출 시 403 → 미사용). Supabase `KAKAO_REST_API_KEY` secret 유지 무해. (3) S10·S20·MapHost(D38) provider = NaverSearchProvider 주입, caller 무변경. (4) Kakao 자산은 TDD green 상태로 보존 — 재활성 시 인터페이스 동일이라 즉시 평가 가능. |
+| 출처 | 본 세션 (2026-06-08) — 카카오맵 제품 심사 반려 + founder "출시 우선, Naver로 간다" 결정 |
+
+---
+
+## D40 — 지도 마커 = NaverMapMarkerOverlay children 커스텀 뷰 (PNG 래스터 대체)
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | 네이버 지도 마커를 **PNG 래스터 에셋 대신 `NaverMapMarkerOverlay`의 children(RN 커스텀 뷰)로 렌더**한다. `MapMarkerView`(brand-500 원 + 흰 inner stroke 2pt + order 숫자)를 children으로 넘기면 네이티브가 래스터화 → 색·크기·stroke를 DESIGN 토큰으로 직접 제어. DESIGN §10.2의 "PNG 래스터(Naver SDK 제약)" 가정을 **무효화** — `@mj-studio/react-native-naver-map`은 children 마커를 지원. |
+| 근거 | (1) 기본 `image={{symbol:'green'}}` 프리셋이라 tintColor로도 브랜드 보라톤이 안 나옴(실기기서 teal 확인). (2) children 뷰 = DESIGN 토큰 직접 적용 → brand-500/흰 stroke/숫자 배지를 코드로 정확히 구현(§10.5·§10.2·§12.6). (3) **PNG 에셋(Q-B13) 의존 제거** — 디자인 1.5x/2x/3x export 대기 없이 출시 가능, 다크모드 stroke(surface-0)도 토큰으로 자동. (4) 실기기 검증 완료(2026-06-09 에뮬레이터 — starbucks 검색 → 보라 마커 렌더). |
+| 대안 | (a) PNG 래스터 에셋(원안 §10.2) — 거부: 에셋 export 대기 + 동적 숫자 배지 불가 + 다크모드 별도 에셋 + Q-B13 블로커. (b) tintColor on symbol — 거부: symbol 프리셋 색만(보라 없음), 실기기서 미적용 확인. (c) `image={require(png)}` — 거부: (a)와 동일 + 동적성 상실. |
+| 소유자 | Founder (2026-06-09 "PNG 구하지 말고 보라톤 맞는 걸로 만들어줘") |
+| 결정일 | 2026-06-09 |
+| 의존 | [D38](#d38--지도-렌더-seam--maphost-단일-경계--mapscene-계약--ismapavailable-env-게이트)(MapHost/NaverMapScene seam), [Q-B13](OPEN_QUESTIONS.md#q-b13--제휴-마커-png-export)(본 결정으로 close — PNG 불필요), DESIGN §10.2/§10.5/§12.6(토큰 적용) |
+| 결과 영향 | (1) `src/components/map/MapMarkerView.tsx`(신규) + `NaverMapScene.tsx`(children wire, tintColor/image/width/height 제거). (2) **Q-B13 close** — 제휴 마커 PNG export 불필요(디자인 자산 1건 제거). (3) DESIGN §10.2 "PNG 래스터" → "children 커스텀 뷰(토큰)" 갱신. (4) rules/design.md 6 커스텀 아이콘 목록서 "제휴 마커 PNG" 제거. (5) order 마커 숫자(§10.5) + 제휴 1.4× 강조(§10.2) 모두 코드로 구현 — 점등 시 코드 변경 0. (6) inner stroke = surface-0(라이트 흰/다크 0F0F12) 토큰으로 다크모드 §10.2 자동 충족. |
+| 출처 | 본 세션 (2026-06-09) — S-MAP M4 후속 실기기 검증 중 teal 마커 발견 → founder "PNG 없이 보라톤" 지시 → @mj-studio children 마커 지원 확인 |
+
+---
+
+## D41 — 모임 출발지 서버 저장 (group_origins, Q-B23 부분 supersede)
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | 중간지점 협업(S-MAP M5)을 위해 **멤버 출발지(라벨+정확 좌표)를 모임 스코프 `group_origins` 테이블에 서버 저장**한다. 1인 1출발지(PK group_id+user_id, upsert). 보호선 = RLS(같은 모임 멤버/호스트만 SELECT + D16 차단 통과 + 본인 행만 쓰기) + ON DELETE CASCADE(모임 삭제·탈퇴 시 소거) + privacy 고지 개정. recentOrigins(최근 출발지 칩)는 여전히 온디바이스 — Q-B23의 해당 부분은 유지. |
+| 근거 | (1) 멤버 각자 입력→자동 취합이 핵심 요구 — 온디바이스로는 멤버 간 공유 불가. (2) 출발지는 검색으로 고른 장소(역·동네)라 원시 GPS보다 민감도 낮고, 모임 스코프 격리+cascade로 최소보유 원칙 충족. (3) 사용자 확정(2026-07-12): "그대로 저장 + RLS". |
+| 대안 | (a) ~500m 격자 뭉갬 저장 — 거부: 마커가 실위치와 어긋나 보이는 UX 혼란 대비 이득 작음. (b) Realtime broadcast만(비영속) — 거부: 비동기 모임 앱과 불일치(앞서 입력한 멤버 오프라인 시 취합 불가). |
+| 소유자 | Founder (2026-07-12) |
+| 결정일 | 2026-07-12 |
+| 의존 | [Q-B23](OPEN_QUESTIONS.md#q-b23--멤버-중간지점-추천의-위치-데이터-소스--pipa)(부분 supersede), 0022 RLS 헬퍼, [D16](#d16--차단신고-일관성-helper-function--rls), [D18](#d18--좌표계-정규화) |
+| 결과 영향 | (1) `supabase/migrations/0023_group_origins.sql` 신규. (2) `src/lib/map/groupOrigins.ts` 클라 모듈. (3) midpoint 화면 서버 연동 + 진입 버튼 전 멤버 노출. (4) **privacy.tsx 고지 개정 필수** — "기기 내 보관" 문구를 모임 출발지(서버)/최근 칩(온디바이스)으로 이원화. (5) 지하철역 스냅 + 자동 추천(맛집/카페/술집)은 D39 Naver 스택 재사용. |
+| 출처 | 브레인스토밍 세션 (2026-07-12) — specs/2026-07-12-midpoint-collab-design.md |
+
+---
+
+## D42 — 홈 = 나만의 캘린더 (PRD §5.1 복귀) + 수동 개인 일정 활성
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | 로그인 후 첫 화면을 **월간 캘린더 + 선택일 일정 목록 + 다가오는 모임 요약**으로 되돌린다. 캘린더에 뜨는 것 = 모임(확정/투표 중) · 에브리타임 수업 · **수동 개인 일정(`schedules.source='manual'`, 추가/수정/삭제 UI 신설)**. 기존 홈의 인사말 2줄 · 보라 "새 모임 만들기" 카드 · "이번 달 모임" 스탯 칩은 제거(모임 생성 동선은 탭바 중앙 GroupFab이 담당). 이번 범위에서 **주간 뷰·출처 필터·외부 캘린더 읽기는 제외**. |
+| 근거 | (1) [PRD](PRD.md) §4·§5.1이 처음부터 "홈 = 캘린더 + 내 일정 + 모임 일정"으로 명세했고 현 구현이 이탈해 있었다 — 새 방향이 아니라 원안 복귀. (2) 이탈의 실제 손실: `schedules` 테이블(에브리타임 OCR 산출물)의 앱 내 소비처가 **0**이었다 — P1 페르소나가 OCR로 시간표를 넣어도 볼 곳이 없었다. (3) 사용자 확정(2026-07-28): "로그인 후 진입 화면에 나만의 캘린더". |
+| 대안 | (a) 캘린더를 기존 홈 위에 얹기 — 거부: 스크롤만 길어지고 §17.3 위계 평탄화. (b) 모임 목록을 친구 탭으로 완전 이관(PRD §4 문자 그대로) — 보류: Gate #1 진입 동선을 홈에서 잃는 비용이 커 '다가오는 모임' 압축 섹션으로 유지. (c) Google/Apple 일정까지 표시 — 거부: [D19](#d19--calendar-sync-단방향-부분-실패-명시) 단방향(push 전용) + iOS write-only 권한 전제라 권한 모델 재설계가 선행돼야 함. |
+| 소유자 | Founder (2026-07-28) |
+| 결정일 | 2026-07-28 |
+| 의존 | [D13](#d13--kst-강제-db는-timestamptz-utc)(KST), [D14](#d14--시간-슬롯-단위-15분--db-check)(15분 단위 시간 입력), [D19](#d19--calendar-sync-단방향-부분-실패-명시)(유지 — 외부 캘린더 읽기 없음), [D5](#d5--purple-discipline)(보라는 '확정'에만) |
+| 결과 영향 | (1) `src/lib/calendar/recurrence.ts`(주간 RRULE 전개)·`agenda.ts`(병합/마커) 신규. (2) `src/components/calendar/` MonthCalendar·DayAgenda·PersonalScheduleSheet 신규. (3) `src/lib/schedules/personal.ts` 수동 CRUD 신규 — 테이블·enum·RLS는 기존 자산이라 **마이그레이션 0**. (4) `fetchMyGroups` select에 `confirmed_start_at·confirmed_end_at·places(name)` 추가. (5) `countGroupsThisMonthKst`(stats.ts) dead code 제거. (6) 월 그리드 마커에서 **수업 제외** — 매주 반복이라 점을 찍으면 달 전체가 균일해져 정보량이 0. |
+| 출처 | 브레인스토밍 세션 (2026-07-28) — specs/2026-07-28-home-calendar-design.md |
+
+---
+
+## D43 — RN → Figma 이식은 정적 트리 덤프 + Auto Layout 재구성 (일회성 부트스트랩)
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | 앱 컴포넌트·화면을 Figma로 옮길 때 **Jest에서 렌더한 RTL 트리를 정적으로 덤프해 Figma Auto Layout으로 재구성**한다(`tools/figma-export/`). 실기기 실측 좌표를 쓰지 않는다. **일회성 부트스트랩**이며 재동기화·컴포넌트 자동 인스턴스화는 범위 밖. 표현 불가한 스타일은 조용히 근사하지 않고 경고 + 레이어명 `⚠️` 표식을 남긴다. |
+| 근거 | (1) 목표가 "컴포넌트 먼저 → 화면은 그 조합"이라 결과물이 **편집 가능한 Auto Layout**이어야 한다 — 절대 좌표는 박제돼 이 목표와 양립 불가. (2) 앱 스타일이 전부 인라인 객체라 렌더 시점에 값이 완전히 해석된다(`Button.tsx:119-134`). (3) `tests/screens/` 22스위트가 이미 통과하므로 화면 렌더 mock 세트를 재사용할 수 있어 추가 인프라가 0. (4) 서브에이전트 12개 적대적 검증(조사 6 → 반박 6)에서 6주제 중 5건 major 반박 → 정정 후 확정. |
+| 대안 | (a) 실기기 `measureInWindow` 실측 좌표 — 거부: 픽셀 정확하지만 절대 배치라 Figma에서 편집·variant 생성 불가. (b) 하이브리드(구조는 Auto Layout, 실측은 검증용) — 거부: 일회성 부트스트랩에 과하고, 어긋난 곳은 Figma에서 손으로 고치는 편이 빠름. (c) html.to.design + Expo Web — 거부: `react-dom`/`react-native-web` 부재 + naver-map·kakao 네이티브 모듈 웹 stub 비용이 이득보다 큼. (d) yoga-layout 재구현으로 좌표 계산 — 거부: 절대 배치 16곳을 위해 레이아웃 엔진을 다시 짜는 비용이 수동 보정보다 큼. |
+| 소유자 | Founder (2026-07-28) |
+| 결정일 | 2026-07-28 |
+| 의존 | [D4](#d4--디자인-원칙-토스-풍-절제)·[D5](#d5--purple-discipline)(토큰이 곧 이식 대상), [D7](#d7--typography-pretendard-variable-단일-패밀리-셀프호스팅)(폰트명 매핑 — `'PretendardVariable'`는 expo-font 키이며 OS 폰트명은 `'Pretendard Variable'`), [D13](#d13--kst-강제-db는-timestamptz-utc)(덤프 `generatedAt`은 luxon KST), [D24](#d24--test-framework)(순수 로직 TDD) |
+| 결과 영향 | (1) `tools/figma-export/` 신규 — `ir.ts`(계약)·`color.ts`·`svg.ts`·`style.ts`·`normalize.ts`·`emit.ts`·`fixtures.tsx`·`*.dump.tsx`·`plugin/`. (2) `jest.config.js` testMatch에 `tools/figma-export/**/*.test.{ts,tsx}` 추가 — 순수 로직 104테스트가 CI 그린 대상. (3) `jest.figma.config.js` 신규 — 덤프 러너 전용(`npm test` 미포함). (4) `tsconfig.json` exclude에 `tools/figma-export/plugin` 추가(플러그인은 자체 tsconfig + 공식 Figma 타이핑). (5) devDependency `@figma/plugin-typings`·`esbuild` 추가. (6) npm scripts `figma`·`figma:dump`·`figma:merge`·`figma:typecheck`·`figma:build`. (7) `.gitignore`에 생성물(`out/`, `plugin/code.js`). **앱 런타임 코드 변경 0**. |
+| 출처 | 브레인스토밍 + 적대적 검증 세션 (2026-07-28) — specs/2026-07-28-rn-figma-export-design.md |
+
+---
+
+## D44 — 닉네임 = 사용자 지정 유니크 값, public.users가 단일 진실
+
+| 항목 | 내용 |
+|---|---|
+| 결정 | 카카오 이름을 그대로 쓰던 것을 **사용자가 직접 정하는 유니크 닉네임**으로 바꾼다. (1) `lower(nickname)` UNIQUE 인덱스 — 대소문자 무시 중복 차단. (2) 가입 직후 **필수 설정 단계**(게이트 순서 `terms → nickname → onboarding`), 서버측 진실은 `users.nickname_set_at`(NULL=미설정). (3) 규칙 = 2~12자 · `[가-힣a-zA-Z0-9_]` · 변경 무제한. (4) **`public.users`가 닉네임 단일 진실** — 세션의 `user.nickname`을 로그인·콜드 스타트에 DB 값으로 교체. (5) 쓰기는 `set_my_nickname` RPC 단일 경로. 별도 친구코드·전화번호 검색·금칙어 필터는 범위 밖. |
+| 근거 | (1) 카톡 이름은 사용자가 고른 이름이 아니고 동명이인이 구분되지 않는데 친구 검색이 `nickname ilike`로 동작한다 — 잘못된 사람에게 요청을 보낼 수 있다. (2) **더 큰 결함**: 닉네임 소스가 갈라져 있었다 — 프로필 화면·카톡 초대 문구는 auth `user_metadata`(카카오 클레임 캐시), 친구 검색·모임 멤버·푸시 F1~F3은 `public.users`. `public.users`만 고쳐도 프로필에는 반영되지 않는 구조였다. (3) `nickname_set_at`을 서버에 두면 기기 로컬 SecureStore 플래그와 달리 재설치·기기 교체에도 따라오고 기존 사용자도 자동으로 한 번 거친다. (4) RPC로 좁히는 이유 — RLS에 컬럼 단위 제어가 없어 클라이언트 UPDATE를 허용하면 `nickname_set_at`을 위조해 설정 단계를 건너뛸 수 있다. |
+| 대안 | (a) 닉네임 자유 + 자동 생성 친구코드(`denda#4821`, 카톡 ID·디스코드 방식) — 거부: 마찰은 0이지만 새 컬럼·생성 로직·공유 UI가 붙는데, 베타 규모에서 유니크 닉네임이 같은 문제를 새 개념 0개로 푼다. (b) 중복 허용 + 검색 UX로 흡수 — 거부: 제기된 문제가 그대로 남는다. (c) auth 메타데이터를 함께 갱신하는 RPC(읽기는 메타데이터 유지, 콜드 스타트 비용 0) — 거부: auth 스키마를 직접 건드리고 토큰 갱신 전까지 구 값이 남는다. (d) 클라이언트가 `users` UPDATE + `auth.updateUser` 둘 다 호출 — 거부: 원자성이 없어 한쪽만 성공하면 지금의 드리프트가 재발한다. (e) 30일 1회 변경 제한 — 거부: 베타에서 오타 하나에 한 달을 갇히는 비용이 사칭 리스크보다 크다. |
+| 소유자 | Founder (2026-07-29) |
+| 결정일 | 2026-07-29 |
+| 의존 | [D13](#d13--kst-강제-db는-timestamptz-utc)(`nickname_set_at` TIMESTAMPTZ + `deps.now()`), [D16](#d16--차단신고-일관성-helper-function--rls)(`users` SELECT의 is_blocked 불변), [D25](#d25--cold-start-target--2초--lazy-loading)(콜드 스타트에서 프로필 조회를 await하지 않는 이유), [D29](#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede)(카카오 클레임이 초기값) |
+| 결과 영향 | (1) `0024_nickname.sql` — 컬럼·유니크 인덱스·조건부 CHECK·`handle_new_auth_user` 재작성(유니크 충돌 시 `이름_<id앞4자>` 폴백으로 **로그인 실패 방지**)·`set_my_nickname` RPC. (2) `src/lib/profile/` 신규(`nickname.ts` 검증 · `api.ts` RPC·조회). (3) `authStore`에 `fetchProfile` DI + `applyNickname` 액션 — `signIn`은 await, `bootstrap`은 백그라운드(D25). (4) `gate.ts`에 `nickname` 단계 + `nicknameSetAt` 3-상태(`undefined`=판단 보류로 콜드 스타트 깜빡임 방지). (5) `app/(auth)/nickname.tsx` 1개 화면이 가입·수정 두 모드 겸용(모드는 `nicknameSetAt`에서 파생 — 게이트와 입력이 같아야 어긋나지 않음). (6) `terms.tsx`의 다음 라우트가 onboarding → nickname. (7) 프로필 설정 섹션에 `닉네임 변경` 행. (8) 규칙이 3곳(클라 검증·RPC·CHECK)에 복제됨 — 각 위치에 상호 참조 주석. (9) **배포 시 1회성 `auth.users` 전체 삭제 필요** — 기존 중복이 있으면 유니크 인덱스 생성이 실패(의도된 안전장치). |
+| 출처 | 브레인스토밍 세션 (2026-07-29) — specs/2026-07-29-nickname-design.md |
 
 ---
 

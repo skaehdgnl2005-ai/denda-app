@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { logAttributionClick } from '../../../lib/attribution';
 import NicknameForm from '../../../components/NicknameForm';
 import GuestTimeGrid from '../../../components/GuestTimeGrid';
 
@@ -10,6 +11,7 @@ interface ClientPageProps {
   groupName: string;
   dates: string[];
   hostNickname: string;
+  token: string;
 }
 
 interface Vote {
@@ -31,6 +33,7 @@ export default function ClientPage({
   groupName,
   dates,
   hostNickname,
+  token,
 }: ClientPageProps) {
   const [guestToken, setGuestToken] = useState<string | null>(null);
   const [, setGuestNickname] = useState<string | null>(null);
@@ -123,9 +126,17 @@ export default function ClientPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId]);
 
-  const handleNicknameComplete = (token: string, nickname: string) => {
-    setGuestToken(token);
+  const handleNicknameComplete = (guestTokenValue: string, nickname: string) => {
+    setGuestToken(guestTokenValue);
     setGuestNickname(nickname);
+    // D28 attribution click_log — silent (실패해도 투표 진행)
+    if (process.env.NEXT_PUBLIC_IS_E2E !== 'true') {
+      void logAttributionClick({
+        branchLinkId: token,
+        groupId,
+        guestToken: guestTokenValue,
+      });
+    }
     fetchData(); // Refresh list to include self
   };
 
@@ -148,7 +159,8 @@ export default function ClientPage({
           <div className="text-5xl">📱</div>
           <h1 className="text-xl font-bold text-text-primary">모바일에서 열어주세요</h1>
           <p className="text-sm text-text-secondary leading-relaxed">
-            된다 모임 시간 투표는 모바일 화면에 최적화되어 있습니다. 모바일 또는 태블릿 기기로 접속해 주세요.
+            된다 모임 시간 투표는 모바일 화면에 최적화되어 있습니다. 모바일 또는 태블릿 기기로
+            접속해 주세요.
           </p>
         </div>
       </div>
@@ -162,14 +174,10 @@ export default function ClientPage({
               초대장
             </span>
             {saving && (
-              <span className="text-[11px] text-text-secondary animate-pulse">
-                투표 저장 중...
-              </span>
+              <span className="text-[11px] text-text-secondary animate-pulse">투표 저장 중...</span>
             )}
           </div>
-          <h1 className="text-xl font-bold text-text-primary mb-1">
-            {groupName}
-          </h1>
+          <h1 className="text-xl font-bold text-text-primary mb-1">{groupName}</h1>
           <div className="text-xs text-text-tertiary flex items-center gap-2">
             <span>방장: {hostNickname}</span>
             <span>•</span>
@@ -210,9 +218,7 @@ export default function ClientPage({
 
             {/* Participant Status */}
             <section className="mb-6 rounded-lg border border-border-subtle bg-surface-2 p-4">
-              <h2 className="text-sm font-semibold text-text-primary mb-3">
-                참여자 현황
-              </h2>
+              <h2 className="text-sm font-semibold text-text-primary mb-3">참여자 현황</h2>
               <div className="flex flex-wrap gap-2">
                 {participants.map((p, idx) => (
                   <div
@@ -229,7 +235,9 @@ export default function ClientPage({
                       }`}
                     />
                     {p.name}
-                    {!p.isMember && <span className="text-[10px] text-text-tertiary">(게스트)</span>}
+                    {!p.isMember && (
+                      <span className="text-[10px] text-text-tertiary">(게스트)</span>
+                    )}
                   </div>
                 ))}
               </div>

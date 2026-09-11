@@ -76,15 +76,13 @@ Deno.test('parseConfirmRequest — day_index 음수 throw', () => {
 // validateConfirmInput — D14 (15분 슬롯) + 09:00~24:00 범위 + start < end
 // ---------------------------------------------------------------------------
 Deno.test('validateConfirmInput — D14 15분 단위 강제', () => {
-  assertThrows(() =>
-    validateConfirmInput({
-      dayIndex: 0,
-      startMinute: 540,
-      endMinute: 555, // OK 15분 단위
-      datesCount: 3,
-    }),
-  // 540~555 OK라 throw 안 함 → 다른 테스트
-  );
+  // 540/555는 15분 단위 정상 → no-throw
+  validateConfirmInput({
+    dayIndex: 0,
+    startMinute: 540,
+    endMinute: 555,
+    datesCount: 3,
+  });
   // 13분 단위는 throw
   assertThrows(() =>
     validateConfirmInput({

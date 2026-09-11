@@ -9,9 +9,11 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/Icon';
+import { ctaPressBg, rowPressBg } from '@/design/press';
 import { useTheme } from '@/design/theme';
 import { Body, Caption, Title } from '@/design/typography';
 import { authStore } from '@/lib/auth/setup';
+import { mapError } from '@/lib/i18n/messages';
 
 type TermItem = {
   key: string;
@@ -29,6 +31,7 @@ export default function TermsScreen() {
   const { colors, space, radius } = useTheme();
   const [agreed, setAgreed] = useState<Record<string, boolean>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const allRequiredAgreed = useMemo(
     () => TERMS.filter((t) => t.required).every((t) => agreed[t.key]),
@@ -52,13 +55,33 @@ export default function TermsScreen() {
     setAgreed((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  // W1-13 — chevron은 토글이 아니라 약관 전문 화면으로 이동한다 (법적 열람 의무).
+  // 개인정보는 기존 PIPA 전문(privacy.tsx), 나머지는 legal 화면(doc 파라미터).
+  const openDetail = (key: string) => {
+    if (key === 'privacy') {
+      router.push('/(auth)/privacy');
+      return;
+    }
+    router.push({ pathname: '/(auth)/legal', params: { doc: key } });
+  };
+
   const handleContinue = async () => {
     if (!allRequiredAgreed || submitting) {
       return;
     }
     setSubmitting(true);
-    await authStore.getState().agreeToTerms();
-    router.replace('/(auth)/onboarding');
+    setSubmitError(null);
+    try {
+      await authStore.getState().agreeToTerms();
+      // 성공 시 router.replace로 화면 언마운트 — submitting 되돌릴 필요 없음.
+      // 약관 다음은 닉네임 설정 (게이트 순서와 동일: terms → nickname → onboarding).
+      router.replace('/(auth)/nickname');
+    } catch (e) {
+      // SecureStore 쓰기 거부 등 → submitting 영구 true로 갇히지 않게 복원 + 인라인 에러 (raw 비노출).
+      setSubmitting(false);
+      const { silent, message } = mapError(e);
+      if (!silent) setSubmitError(message);
+    }
   };
 
   return (
@@ -109,51 +132,81 @@ export default function TermsScreen() {
             <Caption
               variant="default"
               color={colors.text.tertiary}
-              style={{ marginTop: 2 }}
+              style={{ marginTop: space['0.5'] }}
             >
               필수와 선택 항목을 한 번에 체크해요.
             </Caption>
           </View>
         </Pressable>
 
-        {/* 개별 약관 카드 리스트 */}
+        {/* 개별 약관 카드 리스트 — 행 탭=토글, chevron=전문 화면 (44pt 별도 Pressable) */}
         <View style={{ marginTop: space[3] }}>
           {TERMS.map((term) => (
-            <Pressable
+            <View
               key={term.key}
-              onPress={() => toggle(term.key)}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: Boolean(agreed[term.key]) }}
-              accessibilityLabel={`${term.required ? '필수' : '선택'} ${term.label} 동의`}
-              style={({ pressed }) => [
-                styles.termRow,
-                {
-                  paddingHorizontal: space[4],
-                  paddingVertical: space[3],
-                  borderRadius: radius.md,
-                  opacity: pressed ? 0.7 : 1,
-                },
-              ]}
+              style={[styles.termRow, { paddingLeft: space[4], borderRadius: radius.md }]}
             >
-              <CheckCircle checked={Boolean(agreed[term.key])} small />
-              <View style={{ marginLeft: space[3], flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Body
-                    variant="sm-bold"
-                    color={term.required ? colors.brand[500] : colors.text.tertiary}
-                    style={{ marginRight: space[2] }}
-                  >
-                    {term.required ? '필수' : '선택'}
-                  </Body>
-                  <Body variant="primary" color={colors.text.primary} style={{ flex: 1 }}>
-                    {term.label}
-                  </Body>
+              <Pressable
+                onPress={() => toggle(term.key)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: Boolean(agreed[term.key]) }}
+                accessibilityLabel={`${term.required ? '필수' : '선택'} ${term.label} 동의`}
+                style={({ pressed }) => [
+                  styles.toggleArea,
+                  { paddingVertical: space[3], backgroundColor: rowPressBg(pressed, colors) },
+                ]}
+              >
+                <CheckCircle checked={Boolean(agreed[term.key])} small />
+                <View style={{ marginLeft: space[3], flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Body
+                      variant="sm-bold"
+                      color={term.required ? colors.brand[500] : colors.text.tertiary}
+                      style={{ marginRight: space[2] }}
+                    >
+                      {term.required ? '필수' : '선택'}
+                    </Body>
+                    <Body variant="primary" color={colors.text.primary} style={{ flex: 1 }}>
+                      {term.label}
+                    </Body>
+                  </View>
                 </View>
-              </View>
-              <Icon name="화살표" color={colors.text.tertiary} size={18} />
-            </Pressable>
+              </Pressable>
+              <Pressable
+                onPress={() => openDetail(term.key)}
+                accessibilityRole="link"
+                accessibilityLabel={`${term.label} 전문 보기`}
+                hitSlop={8}
+                style={({ pressed }) => [styles.chevronButton, { opacity: pressed ? 0.5 : 1 }]}
+              >
+                <Icon name="화살표" color={colors.text.tertiary} size={18} />
+              </Pressable>
+            </View>
           ))}
         </View>
+
+        {/* 전문 보기 링크 — PIPA 의무 (A-6) */}
+        <Pressable
+          onPress={() => router.push('/(auth)/privacy')}
+          accessibilityRole="link"
+          accessibilityLabel="개인정보 처리방침 전문 보기"
+          hitSlop={8}
+          style={({ pressed }) => ({
+            alignSelf: 'flex-start',
+            justifyContent: 'center',
+            minHeight: 44,
+            marginTop: space[3],
+            opacity: pressed ? 0.6 : 1,
+          })}
+        >
+          <Caption
+            variant="default"
+            color={colors.text.tertiary}
+            style={{ textDecorationLine: 'underline' }}
+          >
+            개인정보 처리방침 전문 보기
+          </Caption>
+        </Pressable>
 
         <View style={{ flex: 1 }} />
       </ScrollView>
@@ -171,7 +224,15 @@ export default function TermsScreen() {
           },
         ]}
       >
-        {!allRequiredAgreed ? (
+        {submitError ? (
+          <Caption
+            variant="default"
+            color={colors.semantic.error.fg}
+            style={{ textAlign: 'center', marginBottom: space[2] }}
+          >
+            {submitError}
+          </Caption>
+        ) : !allRequiredAgreed ? (
           <Caption
             variant="default"
             color={colors.text.tertiary}
@@ -190,8 +251,7 @@ export default function TermsScreen() {
             styles.ctaButton,
             {
               // §17.5 (revised): disabled = dead 회색. 활성만 brand.
-              backgroundColor: allRequiredAgreed ? colors.brand[500] : colors.surface[2],
-              opacity: pressed && allRequiredAgreed ? 0.92 : 1,
+              backgroundColor: allRequiredAgreed ? ctaPressBg(pressed, colors) : colors.surface[2],
               borderRadius: radius.md,
             },
           ]}
@@ -224,9 +284,7 @@ function CheckCircle({ checked, small = false }: { checked: boolean; small?: boo
         justifyContent: 'center',
       }}
     >
-      {checked ? (
-        <Icon name="확정" color={colors.text['on-brand']} size={small ? 14 : 16} />
-      ) : null}
+      {checked ? <Icon name="확정" color={colors.text['on-brand']} size={small ? 14 : 16} /> : null}
     </View>
   );
 }
@@ -242,6 +300,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: 56,
+  },
+  toggleArea: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  chevronButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bottomBar: {
     borderTopWidth: 1,

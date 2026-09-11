@@ -1,8 +1,9 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 
-import { ConfirmedTimeCard } from './ConfirmedTimeCard';
+import { ConfirmedTimeCard, confirmedCardSurface } from './ConfirmedTimeCard';
 import { ThemeProvider } from '@/design/theme';
+import { tokens } from '@/design/tokens';
 
 describe('ConfirmedTimeCard', () => {
   const wrapper = ThemeProvider;
@@ -47,5 +48,20 @@ describe('ConfirmedTimeCard', () => {
       { wrapper },
     );
     expect(getByText('확정된 시간')).toBeTruthy();
+  });
+
+  test('W2-7 — 다크는 surface-2 배경(brand-50 투명 문제 해소), 라이트는 brand-50', () => {
+    // 라이트
+    expect(confirmedCardSurface(false, tokens.light)).toEqual({
+      backgroundColor: tokens.light.brand[50],
+      borderColor: tokens.light.brand[200],
+    });
+    // 다크 — brand-50(6% 알파) 대신 surface-2로 가시성 확보
+    expect(confirmedCardSurface(true, tokens.dark)).toEqual({
+      backgroundColor: tokens.dark.surface[2],
+      borderColor: tokens.dark.border.subtle,
+    });
+    // 다크 배경이 투명/유사-투명 brand-50이 아님
+    expect(confirmedCardSurface(true, tokens.dark).backgroundColor).not.toBe(tokens.dark.brand[50]);
   });
 });

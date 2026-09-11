@@ -83,6 +83,7 @@ export default async function Page({ params }: Props) {
       groupName={group.name}
       dates={group.dates}
       hostNickname={(group as { users?: { nickname?: string } }).users?.nickname || '방장'}
+      token={token}
     />
   );
 }

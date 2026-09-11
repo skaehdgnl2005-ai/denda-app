@@ -1,4 +1,4 @@
-import { fetchGroupForConfirm } from './queries';
+import { fetchGroupForConfirm, fetchUserVotes } from './queries';
 
 import { supabase } from '@/lib/supabase/client';
 
@@ -158,5 +158,55 @@ describe('fetchGroupForConfirm', () => {
     });
     const result = await fetchGroupForConfirm(VALID_GROUP_ID);
     expect(result.memberCount).toBe(0);
+  });
+});
+
+describe('fetchUserVotes', () => {
+  const mockFrom = supabase.from as jest.Mock;
+
+  beforeEach(() => {
+    mockFrom.mockReset();
+  });
+
+  function buildVotesMock(
+    rows: { day: string; start_minute: number }[] | null,
+    error: { message: string } | null = null,
+  ) {
+    const eqUser = jest.fn().mockResolvedValue({ data: rows, error });
+    const eqGroup = jest.fn().mockReturnValue({ eq: eqUser });
+    const select = jest.fn().mockReturnValue({ eq: eqGroup });
+    return { from: jest.fn().mockReturnValue({ select }), select, eqGroup, eqUser };
+  }
+
+  test('본인 vote rows → VoteSlot[] 변환', async () => {
+    const votes = [
+      { day: '2026-06-01', start_minute: 540 },
+      { day: '2026-06-01', start_minute: 555 },
+      { day: '2026-06-02', start_minute: 600 },
+    ];
+    const mock = buildVotesMock(votes);
+    mockFrom.mockReturnValue(mock.from('votes'));
+
+    const result = await fetchUserVotes(VALID_GROUP_ID, HOST_USER_ID);
+    expect(result).toEqual(votes);
+    expect(mock.eqGroup).toHaveBeenCalledWith('group_id', VALID_GROUP_ID);
+    expect(mock.eqUser).toHaveBeenCalledWith('user_id', HOST_USER_ID);
+  });
+
+  test('빈 결과 → 빈 array', async () => {
+    mockFrom.mockReturnValue(buildVotesMock([]).from('votes'));
+    const result = await fetchUserVotes(VALID_GROUP_ID, HOST_USER_ID);
+    expect(result).toEqual([]);
+  });
+
+  test('null data → 빈 array (방어적)', async () => {
+    mockFrom.mockReturnValue(buildVotesMock(null).from('votes'));
+    const result = await fetchUserVotes(VALID_GROUP_ID, HOST_USER_ID);
+    expect(result).toEqual([]);
+  });
+
+  test('error → 한국어 메시지 throw', async () => {
+    mockFrom.mockReturnValue(buildVotesMock(null, { message: 'rls denied' }).from('votes'));
+    await expect(fetchUserVotes(VALID_GROUP_ID, HOST_USER_ID)).rejects.toThrow('기존 투표');
   });
 });

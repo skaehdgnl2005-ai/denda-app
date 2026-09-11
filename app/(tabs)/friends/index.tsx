@@ -1,25 +1,35 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, View, Alert } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { ctaPressBg } from '@/design/press';
 import { useTheme } from '@/design/theme';
 import { Body, Title } from '@/design/typography';
 import { Icon } from '@/components/Icon';
+import { EmptyState } from '@/components/EmptyState';
+import { Skeleton } from '@/components/Skeleton';
+import { useToast } from '@/components/Toast';
 import { FriendCard } from '@/components/friends/FriendCard';
 import { ReportBlockSheet } from '@/components/friends/ReportBlockSheet';
 import { FriendUser, friendsApi } from '@/lib/friends/api';
+import { invitationsApi } from '@/lib/groups/invitations';
 import { submitReport } from '@/lib/reports/api';
 import { type ReportReasonKey } from '@/lib/reports/reasons';
+import { mapError, messages } from '@/lib/i18n/messages';
 import { useAuth } from '@/lib/auth/setup';
+import { useKakaoInvite } from '@/lib/share/useKakaoInvite';
 
 export default function FriendsIndexScreen() {
   const { colors, space } = useTheme();
   const router = useRouter();
+  const toast = useToast();
   const reporterId = useAuth((s) => s.session?.user.id ?? null);
+  const handleKakaoInvite = useKakaoInvite();
 
   const [friends, setFriends] = useState<FriendUser[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [error, setError] = useState<boolean>(false);
   const [requestCount, setRequestCount] = useState<number>(0);
 
   // Sheet states
@@ -28,13 +38,25 @@ export default function FriendsIndexScreen() {
 
   const fetchFriends = useCallback(async () => {
     try {
-      const list = await friendsApi.list();
-      const incoming = await friendsApi.listIncomingRequests();
+      const [list, incoming] = await Promise.all([
+        friendsApi.list(),
+        friendsApi.listIncomingRequests(),
+      ]);
       setFriends(list);
-      setRequestCount(incoming.length);
+      // W2-10 — 배지 카운트 = 받은 친구 요청 + 대기중 모임 초대 합산. 단, 초대 조회 실패는
+      // 부차 정보(배지)만 저하시키고 친구 목록(주 콘텐츠)을 에러로 가리지 않는다(리뷰 confirmed).
+      let inviteCount = 0;
+      try {
+        inviteCount = (await invitationsApi.listMyInvitations()).length;
+      } catch {
+        // 배지만 요청 수로 저하 — 목록은 그대로 노출.
+      }
+      setRequestCount(incoming.length + inviteCount);
+      setError(false);
     } catch (e) {
+      // 에러를 빈 상태로 위장하지 않는다(W1-8) — error 분리 후 EmptyState error로 표출.
       console.error(e);
-      Alert.alert('오류', '친구 목록을 불러오지 못했습니다.');
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -42,6 +64,8 @@ export default function FriendsIndexScreen() {
   }, []);
 
   useEffect(() => {
+    // 데이터 fetch trigger — fetchFriends 내부 setLoading/setRefreshing 호출은 의도
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchFriends();
   }, [fetchFriends]);
 
@@ -50,8 +74,15 @@ export default function FriendsIndexScreen() {
     fetchFriends();
   };
 
-  const handleMakeGroup = (friend: FriendUser) => {
-    Alert.alert('모임 만들기', `${friend.nickname}님과 모임을 만듭니다.`);
+  const onRetry = useCallback(() => {
+    setLoading(true);
+    setError(false);
+    fetchFriends();
+  }, [fetchFriends]);
+
+  // S18: 베타는 멤버 사전 선택 없이 생성 후 링크 공유. 친구 사전선택 초대는 S22.
+  const handleMakeGroup = (_friend: FriendUser) => {
+    router.push('/group/new');
   };
 
   const handleMore = (friend: FriendUser) => {
@@ -62,33 +93,29 @@ export default function FriendsIndexScreen() {
   const handleBlock = async (userId: string) => {
     try {
       await friendsApi.blockUser(userId);
-      Alert.alert('알림', '차단했어요. 더 이상 표시되지 않아요.');
       setSheetVisible(false);
       fetchFriends();
+      toast.show({ message: messages.success.blocked, variant: 'success' });
     } catch (e) {
-      const message = e instanceof Error ? e.message : '차단하지 못했어요.';
-      Alert.alert('오류', message);
+      const { silent, message } = mapError(e);
+      if (!silent) toast.show({ message, variant: 'error' });
     }
   };
 
   // S07-report: supabase reports INSERT (D32 베타 DB-only, 운영 통지는 deferred).
   const handleReport = async (targetUserId: string, reason: ReportReasonKey, detail: string) => {
     if (!reporterId) {
-      Alert.alert('알림', '로그인이 필요해요.');
+      toast.show({ message: '로그인이 필요해요.', variant: 'error' });
       return;
     }
     try {
       await submitReport({ reporterId, targetUserId, reason, detail });
-      Alert.alert('알림', '신고가 접수됐어요. 운영팀이 검토 후 조치할게요.');
       setSheetVisible(false);
+      toast.show({ message: messages.success.reported, variant: 'success' });
     } catch (e) {
-      const message = e instanceof Error ? e.message : '신고에 실패했어요.';
-      Alert.alert('오류', message);
+      const { silent, message } = mapError(e);
+      if (!silent) toast.show({ message, variant: 'error' });
     }
-  };
-
-  const handleKakaoInvite = () => {
-    Alert.alert('카톡으로 초대', '카카오톡 공유 링크가 복사되었습니다.');
   };
 
   const renderEmptyState = () => (
@@ -106,14 +133,14 @@ export default function FriendsIndexScreen() {
         onPress={handleKakaoInvite}
         accessibilityRole="button"
         accessibilityLabel="카카오톡으로 초대"
+        testID="kakao-invite-button"
         style={({ pressed }) => [
           styles.inviteButton,
           {
-            backgroundColor: colors.brand[500],
+            backgroundColor: ctaPressBg(pressed, colors),
             marginTop: space[6],
             paddingHorizontal: space[6],
             paddingVertical: space[3],
-            opacity: pressed ? 0.92 : 1,
           },
         ]}
       >
@@ -179,27 +206,46 @@ export default function FriendsIndexScreen() {
         </View>
       </View>
 
-      {/* Main Content List */}
-      <FlatList
-        data={friends}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={[
-          styles.listContent,
-          {
-            paddingHorizontal: space[4],
-            paddingVertical: space[2],
-            flexGrow: 1,
-          },
-        ]}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        renderItem={({ item }) => (
-          <View style={{ marginBottom: space[3] }}>
-            <FriendCard friend={item} onMakeGroup={handleMakeGroup} onMore={handleMore} />
-          </View>
-        )}
-        ListEmptyComponent={!loading ? renderEmptyState : null}
-        testID="friends-flatlist"
-      />
+      {/* Main Content — 첫 로딩=Skeleton(빈 화면 아님), 에러=EmptyState error(빈 상태 위장 아님) */}
+      {loading ? (
+        <View
+          testID="friends-loading"
+          style={{ paddingHorizontal: space[4], paddingTop: space[2] }}
+        >
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} height={72} style={{ marginBottom: space[3] }} />
+          ))}
+        </View>
+      ) : error ? (
+        <EmptyState
+          variant="error"
+          title="친구 목록을 불러오지 못했어요"
+          body="잠시 후 다시 시도해볼게요."
+          cta={{ label: messages.action.retry, onPress: onRetry }}
+          testID="friends-error"
+        />
+      ) : (
+        <FlatList
+          data={friends}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={[
+            styles.listContent,
+            {
+              paddingHorizontal: space[4],
+              paddingVertical: space[2],
+              flexGrow: 1,
+            },
+          ]}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          renderItem={({ item }) => (
+            <View style={{ marginBottom: space[3] }}>
+              <FriendCard friend={item} onMakeGroup={handleMakeGroup} onMore={handleMore} />
+            </View>
+          )}
+          ListEmptyComponent={renderEmptyState}
+          testID="friends-flatlist"
+        />
+      )}
 
       {/* Bottom Sheet Modal */}
       <ReportBlockSheet

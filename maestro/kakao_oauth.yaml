@@ -1,0 +1,51 @@
+# Maestro E2E — D29 Kakao OIDC 첫 로그인 funnel.
+# 흐름: 앱 실행 → 카카오로 시작하기 → (네이티브 카카오 모달, 수동/SDK) → 약관 동의 → 온보딩 3 슬라이드 → 홈.
+# 사전 조건: 카카오 portal에 본 디바이스 테스트 계정 등록 + 디바이스에 카카오톡 설치.
+# 검증: on_auth_user_created trigger로 public.users 행 생성 (Supabase dashboard 별도 확인).
+
+appId: com.denda.app
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+# 1. 로그인 화면 mount + 핵심 시각 요소
+- assertVisible: "친구와 시간·장소·예약,"
+- assertVisible: "카카오로 시작하기"
+- assertVisible: "가능한 사람이 많을수록 진해져요"
+
+# 2. 카카오 OIDC OAuth — 네이티브 카카오 모달은 SDK 처리, Maestro 직접 입력 제한적
+- tapOn: "카카오로 시작하기"
+
+# 카카오 SDK 네이티브 모달 진입 후 동의 화면 (수동 OR Maestro webview)
+# 운영 트랙: 첫 launch만 모달 노출, 이후 silent
+
+# 3. 약관 동의 화면 (필수 둘 다 + "동의하고 계속")
+- assertVisible:
+    text: "시작하기 전에"
+    timeout: 15000
+- tapOn: "모두 동의하기"
+- tapOn: "동의하고 계속"
+
+# 4. 온보딩 3 슬라이드 (skip OR 다음 2번 + 시작하기)
+- assertVisible:
+    text: "친구와 시간을 맞춰요"
+    timeout: 8000
+
+# Option A: 건너뛰기 → 홈으로 즉시
+# - tapOn: "건너뛰기"
+
+# Option B: 슬라이드 정상 진행 (3 슬라이드 swipe)
+- swipe:
+    direction: LEFT
+- assertVisible: "장소도 같이 정해요"
+- swipe:
+    direction: LEFT
+- assertVisible: "확정하면 끝"
+- tapOn: "시작하기"
+
+# 5. 홈 진입 — 빈 캘린더 + CTA
+- assertVisible:
+    text: "다가오는 모임"
+    timeout: 8000
+- assertVisible: "새 모임 만들기"

@@ -26,10 +26,7 @@ module.exports = function withKakaoMaven(config) {
     const regex = /(allprojects\s*\{\s*repositories\s*\{)/m;
 
     if (regex.test(contents)) {
-      contents = contents.replace(
-        regex,
-        `$1\n    maven { url '${KAKAO_MAVEN_URL}' }`,
-      );
+      contents = contents.replace(regex, `$1\n    maven { url '${KAKAO_MAVEN_URL}' }`);
     } else {
       // 블록이 없으면 파일 끝에 추가 (방어적)
       contents += `\nallprojects {\n  repositories {\n    maven { url '${KAKAO_MAVEN_URL}' }\n  }\n}\n`;

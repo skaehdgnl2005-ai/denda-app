@@ -16,11 +16,7 @@ export interface MiniCalendarProps {
   testID?: string;
 }
 
-export const MiniCalendar: React.FC<MiniCalendarProps> = ({
-  cellSize = 28,
-  gap = 4,
-  testID,
-}) => {
+export const MiniCalendar: React.FC<MiniCalendarProps> = ({ cellSize = 28, gap = 4, testID }) => {
   const { colors, radius, space } = useTheme();
 
   return (
@@ -42,10 +38,7 @@ export const MiniCalendar: React.FC<MiniCalendarProps> = ({
         ))}
       </View>
       {Array.from({ length: 5 }).map((_, rowIdx) => (
-        <View
-          key={rowIdx}
-          style={[styles.row, { marginBottom: rowIdx < 4 ? gap : 0 }]}
-        >
+        <View key={rowIdx} style={[styles.row, { marginBottom: rowIdx < 4 ? gap : 0 }]}>
           {Array.from({ length: 7 }).map((__, colIdx) => {
             const idx = rowIdx * 7 + colIdx;
             const day = idx - 2; // offset so first row has 5 empty days

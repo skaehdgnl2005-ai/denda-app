@@ -107,12 +107,8 @@ export default function NicknameForm({ groupId, onComplete }: NicknameFormProps)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 transition-opacity duration-200">
       <div className="w-full max-w-sm rounded-xl border border-border-subtle bg-surface-0 dark:bg-surface-2 p-6 shadow-xl transition-all scale-100">
-        <h2 className="text-lg font-semibold text-text-primary mb-2">
-          투표 참여하기
-        </h2>
-        <p className="text-sm text-text-secondary mb-4">
-          모임에 표시될 닉네임을 입력해 주세요.
-        </p>
+        <h2 className="text-lg font-semibold text-text-primary mb-2">투표 참여하기</h2>
+        <p className="text-sm text-text-secondary mb-4">모임에 표시될 닉네임을 입력해 주세요.</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -126,11 +122,7 @@ export default function NicknameForm({ groupId, onComplete }: NicknameFormProps)
               maxLength={20}
               disabled={loading}
             />
-            {error && (
-              <p className="text-xs text-error-fg mt-2 font-medium">
-                {error}
-              </p>
-            )}
+            {error && <p className="text-xs text-error-fg mt-2 font-medium">{error}</p>}
           </div>
 
           <button

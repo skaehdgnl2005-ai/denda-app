@@ -29,6 +29,13 @@ import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getServiceRoleClient } from '../_lib/supabase.ts';
 import { errorResponse, handlePreflight, jsonResponse } from '../_lib/http.ts';
 import { nowKst } from '../_lib/kst.ts';
+import {
+  clearHandlers,
+  dispatch,
+  register,
+  type DispatchEvent,
+} from '../_lib/dispatcher.ts';
+import { handler as notifyF4Handler } from '../notify_f4/index.ts';
 
 // ---------------------------------------------------------------------------
 // 순수 함수: 합산 + payload 빌드 (test 가능)
@@ -102,6 +109,39 @@ export function mapDayToIndex(
   return result;
 }
 
+// ---------------------------------------------------------------------------
+// S12-publishers-f4 — 전원 vote detect 순수 함수
+// ---------------------------------------------------------------------------
+
+/**
+ * votes raw rows 중 NON-NULL user_id의 unique 개수.
+ * - 게스트 (user_id=null)는 group_members 카운트 대상이 아니므로 제외
+ * - 동일 user_id 다중 vote는 1로 카운트
+ */
+export function countUniqueVoters(rows: Array<{ user_id: string | null }>): number {
+  const set = new Set<string>();
+  for (const row of rows) {
+    if (row.user_id) set.add(row.user_id);
+  }
+  return set.size;
+}
+
+export interface IsAllMembersVotedArgs {
+  memberCount: number;
+  voterCount: number;
+}
+
+/**
+ * 전원 vote 완료 판정.
+ * - memberCount > 0 (빈 그룹 entry race 회피)
+ * - voterCount == memberCount (엄격 equal — 멤버 추가/탈퇴 race 안전망)
+ */
+export function isAllMembersVoted(args: IsAllMembersVotedArgs): boolean {
+  return args.memberCount > 0 && args.voterCount === args.memberCount;
+}
+
+// ---------------------------------------------------------------------------
+
 /**
  * heatmap broadcast payload 빌드. updated_at = KST ISO (D13).
  */
@@ -132,6 +172,35 @@ export async function broadcastHeatmap(
     event: 'heatmap_update',
     payload: buildHeatmapPayload(slots),
   });
+}
+
+// ---------------------------------------------------------------------------
+// Dispatcher handler 등록 — 모듈 import 시 1회 (group_confirm pattern mirror)
+// ---------------------------------------------------------------------------
+// notify_f4 handler를 dispatcher에 register. votes_all_in event가 dispatch되면
+// notify_f4가 group_id로 호스트에게 push 발송 (in-process, D33).
+// notify_f4는 f4_sent_at IS NULL idempotent하므로 중복 dispatch 안전.
+
+let f4HandlerRegistered = false;
+
+function registerF4Handler(): void {
+  if (f4HandlerRegistered) return;
+  register('votes_all_in', async (event: DispatchEvent) => {
+    if (event.type !== 'votes_all_in') return;
+    const fakeReq = new Request('http://internal/notify_f4', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ group_id: event.groupId }),
+    });
+    await notifyF4Handler(fakeReq);
+  });
+  f4HandlerRegistered = true;
+}
+
+// 테스트가 dispatcher state를 reset할 때 다시 register할 수 있도록 export
+export function _resetDispatcherRegistration(): void {
+  clearHandlers();
+  f4HandlerRegistered = false;
 }
 
 // ---------------------------------------------------------------------------
@@ -166,6 +235,8 @@ async function handler(req: Request): Promise<Response> {
     return errorResponse('group_id (UUID)가 필요합니다.', 400);
   }
 
+  registerF4Handler();
+
   const supabase = getServiceRoleClient();
 
   // 1) groups.dates SELECT — day_index 매핑용 (Q-B21 close)
@@ -183,21 +254,34 @@ async function handler(req: Request): Promise<Response> {
   }
   const dates = ((group as { dates: string[] | null }).dates ?? []) as string[];
 
-  // 2) votes SELECT — day + start_minute (RLS service_role bypass)
-  const { data: votes, error: votesError } = await supabase
-    .from('votes')
-    .select('day, start_minute')
-    .eq('group_id', groupId);
+  // 2) votes (day·start_minute·user_id) + group_members 병렬 fetch
+  const [votesResult, membersResult] = await Promise.all([
+    supabase
+      .from('votes')
+      .select('day, start_minute, user_id')
+      .eq('group_id', groupId),
+    supabase.from('group_members').select('user_id').eq('group_id', groupId),
+  ]);
 
-  if (votesError) {
-    return errorResponse(`votes 조회 실패: ${votesError.message}`, 500);
+  if (votesResult.error) {
+    return errorResponse(`votes 조회 실패: ${votesResult.error.message}`, 500);
+  }
+  if (membersResult.error) {
+    return errorResponse(
+      `group_members 조회 실패: ${membersResult.error.message}`,
+      500,
+    );
   }
 
-  // 3) day → day_index 매핑 + 합산 (groups.dates에 없는 day는 graceful skip)
-  const voteRows = mapDayToIndex(
-    (votes ?? []) as Array<{ day: string; start_minute: number }>,
-    dates,
-  );
+  const rawVotes = (votesResult.data ?? []) as Array<{
+    day: string;
+    start_minute: number;
+    user_id: string | null;
+  }>;
+  const members = (membersResult.data ?? []) as Array<{ user_id: string }>;
+
+  // 3) day → day_index 매핑 + 합산
+  const voteRows = mapDayToIndex(rawVotes, dates);
   const slots = aggregateVotes(voteRows);
 
   try {
@@ -207,7 +291,31 @@ async function handler(req: Request): Promise<Response> {
     return errorResponse(`broadcast 실패: ${message}`, 500);
   }
 
-  return jsonResponse({ ok: true, slot_count: slots.length });
+  // 4) 전원 vote 완료 detect → dispatcher publish (S12 F4)
+  //    notify_f4가 f4_sent_at IS NULL idempotent하므로 매 votes change에 dispatch해도 안전.
+  //    dispatch 실패는 broadcast 결과(slots)에는 영향 없음 — 격리.
+  const voterCount = countUniqueVoters(rawVotes);
+  const memberCount = members.length;
+  let f4Dispatched = false;
+  if (isAllMembersVoted({ memberCount, voterCount })) {
+    try {
+      await dispatch({ type: 'votes_all_in', groupId });
+      f4Dispatched = true;
+    } catch {
+      // 격리 — broadcast는 이미 성공
+      f4Dispatched = false;
+    }
+  }
+
+  return jsonResponse({
+    ok: true,
+    slot_count: slots.length,
+    // 클라 초기 스냅샷/폴링 경로 (useHeatmapSubscription) — broadcast를 못 받는 단절
+    // 상태에서도 서버 합산 결과를 직접 적용할 수 있게 응답에 동봉 (D11 준수).
+    payload: buildHeatmapPayload(slots),
+    all_voted: isAllMembersVoted({ memberCount, voterCount }),
+    f4_dispatched: f4Dispatched,
+  });
 }
 
 // Deno test에서 import 시 serve() 부수효과 회피

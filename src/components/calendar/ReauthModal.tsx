@@ -19,6 +19,7 @@
 import React, { useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
+import { ctaPressBg, rowPressBg } from '@/design/press';
 import { useTheme } from '@/design/theme';
 import { Body, Title } from '@/design/typography';
 import { CalendarProviderError } from '@/lib/calendar/google';
@@ -89,7 +90,6 @@ export const ReauthModal: React.FC<ReauthModalProps> = ({
     }
   };
 
-  const reauthBg = busy ? colors.surface[2] : colors.brand[500];
   const reauthFg = busy ? colors.text.disabled : colors.text['on-brand'];
 
   return (
@@ -151,8 +151,7 @@ export const ReauthModal: React.FC<ReauthModalProps> = ({
                   flex: 1,
                   borderRadius: radius.md,
                   paddingVertical: space[3],
-                  backgroundColor: colors.surface[2],
-                  opacity: pressed && !busy ? 0.7 : 1,
+                  backgroundColor: rowPressBg(pressed && !busy, colors, colors.surface[2]),
                 },
               ]}
             >
@@ -174,8 +173,7 @@ export const ReauthModal: React.FC<ReauthModalProps> = ({
                   flex: 1,
                   borderRadius: radius.md,
                   paddingVertical: space[3],
-                  backgroundColor: reauthBg,
-                  opacity: pressed && !busy ? 0.85 : 1,
+                  backgroundColor: busy ? colors.surface[2] : ctaPressBg(pressed, colors),
                 },
               ]}
             >

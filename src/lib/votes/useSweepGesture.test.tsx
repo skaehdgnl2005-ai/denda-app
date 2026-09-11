@@ -18,7 +18,7 @@ import {
 import type { GridLayout } from '@/lib/heatmap/coords';
 
 interface GestureHandlers {
-  onBegin?: (e: { x: number; y: number }) => void;
+  onStart?: (e: { x: number; y: number }) => void;
   onUpdate?: (e: { x: number; y: number }) => void;
   onEnd?: () => void;
 }
@@ -73,16 +73,16 @@ function renderSweep(
 }
 
 describe('useSweepGesture', () => {
-  test('onBegin: 시작 cell이 selection에 추가됨 (add 모드)', () => {
+  test('onStart: 시작 cell이 selection에 추가됨 (add 모드, long-press 통과 시점)', () => {
     const { result } = renderSweep();
-    handlersOf(result.current.panGesture).onBegin?.({ x: 51, y: 1 });
+    handlersOf(result.current.panGesture).onStart?.({ x: 51, y: 1 });
     expect(result.current.selection.value['0:540']).toBe(true);
   });
 
   test('onUpdate: drag rect 전체가 selection에 반영', () => {
     const { result } = renderSweep();
     const h = handlersOf(result.current.panGesture);
-    h.onBegin?.({ x: 51, y: 1 }); // row=0, col=0
+    h.onStart?.({ x: 51, y: 1 }); // row=0, col=0
     h.onUpdate?.({ x: 51 + 40, y: 11 }); // row=1, col=1
     const sel = result.current.selection.value;
     expect(sel['0:540']).toBe(true);
@@ -95,7 +95,7 @@ describe('useSweepGesture', () => {
     const onCommit = jest.fn();
     const { result } = renderSweep({ onCommit });
     const h = handlersOf(result.current.panGesture);
-    h.onBegin?.({ x: 51, y: 1 });
+    h.onStart?.({ x: 51, y: 1 });
     h.onEnd?.();
     expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit).toHaveBeenCalledWith([{ day: '2026-05-30', start_minute: 540 }]);
@@ -106,7 +106,7 @@ describe('useSweepGesture', () => {
     const onCommit = jest.fn();
     const { result } = renderSweep({ initialSelection, onCommit });
     const h = handlersOf(result.current.panGesture);
-    h.onBegin?.({ x: 51, y: 1 }); // row=0, col=0 — 이미 true → remove 모드
+    h.onStart?.({ x: 51, y: 1 }); // row=0, col=0 — 이미 true → remove 모드
     h.onUpdate?.({ x: 51, y: 11 }); // row=0~1, col=0
     h.onEnd?.();
     expect(onCommit).toHaveBeenCalledWith(
@@ -121,32 +121,35 @@ describe('useSweepGesture', () => {
     );
   });
 
-  test('헤더 영역 outside (x < headerWidth): onBegin 무시 + onCommit 안 부름', () => {
+  test('헤더 영역 outside (x < headerWidth): onStart 무시 + onCommit 안 부름', () => {
     const onCommit = jest.fn();
     const { result } = renderSweep({ onCommit });
     const h = handlersOf(result.current.panGesture);
-    h.onBegin?.({ x: 30, y: 5 });
+    h.onStart?.({ x: 30, y: 5 });
     h.onEnd?.();
     expect(onCommit).not.toHaveBeenCalled();
   });
 
-  test('scrollOffsetY 갱신 → onBegin이 보정된 좌표로 매핑', () => {
+  test('scrollOffsetY는 onStart 매핑에 무시됨 — pt.y는 view-local (2026-06-05 regression)', () => {
+    // RNGH가 GestureDetector 부착 view-local 좌표를 보고 → pt.y에 스크롤 이미 포함됨.
+    // scrollOffsetY를 더하면 이중 가산 → SelectionOverlay가 드래그보다 더 아래·더 길게
+    // 그려지는 회귀 (dev client 실기기 확인).
     const { result } = renderSweep();
-    result.current.scrollOffsetY.value = 100; // ScrollView onScroll 시뮬레이션
+    result.current.scrollOffsetY.value = 100; // scroll 상태여도
     const h = handlersOf(result.current.panGesture);
-    h.onBegin?.({ x: 51, y: 1 }); // y=1 + scrollY=100 = 101 → row=10
-    const sm = 540 + 10 * 15; // 690
+    h.onStart?.({ x: 51, y: 1 }); // y=1 자체 → row=0 (스크롤 가산 X)
+    const sm = 540 + 0 * 15; // 540
     expect(result.current.selection.value[`0:${sm}`]).toBe(true);
   });
 
-  test('재진입(onBegin → onEnd → 다시 onBegin)에서 baseline 갱신', () => {
+  test('재진입(onStart → onEnd → 다시 onStart)에서 baseline 갱신', () => {
     const onCommit = jest.fn();
     const { result } = renderSweep({ onCommit });
     const h = handlersOf(result.current.panGesture);
 
-    h.onBegin?.({ x: 51, y: 1 }); // (0,0) add
+    h.onStart?.({ x: 51, y: 1 }); // (0,0) add
     h.onEnd?.();
-    h.onBegin?.({ x: 51, y: 1 }); // 같은 cell, 이번엔 이미 true → remove 모드
+    h.onStart?.({ x: 51, y: 1 }); // 같은 cell, 이번엔 이미 true → remove 모드
     h.onEnd?.();
 
     expect(onCommit).toHaveBeenCalledTimes(2);

@@ -5,7 +5,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useTheme } from '@/design/theme';
-import { Body, Caption } from '@/design/typography';
+import { Body } from '@/design/typography';
 import { Icon } from '@/components/Icon';
 import { FriendUser } from '@/lib/friends/api';
 
@@ -15,15 +15,10 @@ export interface FriendCardProps {
   onMore: (friend: FriendUser) => void;
 }
 
-export const FriendCard: React.FC<FriendCardProps> = ({
-  friend,
-  onMakeGroup,
-  onMore,
-}) => {
+export const FriendCard: React.FC<FriendCardProps> = ({ friend, onMakeGroup, onMore }) => {
   const { colors, space, radius } = useTheme();
 
   const initial = friend.nickname ? friend.nickname.charAt(0) : '?';
-  const meetingCount = friend.recent_meetings_count ?? 0;
 
   return (
     <View
@@ -48,7 +43,7 @@ export const FriendCard: React.FC<FriendCardProps> = ({
             paddingRight: space[2],
             paddingVertical: space[3],
             borderRadius: radius.lg,
-            backgroundColor: pressed ? colors.brand[50] : 'transparent',
+            backgroundColor: pressed ? colors.surface[3] : 'transparent',
           },
         ]}
         testID="make-group-button"
@@ -69,14 +64,11 @@ export const FriendCard: React.FC<FriendCardProps> = ({
           </Body>
         </View>
 
-        {/* Info */}
+        {/* Info — recent_meetings_count는 항상 undefined(Phase 3 deferred)라 죽은 '0회' 제거(§17.2). */}
         <View style={styles.infoContainer}>
           <Body variant="bold" color={colors.text.primary}>
             {friend.nickname}
           </Body>
-          <Caption variant="default" color={colors.text.tertiary} tabularNums>
-            최근 모임 {meetingCount}회
-          </Caption>
         </View>
 
         {/* Chevron — 카드가 액션이라는 affordance */}

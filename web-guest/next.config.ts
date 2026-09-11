@@ -8,6 +8,28 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  // S15-deeplink (D28) — AASA + assetlinks.json Content-Type 보장.
+  // Apple Universal Links: /.well-known/apple-app-site-association은 확장자 없는 파일
+  // → Next.js의 default MIME가 application/octet-stream이 될 수 있어 Apple이 거부 가능.
+  // application/json + no-cache 강제.
+  async headers() {
+    return [
+      {
+        source: '/.well-known/apple-app-site-association',
+        headers: [
+          { key: 'Content-Type', value: 'application/json' },
+          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+        ],
+      },
+      {
+        source: '/.well-known/assetlinks.json',
+        headers: [
+          { key: 'Content-Type', value: 'application/json' },
+          { key: 'Cache-Control', value: 'public, max-age=3600' },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

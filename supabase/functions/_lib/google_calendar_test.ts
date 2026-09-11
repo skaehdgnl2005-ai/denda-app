@@ -180,7 +180,9 @@ Deno.test('refreshAccessToken: 응답에 새 refresh_token 포함 → 회전된 
 Deno.test('refreshAccessToken: body는 form-urlencoded (Google spec)', async () => {
   let capturedBody = '';
   const fetchFn: typeof fetch = (_url, init) => {
-    capturedBody = String((init ?? {}).body ?? '');
+    // supabase-js가 끌어오는 RequestInit 정의와 Deno 내장 정의가 유니온으로 충돌해
+    // init.body 직접 접근이 타입 에러 — 테스트가 관심 있는 shape로만 좁혀 캡처.
+    capturedBody = String((init as { body?: unknown } | undefined)?.body ?? '');
     return Promise.resolve(
       makeJsonResponse(200, { access_token: 'a', expires_in: 1, scope: 's' }),
     );
@@ -384,7 +386,9 @@ Deno.test('insertCalendarEvent: fetch reject → GoogleApiError(network)', async
 Deno.test('insertCalendarEvent: request body는 JSON stringify된 events 본문', async () => {
   let capturedBody = '';
   const fetchFn: typeof fetch = (_url, init) => {
-    capturedBody = String((init ?? {}).body ?? '');
+    // supabase-js가 끌어오는 RequestInit 정의와 Deno 내장 정의가 유니온으로 충돌해
+    // init.body 직접 접근이 타입 에러 — 테스트가 관심 있는 shape로만 좁혀 캡처.
+    capturedBody = String((init as { body?: unknown } | undefined)?.body ?? '');
     return Promise.resolve(makeJsonResponse(200, { id: 'evt_x' }));
   };
 

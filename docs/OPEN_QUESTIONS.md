@@ -15,13 +15,14 @@
 - **해결**: D29 채택으로 비즈앱 우회 OAuth 자체를 사용하지 않음. 표준 OIDC + Supabase `signInWithIdToken` 사용. 카카오 정책 답변 의존 해소. S01 BLOCKED 해소
 - **상태**: Closed (2026-05-22)
 
-### Q-A2 — Kakao Local API 약관 (외부 지도 SDK 위 표시)
+### Q-A2 — Kakao Local API 약관 (외부 지도 SDK 위 표시) ✅ Closed by D37 (2026-06-01)
 - **출처**: V2_PRD §16-6, OFFICE_HOURS §13, ENG_REVIEW §1.2
 - **질문**: Naver 지도 위에 카카오 Local API 매장 데이터 표시 허용 명시적 확인
 - **소유자**: Founder
 - **마감**: 2026-05-28 (D1 W1 deadline)
 - **해결 시**: D1 확정 / 미수신 시 → Naver Search API eager fallback (S16) + 데이터 quality 열화 수용
-- **상태**: 진행 중
+- **해결**: 카카오 디벨로퍼스 공식 답변(C.L 카카오, ≈2026-05-27) = **허용**. "타사 API와 함께 사용 별도 제한 없음 / 서비스 이용 약관·운영 정책 준수 시 사용 가능 / 카카오맵 SDK 동반은 권고일 뿐 의무 아님". 답변 #2(출처표기 방식)·#4(조항 번호)는 직답 없이 정책문서 링크로 갈음 → 미검증(founder 판단으로 정책문서 선검증 생략, 답변 캡처 증빙 보관). [D37](DECISIONS.md#d37--q-a2-카카오-local-api-약관-허용-답변-수신--kakaolocalprovider-평가-트랙)로 KakaoLocalProvider 평가 트랙 발동 — 현 primary는 D36 NaverSearchProvider 유지, live 데이터 quality 비교 후 우위 시 교체.
+- **상태**: Closed (2026-06-01, Closed by D37). 이전 경유: Fallback 선제 활성 (2026-05-27, [D36](DECISIONS.md#d36--s16-장소-검색-fallback--naversearchprovider-eager-q-a2-no-answer--edge-proxy)) — NaverSearchProvider eager 구축 완료.
 
 ### Q-A3 — 1주 cold read prototype 병렬 실행 여부
 - **출처**: OFFICE_HOURS §10-16, §14-1
@@ -128,6 +129,7 @@
 - **소유자**: Backend
 - **마감**: Gate #1 측정 시작 전 (W2)
 - **상태**: 미결정. D26은 client-side만 결정
+- **⚠️ proxy 2종 구분 (D37 발 충돌 정리, 2026-06-01)**: 본 Q-B8 = **cost/QPS-control proxy**(미결정·Phase 1+2 미도입 유지). 이와 **별개**로 **key-secrecy proxy는 rule 7로 강제** — 카카오 Local REST key는 클라이언트 expose 금지라 Edge Function 경유가 필수(Naver는 `naver_local_search`로 이미 실현, Kakao는 `kakao_local_search` 빌드 시 동일). 따라서 ARCHITECTURE §3.2의 "client-direct" 뉘앙스·D26 "client debounce" 표현은 **호출 위치가 아니라 throttling(클라 UX)** 얘기일 뿐 → Edge proxy 경유와 양립. "Kakao Local을 client에서 직접 호출"은 rule 7상 불가. → [D37](DECISIONS.md#d37--q-a2-카카오-local-api-약관-허용-답변-수신--kakaolocalprovider-평가-트랙)
 
 ### Q-B9 — FAB 글리프 최종 디자인
 - **출처**: DESIGN §14 D-FAB, §16.1.5, V2_PRD §16-5
@@ -162,7 +164,7 @@
 - **질문**: 제휴 마커 1.5x/2x/3x PNG (Naver SDK SVG 불가 — D8 명시)
 - **소유자**: Design
 - **마감**: Sprint 0
-- **상태**: 미export
+- **상태**: ✅ **Closed by [D40](DECISIONS.md#d40--지도-마커--navermapmarkeroverlay-children-커스텀-뷰-png-래스터-대체) (2026-06-09)** — PNG 불필요. `@mj-studio/react-native-naver-map`이 children 커스텀 뷰 마커를 지원 → `MapMarkerView`(brand-500 + 흰 stroke + 숫자)를 DESIGN 토큰으로 직접 렌더. "Naver SDK SVG 불가"는 맞으나 children 래스터화로 우회(PNG도 SVG도 불필요). 실기기 검증 완료.
 
 ### Q-B14 — 3-슬라이드 온보딩 모션
 - **출처**: DESIGN §14 D-ONBOARD-MOTION
@@ -211,7 +213,7 @@
 - **질문**: 가입 + 인증서 발급 + TestFlight/Internal Testing 셋업. Apple 심사 1주 + 거절 가능성 buffer
 - **소유자**: Founder
 - **마감**: W-2 (Sprint 0 전)
-- **상태**: 미시작
+- **상태**: **부분 해소 (2026-05-27, S13 turn)** — **Apple Developer ✅ 보유** (iOS 빌드·TestFlight·인증서 가능). **Google Play Console ❌ 미가입이나 지금 불필요** — 베타는 EAS `preview` APK 사이드로드로 실기기 테스트(Play Console 없이 됨). Play Console은 Play 스토어 배포·Internal Testing 트랙 원할 때만 가입. 인증서·키스토어·실기기 cold-start 측정 절차는 [EAS_BUILD_RUNBOOK.md](EAS_BUILD_RUNBOOK.md)로 정리
 
 ### Q-B22 — Apple Calendar sync mechanism (worker → client trigger 패턴) ✅ Closed by D34 (2026-05-26)
 - **출처**: S06-google-oauth ship 후 노출 (2026-05-26). Apple Calendar 외부 push API 부재로 worker가 직접 push 불가
@@ -229,6 +231,13 @@
 - **마감**: S05b PR 머지 전 또는 S05a PR 머지 전 (둘 중 빠른 쪽)
 - **해결**: (a) `day_index` 채택 — `groups.dates`의 0-based offset. S05a Edge Function `votes_aggregate`에 `mapDayToIndex(rawRows, dates)` 추가 + handler에서 groups.dates SELECT 후 매핑. groups.dates에 없는 votes.day는 graceful skip (호스트가 dates 줄였을 때 안전). D11 본문 + 예제 갱신 완료 (D11 표 Payload spec 행 추가). S05b 클라이언트 헬퍼(`applyHeatmapPayload`)가 이미 (a) 가정으로 구현되어 있어 spec align 완료
 - **상태**: Closed (2026-05-26, S05a + Q-B21 patch 한 PR로 머지)
+
+### Q-B23 — 멤버 중간지점 추천의 위치 데이터 소스 + PIPA ✅ Closed (2026-06-08) · 부분 supersede by D41 (2026-07-12)
+- **출처**: 지도 ④ 중간지점 추천 설계 (2026-06-08, [D38](DECISIONS.md#d38--지도-렌더-seam--maphost-단일-경계--mapscene-계약--ismapavailable-env-게이트))
+- **질문**: 멤버 위치를 (a) 저장 좌표 / (b) 각자 출발지 입력 / (c) 보류 중 무엇으로? PIPA 처리.
+- **해결**: (b) **각자 출발지 직접 입력** + 자주/최근 쓴 출발지 2개 칩 추천. 출발지는 **온디바이스 로컬 저장**(zustand persist / secure-store) — 서버 미전송 + 중간점 계산도 클라 → PIPA 경량. 잔여: 처리방침에 "출발지 온디바이스 보관" 1줄(M3 구현 시).
+- **상태**: Closed (2026-06-08) — S-MAP M3(중간지점) 구현 시 적용.
+- **후속**: [D41](DECISIONS.md#d41--모임-출발지-서버-저장-group_origins-q-b23-부분-supersede) (2026-07-12) — 모임 출발지는 서버 저장(RLS)으로 전환, 최근 칩만 온디바이스 유지.
 
 ---
 

@@ -1,0 +1,60 @@
+# Maestro E2E — 호스트 모임 생성 funnel (CP2 진입부).
+# 흐름: 홈 → "새 모임 만들기" → 이름·날짜 입력 → 친구 초대 → 생성 → 그리드.
+# 사전 조건: 카카오 로그인 완료 + 친구 1명 이상.
+# 검증: groups.host_id, group_members 호스트 row, group_invitations(N), invite_code 생성.
+
+appId: com.denda.app
+---
+- launchApp
+
+# 1. 홈 → 생성 진입
+- assertVisible:
+    text: "다가오는 모임"
+    timeout: 8000
+- tapOn:
+    id: "create-group-card"
+
+# 2. 모임 만들기 화면
+- assertVisible:
+    text: "모임 만들기"
+    timeout: 5000
+- tapOn:
+    id: "group-name-input"
+- inputText: "팀플 모임"
+
+# 3. 후보 날짜 캘린더 다중선택 (최대 7일). 오늘 셀은 항상 선택 가능.
+#    추가 날짜는 id: "calendar-day-YYYY-MM-DD" 로 탭 (러너에서 미래 날짜 주입).
+- tapOn:
+    id: "calendar-today"
+
+# 4. 모임 만들기 제출
+- tapOn:
+    id: "create-group-submit"
+
+# 5. 그리드 화면 진입 (router.replace('/group/[id]'))
+- assertVisible:
+    id: "time-grid"
+    timeout: 8000
+- assertVisible:
+    id: "realtime-status"
+
+# 6. (선택) 헤더 "친구 초대" 버튼 (호스트 only)
+- assertVisible:
+    id: "invite-button"
+- tapOn:
+    id: "invite-button"
+
+# 7. 친구 multi-select 화면
+- assertVisible:
+    text: "친구 초대"
+    timeout: 5000
+
+# 친구 0명이면 빈 상태 검증
+# - assertVisible:
+#     id: "invite-empty-state"
+
+# 친구 있을 경우 첫 친구 선택 + 초대
+# - tapOn:
+#     id: "invite-friend-{first-friend-id}"
+# - tapOn:
+#     id: "invite-submit-button"

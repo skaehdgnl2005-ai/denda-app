@@ -8,17 +8,16 @@ describe('RealtimeStatus Component', () => {
   const wrapper = ThemeProvider;
 
   test('renders nothing when connected is true', () => {
-    const { toJSON } = render(
-      <RealtimeStatus isConnected={true} testID="status-chip" />,
-      { wrapper }
-    );
+    const { toJSON } = render(<RealtimeStatus isConnected={true} testID="status-chip" />, {
+      wrapper,
+    });
     expect(toJSON()).toBeNull();
   });
 
   test('renders chip when connected is false', () => {
     const { getByTestId, getByText } = render(
       <RealtimeStatus isConnected={false} testID="status-chip" />,
-      { wrapper }
+      { wrapper },
     );
     const chip = getByTestId('status-chip');
     expect(chip).toBeTruthy();
@@ -30,11 +29,11 @@ describe('RealtimeStatus Component', () => {
           backgroundColor: tokens.light.semantic.info.bg,
           borderColor: tokens.light.semantic.info.border,
         }),
-      ])
+      ]),
     );
 
     // Verify text
-    const textNode = getByText('실시간 갱신 일시 중단 — 30s 후 폴링');
+    const textNode = getByText('실시간 갱신이 잠시 멈췄어요 · 곧 다시 연결돼요');
     expect(textNode).toBeTruthy();
   });
 });

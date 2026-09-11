@@ -160,7 +160,8 @@ export class KakaoOIDCProvider implements AuthProvider {
 // helpers
 // ---------------------------------------------------------------------------
 
-function mapToAuthSession(user: SupabaseUser, session: SupabaseSession): AuthSession {
+// setup.ts의 restoreSession(디스크 복원 세션 → AuthSession 승격)에서도 재사용 — export.
+export function mapToAuthSession(user: SupabaseUser, session: SupabaseSession): AuthSession {
   const meta = user.user_metadata ?? {};
   return {
     user: {

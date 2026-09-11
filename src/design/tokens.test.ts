@@ -171,9 +171,28 @@ describe('Design System Tokens', () => {
     expect(contrastDarkSecondary).toBeGreaterThanOrEqual(4.5);
 
     // text-on-brand on brand-500 (Dark) -> Target >= 4.5:1 (actually 7.8:1)
-    // Note: in dark mode, brand-500 is lighter (#9B7AFF), text-on-brand is dark (#0F0F12)
+    // Note: in dark mode, brand-500 is lighter and text-on-brand is dark (see tokens.dark)
     const blendedTextOnBrand = blend(darkTextOnBrand, darkBrand500);
     const contrastDarkOnBrand = getContrastRatio(blendedTextOnBrand, darkBrand500);
     expect(contrastDarkOnBrand).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('overlay 토큰 (W0-8 — 바텀시트/모달 backdrop)', () => {
+  test('scrim backdrop이 light/dark 모두 rgba로 정의된다', () => {
+    expect(tokens.light.overlay.scrim).toMatch(/^rgba\(/);
+    expect(tokens.dark.overlay.scrim).toMatch(/^rgba\(/);
+  });
+
+  test('scrim은 반투명하다 (alpha < 1) — 뒤 콘텐츠가 비쳐야 함', () => {
+    expect(parseColor(tokens.light.overlay.scrim).a).toBeLessThan(1);
+    expect(parseColor(tokens.light.overlay.scrim).a).toBeGreaterThan(0);
+    expect(parseColor(tokens.dark.overlay.scrim).a).toBeLessThan(1);
+  });
+
+  test('다크 scrim이 라이트보다 진하다 (다크 배경 위 시트 분리)', () => {
+    expect(parseColor(tokens.dark.overlay.scrim).a).toBeGreaterThanOrEqual(
+      parseColor(tokens.light.overlay.scrim).a,
+    );
   });
 });

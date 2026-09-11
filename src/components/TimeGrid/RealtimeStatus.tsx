@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useTheme } from '../../design/theme';
 import { Caption } from '../../design/typography';
 import { Info } from 'lucide-react-native';
@@ -9,10 +9,7 @@ export interface RealtimeStatusProps {
   testID?: string;
 }
 
-export const RealtimeStatus: React.FC<RealtimeStatusProps> = ({
-  isConnected,
-  testID,
-}) => {
+export const RealtimeStatus: React.FC<RealtimeStatusProps> = ({ isConnected, testID }) => {
   const { colors, space, radius } = useTheme();
 
   if (isConnected) {
@@ -33,21 +30,16 @@ export const RealtimeStatus: React.FC<RealtimeStatusProps> = ({
       ]}
       testID={testID}
       accessibilityRole="alert"
-      accessibilityLabel="실시간 갱신 일시 중단 — 30초 후 폴링"
+      accessibilityLabel="실시간 갱신이 잠시 멈췄어요. 곧 다시 연결돼요."
     >
-      <Info
-        size={14}
-        color={colors.semantic.info.fg}
-        strokeWidth={2}
-        style={styles.icon}
-      />
+      <Info size={14} color={colors.semantic.info.fg} strokeWidth={2} style={styles.icon} />
       <Caption
         variant="micro"
         color={colors.semantic.info.fg}
         allowFontScaling={true}
         style={styles.text}
       >
-        실시간 갱신 일시 중단 — 30s 후 폴링
+        실시간 갱신이 잠시 멈췄어요 · 곧 다시 연결돼요
       </Caption>
     </View>
   );

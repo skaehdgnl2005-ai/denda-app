@@ -62,7 +62,7 @@ globs:
 ### 아이콘
 - **Lucide 2px stroke 기본** (`lucide-react-native`)
 - 1px / 3px stroke 금지
-- 6개 커스텀만 허용 (브랜드 마크, 제휴 마커 PNG, FAB 글리프, 히트맵 칩, 노쇼 뱃지, 환불 핀)
+- 5개 커스텀만 허용 (브랜드 마크, FAB 글리프, 히트맵 칩, 노쇼 뱃지, 환불 핀) — 제휴/지도 마커는 PNG 아닌 `MapMarkerView` 코드 뷰(brand-500 + 흰 stroke, [D40](../../docs/DECISIONS.md#d40--지도-마커--navermapmarkeroverlay-children-커스텀-뷰-png-래스터-대체))
 - 이모지 디자인 요소 금지 (시스템 이모지는 사용자 콘텐츠로만)
 - 컬러 일러스트 아이콘 금지 (line-only 또는 단색 fill만)
 

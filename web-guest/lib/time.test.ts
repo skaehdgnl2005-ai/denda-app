@@ -1,9 +1,4 @@
-import {
-  dayOfWeekKst,
-  formatHeaderDate,
-  isValidDateString,
-  KST_ZONE,
-} from './time';
+import { dayOfWeekKst, formatHeaderDate, isValidDateString, KST_ZONE } from './time';
 
 describe('isValidDateString — YYYY-MM-DD 검증', () => {
   it('유효한 날짜', () => {

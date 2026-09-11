@@ -80,11 +80,6 @@ describe('parsePendingRow', () => {
 // processOneRow
 // ---------------------------------------------------------------------------
 
-interface MockUpdateChain {
-  update: jest.Mock;
-  eq1: jest.Mock;
-}
-
 function makeSupabaseMock(opts: {
   selectRows?: unknown[];
   selectError?: { message: string } | null;
@@ -134,10 +129,7 @@ function makeAppleProviderMock(opts: {
     requestPermission: jest.fn().mockResolvedValue(undefined),
     insertEvent: jest
       .fn()
-      .mockImplementation(
-        opts.insertEventImpl ??
-          (() => Promise.resolve({ eventId: 'evt-x' })),
-      ),
+      .mockImplementation(opts.insertEventImpl ?? (() => Promise.resolve({ eventId: 'evt-x' }))),
   } as unknown as AppleCalendarProvider;
 }
 
@@ -159,16 +151,13 @@ describe('processOneRow', () => {
 
     expect(result.ok).toBe(true);
     expect(apple.insertEvent).toHaveBeenCalledWith(validPayload);
-    expect(updateCalls).toEqual([
-      { id: 'row-1', completed_at: '2026-05-26T12:00:00+00:00' },
-    ]);
+    expect(updateCalls).toEqual([{ id: 'row-1', completed_at: '2026-05-26T12:00:00+00:00' }]);
   });
 
   it('insertEvent throw CalendarProviderError → fail, UPDATE 미호출', async () => {
     const { client, updateCalls } = makeSupabaseMock({});
     const apple = makeAppleProviderMock({
-      insertEventImpl: () =>
-        Promise.reject(new CalendarProviderError({ kind: 'unauthorized' })),
+      insertEventImpl: () => Promise.reject(new CalendarProviderError({ kind: 'unauthorized' })),
     });
     const now = () => '2026-05-26T12:00:00+00:00';
 
@@ -287,9 +276,7 @@ describe('processApplePendingPushes', () => {
 
     expect(summary.completed).toBe(1);
     expect(summary.failed).toBe(1);
-    expect(updateCalls).toEqual([
-      { id: 'row-1', completed_at: '2026-05-26T12:00:00+00:00' },
-    ]);
+    expect(updateCalls).toEqual([{ id: 'row-1', completed_at: '2026-05-26T12:00:00+00:00' }]);
   });
 
   it('malformed row → failed로 분류 + insertEvent 미호출', async () => {
@@ -319,8 +306,8 @@ describe('processApplePendingPushes', () => {
     const apple = makeAppleProviderMock({});
     const now = () => '2026-05-26T12:00:00+00:00';
 
-    await expect(
-      processApplePendingPushes({ supabase: client, apple, now }),
-    ).rejects.toThrow(/db read fail/);
+    await expect(processApplePendingPushes({ supabase: client, apple, now })).rejects.toThrow(
+      /db read fail/,
+    );
   });
 });

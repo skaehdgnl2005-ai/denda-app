@@ -24,12 +24,26 @@ export class ImagePickerPermissionDeniedError extends Error {
 
 // expo-image-picker 설치 전엔 unavailable. 설치 후 이 함수만 교체.
 // dynamic import로 가둬 cold start 영향 0 (D25).
-export async function pickImageFromLibrary(): Promise<PickedImage> {
+//
+// `loadPicker` 매개변수: jest 환경에서 native dynamic import가 vm-modules 의존이라
+// 테스트 시 mock을 주입할 수 있도록 DI. production은 default로 동일 동작 + lazy load.
+type PickerModuleLike = {
+  requestMediaLibraryPermissionsAsync(): Promise<{ granted: boolean }>;
+  launchImageLibraryAsync(opts: unknown): Promise<{
+    canceled: boolean;
+    assets?: { uri?: string; base64?: string; mimeType?: string }[];
+  }>;
+  MediaTypeOptions?: { Images?: unknown };
+};
+
+const defaultLoadPicker = (): Promise<PickerModuleLike> =>
+  import('expo-image-picker') as unknown as Promise<PickerModuleLike>;
+
+export async function pickImageFromLibrary(
+  loadPicker: () => Promise<PickerModuleLike> = defaultLoadPicker,
+): Promise<PickedImage> {
   try {
-    // expo-image-picker는 차기 EAS Build 시점에 설치. 현재는 lazy import로 unavailable 처리.
-    // @ts-expect-error — 패키지 미설치 시 import 실패가 정상 (catch 진입).
-    // eslint-disable-next-line import/no-unresolved
-    const mod = await import('expo-image-picker');
+    const mod = await loadPicker();
     const permission = await mod.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       throw new ImagePickerPermissionDeniedError();
@@ -43,10 +57,10 @@ export async function pickImageFromLibrary(): Promise<PickedImage> {
       throw new Error('canceled');
     }
     const asset = result.assets[0];
-    if (!asset.base64) {
+    if (!asset || !asset.base64) {
       throw new Error('이미지를 base64로 변환하지 못했어요.');
     }
-    const mimeType = inferMimeType(asset.uri ?? '', asset.mimeType);
+    const mimeType = inferMimeType(asset.uri ?? '', asset.mimeType ?? undefined);
     return { base64: asset.base64, mimeType };
   } catch (e) {
     if (e instanceof ImagePickerPermissionDeniedError) throw e;

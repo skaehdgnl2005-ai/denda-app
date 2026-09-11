@@ -214,7 +214,7 @@ info-bg:        rgba(59, 130, 246, 0.12)   info-fg:     #60A5FA   info-solid:   
 ### 4.1. 라이트 모드 ramp
 
 ```
-heat-0 (없음, 0%):   #F3F4F6   neutral surface-3 — "선택된 상태가 아니라 빈 슬롯"임을 명시
+heat-0 (없음, 0%):   #F9FAFB   neutral 연한 회색 (= surface-2 톤) — "선택된 상태가 아니라 빈 슬롯"임을 명시
 heat-1 (소수, ~25%): #EDE9FE   brand-100
 heat-2 (절반, ~50%): #C4B5FD   brand-300
 heat-3 (대부분, ~75%): #8B5CF6  (사이 톤)
@@ -473,12 +473,14 @@ hover (X):      모바일이라 없음
 ### 10.2. 제휴 마커
 
 ```
-shape:    PNG 래스터 (Naver SDK 제약)
+shape:    children 커스텀 뷰 (RN View, NaverMapMarkerOverlay children) — D40, PNG 래스터 대체
 size:     비제휴 마커의 1.4배 (1.5배 너무 큼)
 color:    brand-500 (다크: brand-500 다크)
-inner:    2pt 흰 stroke (다크: 0F0F12 stroke)
+inner:    2pt 흰 stroke (다크: 0F0F12 stroke) — surface-0 토큰으로 자동 (라이트 흰/다크 0F0F12)
 state - selected: scale 1.15 (medium duration, emphasized easing)
 ```
+
+> **D40 (2026-06-09)**: 마커는 PNG 에셋(Q-B13) 대신 `MapMarkerView`(brand-500 원 + 흰 inner stroke + order 숫자)를 `NaverMapMarkerOverlay`의 children으로 넘겨 렌더. 네이티브가 RN 뷰를 래스터화 → 색·크기·stroke를 DESIGN 토큰으로 직접 제어, PNG 불필요. ("Naver SDK SVG 불가"는 유효하나 children 래스터화로 우회.)
 
 ### 10.3. 예약 바텀시트 (5.7)
 
@@ -520,6 +522,26 @@ text:        body, text-primary (no 시맨틱 컬러로 톤 절제)
 아이콘:      Lucide flag / ban (text-tertiary)
 파괴적 액션: error-fg only (절제된 빨강)
 ```
+
+### 10.6b. 홈 월간 캘린더 (D42)
+
+```
+셀:          44pt 터치 타깃, 날짜 원 36pt
+오늘:        brand-500 1pt 링 + text-brand (fill 아님)
+선택:        surface-3 fill + body bold
+             ※ 선택에 brand fill 금지 — 이 화면의 보라는 '모임 확정' 신호 전용 (§17.1 / D5)
+마커 점:      4pt (gap 4pt), 최대 3개. 순서 = 확정 모임 → 투표 중 → 개인 일정
+             확정 = brand-500 / 그 외 = text-tertiary
+             수업(에브리타임)은 마커에서 제외 — 매주 반복이라 달 전체가 균일해져 정보량 0.
+             수업은 선택일 목록에만 표시.
+마커 자리:    항상 확보(비어도 높이 유지) — 날짜 원이 위아래로 흔들리지 않게
+a11y:        셀 라벨이 건수·확정 여부를 말한다 (§12.6 색 단독 의존 금지)
+             "7월 6일 월요일, 일정 1건, 확정 모임 있음"
+월 전환:      그리드만 fade-in (duration-short, ease enter). 이동 범위 제한 없음(과거 열람)
+```
+
+선택일 목록(DayAgenda) 행: `시간(tabular) | 2pt 세로바 | 제목 + 부제 · 종류 칩`.
+종류는 아이콘이 아니라 **텍스트 칩**으로 구분 — `모임 · 확정` / `모임 · 투표 중` / `수업` / `내 일정`.
 
 ### 10.7. FAB (가운데 탭 모임 만들기)
 
@@ -659,8 +681,9 @@ export const tokens = {
     surface: { 0: '#FFFFFF', 1: '#FFFFFF', 2: '#F9FAFB', 3: '#F3F4F6' },
     border: { subtle: '#E5E7EB', strong: '#D1D5DB', focus: '#7C3AED' },
     text: { primary: '#111827', secondary: '#4B5563', tertiary: '#6B7280', /* ... */ },
-    heat: ['#F3F4F6', '#EDE9FE', '#C4B5FD', '#8B5CF6', '#7C3AED'],
+    heat: ['#F9FAFB', '#EDE9FE', '#C4B5FD', '#8B5CF6', '#7C3AED'],
     semantic: { success: { bg: '#ECFDF5', fg: '#047857', solid: '#10B981' } /* ... */ },
+    overlay: { scrim: 'rgba(0, 0, 0, 0.4)' }, // 시트/모달 backdrop (W0-8, dark=0.6)
   },
   dark: { /* ... */ },
   space: { 0: 0, px: 1, '0.5': 2, 1: 4, 2: 8, 3: 12, 4: 16, /* ... */ },
@@ -720,6 +743,8 @@ DESIGN.md 변경은 다음 절차를 따른다:
 | 2026-05-21 | 8pt 시각 셀 + 44pt hit area | WCAG 2.5.5 충족 + PRD의 sweep 제스처 보존. PRD §15.5의 "정확도 보완" 모호 표현을 사양화. |
 | 2026-05-21 | 히트맵 heat-0 = 중립 그레이 | 옅은 보라가 "본인 선택"과 충돌함. 본인 선택은 brand-50 + 보더, 히트맵 빈 슬롯은 surface-3. |
 | 2026-05-25 | §17 anti-AI-feel 원칙 추가 | 1차 베타 화면 회고: 토큰은 잘 잡혔지만 적용 화면에서 "AI 생성물 같다"는 피드백. 위계·반복 CTA·빈 placeholder·brand identity 부재가 주원인. §17에서 구체 안티패턴 6가지를 카탈로그화. |
+| 2026-07-28 | §10.6b 홈 월간 캘린더 spec 추가 ([D42](DECISIONS.md#d42--홈--나만의-캘린더-prd-51-복귀--수동-개인-일정-활성)) | 홈이 캘린더로 바뀌며 새 시각 결정 3건이 필요했다: (1) 선택 셀에 brand fill 금지 — 한 화면 brand fill 1개 규칙(§17.1) 아래 보라를 '확정'에만 남긴다. (2) 마커에서 수업 제외 — 매주 반복이라 점이 달 전체에 균일하게 깔려 정보량이 0이 된다. (3) 종류 구분을 아이콘이 아닌 텍스트 칩으로 — 아이콘 세트를 늘리지 않으면서 §12.6(색 단독 의존 금지)을 자동 충족. 신규 토큰 추가 0(기존 토큰 조합만). |
+| 2026-07-08 | `overlay` 토큰 추가 (W0-8) | 바텀시트·모달 backdrop `rgba(0,0,0,0.4)` 하드코딩 2곳+(ConfirmSlotSheet·PlaceActionSheet)을 토큰화. light `scrim`=0.4 / dark=0.6 흑(어두운 배경 위 시트 분리). UI 폴리시 플랜 승인에 포함. §15 절차 준수 — light/dark 검증 + tokens.test.ts 구조 parity·alpha<1 테스트 추가, 단순 토큰 추가(기존 값 변경 0). |
 
 ---
 

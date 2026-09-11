@@ -35,20 +35,22 @@
 ## 2. 데이터 모델 (Phase 1+2 schema)
 
 → 결정: [D3](DECISIONS.md#d3--phase-3-schema-설계-시점-옵션-b--partnerships-only) — `reservations`/`payments`/`payouts`는 Phase 3 진입 시 설계.
+→ 기능 관점 해설 (비전공자용): [DATA_MODEL_GUIDE.md](DATA_MODEL_GUIDE.md)
 
 | 테이블 | 핵심 컬럼 | 비고 |
 |---|---|---|
 | `users` | id, kakao_id, email (nullable), nickname, phone, created_at | [D29](DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede) OIDC. email은 Phase 3 비즈앱 등록 + `account_email` scope 후 채움 |
 | `friendships` | user_id, friend_id, created_at | |
 | `friend_requests` | from_user_id, to_user_id, status, created_at | |
-| `groups` | id, host_id, name, dates, **confirmed_at**, **confirmed_place_id (FK places)**, **f4_sent_at (timestamp nullable — D17)**, **invite_code (CHAR(4))** | f4_sent_at = push F4 idempotency. invite_code = 자체 attribution fallback ([D28](DECISIONS.md#d28--자체-deferred-deep-link-구축-attribution-saas-회피-도메인-구매-회피)) |
+| `groups` | id, host_id, name, dates, **confirmed_at**, **confirmed_place_id (FK places)**, **f4_sent_at (timestamp nullable — D17)**, **invite_code (CHAR(4))**, f5_sent_at, **calendar_pushed_at**, calendar_retry_count, partial_fail_list | f4_sent_at = push F4 idempotency. invite_code = 자체 attribution fallback ([D28](DECISIONS.md#d28--자체-deferred-deep-link-구축-attribution-saas-회피-도메인-구매-회피)). calendar_* = D20 background queue ([0009](../supabase/migrations/0009_calendar_push_queue.sql)) |
 | `group_members` | group_id, user_id, joined_at | |
 | `group_guests` | guest_token, group_id, nickname, **converted_user_id (FK users nullable)**, voted_at | Web 게스트 |
 | `group_invitations` | group_id, inviter_id, invitee_id, status | |
 | `votes` | id, group_id, user_id, **start_minute**, end_minute, day, created_at. CHECK `start_minute % 15 = 0` ([D14](DECISIONS.md#d14--시간-슬롯-단위-강제-15분--db-check-constraint)) | 15분 단위 슬롯 |
 | `time_slots` | (논리적, votes에서 집계) | 슬롯 자체 저장 X — votes만 |
-| `places` | id, kakao_place_id, name, lat, lng (WGS84 — [D18](DECISIONS.md#d18--좌표계-정규화-layer)), category, **partnership_id (FK nullable)** | |
-| `partnerships` | id, place_id, signed_at, status, contact_kakao_id, communication_log | Phase 1+2 read-only |
+| `places` | id, kakao_place_id, name, lat, lng (WGS84 — [D18](DECISIONS.md#d18--좌표계-정규화-layer)), category, **partnership_id (FK nullable)**, **source ('kakao'\|'naver')**, provider_place_id | source·provider_place_id는 [0021](../supabase/migrations/0021_places_provider.sql) |
+| `partnerships` | id, signed_at, status, contact_kakao_id, communication_log | Phase 1+2 read-only. FK 방향은 `places.partnership_id` (partnerships에 place_id 없음) |
+| `group_origins` | group_id, user_id (PK 복합), label, lat, lng | 중간지점용 멤버 출발지. 1인 1출발지, 탈퇴 시 트리거로 소거 ([0023](../supabase/migrations/0023_group_origins.sql), D41) |
 | `schedules` | id, user_id, **source** ('manual'\|'google'\|'apple_ios'\|'everytime' — [D15](DECISIONS.md#d15--schedulessource-enum--phase-12은-provider-구분-포기)), title, start_at (TIMESTAMPTZ — [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc)), end_at, recurrence_rule | apple_ios = multi-source bucket |
 | `comments` | id, group_id, user_id, content, created_at | 푸시 알림 발송 안 함 (의도적) |
 | `push_tokens` | user_id, token, platform, updated_at | |
@@ -56,6 +58,10 @@
 | `reports` | reporter_id, target_id, reason, created_at | 운영팀 카톡 manual |
 | `blocks` | blocker_id, blocked_id, created_at | [D16](DECISIONS.md#d16--차단신고-일관성-helper-function--rls) helper |
 | `branch_attributions` | branch_link_id (= short URL token), group_id, guest_token, **converted_user_id**, **converted_at**, **ip_hash**, **ua_hash**, **clicked_at** | 자체 deferred deep link ([D28](DECISIONS.md#d28--자체-deferred-deep-link-구축-attribution-saas-회피-도메인-구매-회피)). table 이름 prefix `branch_`는 cost 회피 위해 유지 (의미적으로 generic). ip_hash·ua_hash·clicked_at는 fingerprint 매칭용 추가 |
+| `click_events` | **event_id (클라 발급 UUID PK — idempotency)**, user_id, group_id, place_id, partnership_id (snapshot), segment_label ('P1'\|'P2' nullable), clicked_at | **Gate #2 single source of truth**. 더블 탭 → ON CONFLICT DO NOTHING ([0017](../supabase/migrations/0017_click_events.sql)) |
+| `user_oauth_tokens` | id, user_id, provider ('google_calendar'), access_token, refresh_token, expires_at, scope. UNIQUE (user_id, provider) | Google Calendar 서버 측 push용. INSERT는 `upsert_user_oauth_tokens` RPC only ([D35](DECISIONS.md#d35--google-calendar-oauth-token-서버-측-저장--user_oauth_tokens-table), [0012](../supabase/migrations/0012_user_oauth_tokens.sql)) |
+| `calendar_push_apple_pending` | id, group_id, user_id, payload (JSONB), **completed_at (NULL = pending)**. UNIQUE (group_id, user_id) | Apple은 서버 push 불가 → 클라 foreground polling ([D34](DECISIONS.md#d34--apple-calendar-sync--클라-polling-패턴-q-b22-close), [0013](../supabase/migrations/0013_calendar_push_apple_pending.sql)). pending ≠ failure |
+| `users` (추가 컬럼) | **calendar_preference** ('google'\|'apple_ios'\|'both'\|'none'\|NULL) | 캘린더 연동 선택. worker가 'google'\|'both'만 SELECT ([0011](../supabase/migrations/0011_users_calendar_preference.sql)) |
 
 **Phase 3 migration (Gate 통과 시):**
 ```
@@ -137,7 +143,8 @@ session JWT 발급 + 클라이언트 SecureStore 저장
 
 ### 3.2. Kakao Local API (장소 검색)
 
-→ 의존: [Q-A2](OPEN_QUESTIONS.md#q-a2--kakao-local-api-약관-외부-지도-sdk-위-표시) (D1)
+→ [Q-A2](OPEN_QUESTIONS.md#q-a2--kakao-local-api-약관-외부-지도-sdk-위-표시) ✅ 허용 (Closed by [D37](DECISIONS.md#d37--q-a2-카카오-local-api-약관-허용-답변-수신--kakaolocalprovider-평가-트랙), 2026-06-01) — 현 primary는 D36 NaverSearchProvider, KakaoLocalProvider 평가 트랙
+> ⚠️ proxy 충돌 정리됨([Q-B8](OPEN_QUESTIONS.md#q-b8--카카오-local-api-server-proxy-도입-여부) 참조): **key-secrecy proxy는 rule 7로 강제**(Kakao Local REST key = Edge only) → Kakao Local은 `kakao_local_search` Edge proxy 경유 필수(Naver `naver_local_search`와 동형). 아래 D26 "client debounce"·Q-B8 "cost-proxy 미도입"은 throttling/비용 proxy 얘기로 key 경로와 별개. D37 결과영향 #2 참조.
 
 - 모든 호출에 `?x={lng}&y={lat}` (WGS84) 명시 — [D18](DECISIONS.md#d18--좌표계-정규화-layer)
 - `coords/normalize.ts` 단일 진입점 통과

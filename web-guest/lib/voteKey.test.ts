@@ -1,10 +1,4 @@
-import {
-  voteKey,
-  parseVoteKey,
-  voteSetFromSlots,
-  diffVoteSets,
-  type VoteSlot,
-} from './voteKey';
+import { voteKey, parseVoteKey, voteSetFromSlots, diffVoteSets, type VoteSlot } from './voteKey';
 
 describe('voteKey — slot 직렬화 (RN src/lib/votes/voteSet.ts mirror)', () => {
   it('day:start_minute 형식', () => {

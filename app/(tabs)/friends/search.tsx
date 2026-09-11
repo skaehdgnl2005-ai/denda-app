@@ -1,28 +1,31 @@
-import React, { useEffect, useState } from 'react';
-import {
-  FlatList,
-  Pressable,
-  StyleSheet,
-  TextInput,
-  View,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/design/theme';
+import { rowPressBg } from '@/design/press';
 import { Body, Caption, Title } from '@/design/typography';
 import { Icon } from '@/components/Icon';
+import { ScreenHeader } from '@/components/ScreenHeader';
+import { SearchField } from '@/components/SearchField';
+import { Skeleton } from '@/components/Skeleton';
+import { useToast } from '@/components/Toast';
 import { FriendUser, friendsApi } from '@/lib/friends/api';
+import { mapError, messages } from '@/lib/i18n/messages';
+import { useKakaoInvite } from '@/lib/share/useKakaoInvite';
 
 export default function FriendsSearchScreen() {
   const { colors, space, radius } = useTheme();
   const router = useRouter();
+  const { show: showToast } = useToast();
+  const handleInvite = useKakaoInvite();
 
   const [query, setQuery] = useState<string>('');
   const [debouncedQuery, setDebouncedQuery] = useState<string>('');
   const [results, setResults] = useState<FriendUser[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  // W2-10 — pull-to-refresh는 loading(스켈레톤 전체 교체)과 분리. 목록을 유지한 채 재검색.
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [sentUserIds, setSentUserIds] = useState<string[]>([]);
 
   // Debounce search query input (300ms)
@@ -36,37 +39,54 @@ export default function FriendsSearchScreen() {
     };
   }, [query]);
 
-  // Execute search when debounced query changes
-  useEffect(() => {
-    const performSearch = async () => {
+  // 검색 실행 본체 — refresh=true면 스켈레톤(loading) 대신 refreshing으로 목록 유지 재검색.
+  const runSearch = useCallback(
+    async (refresh = false) => {
       const trimmed = debouncedQuery.trim();
       if (!trimmed) {
         setResults([]);
         return;
       }
-      setLoading(true);
+      const setBusy = refresh ? setRefreshing : setLoading;
+      setBusy(true);
       try {
         const searchResults = await friendsApi.search(trimmed);
         setResults(searchResults);
       } catch (e) {
         console.error(e);
-        Alert.alert('오류', '검색에 실패했습니다.');
+        const { silent, message } = mapError(e);
+        if (!silent) showToast({ message, variant: 'error' });
       } finally {
-        setLoading(false);
+        setBusy(false);
       }
-    };
+    },
+    [debouncedQuery, showToast],
+  );
 
-    performSearch();
-  }, [debouncedQuery]);
+  // Execute search when debounced query changes
+  useEffect(() => {
+    // 빈 검색어일 때 결과 초기화(setResults) 동기 호출은 의도 — 디바운스 후 1회
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    runSearch();
+  }, [runSearch]);
 
+  const onRefresh = useCallback(() => runSearch(true), [runSearch]);
+
+  // W2-10 — in-flight 잠금: 응답 전 더블탭이 sendRequest를 2번 호출하지 않도록 가드.
+  const sendingRef = useRef<Set<string>>(new Set());
   const handleSendRequest = async (userId: string) => {
+    if (sendingRef.current.has(userId) || sentUserIds.includes(userId)) return;
+    sendingRef.current.add(userId);
     try {
       await friendsApi.sendRequest(userId);
       setSentUserIds((prev) => [...prev, userId]);
-      Alert.alert('알림', '친구 요청을 보냈습니다.');
+      showToast({ message: messages.success.requestSent, variant: 'success' });
     } catch (e) {
       console.error(e);
-      Alert.alert('오류', '친구 요청을 보내지 못했습니다.');
+      const { silent, message } = mapError(e);
+      if (!silent) showToast({ message, variant: 'error' });
+    } finally {
+      sendingRef.current.delete(userId);
     }
   };
 
@@ -114,6 +134,8 @@ export default function FriendsSearchScreen() {
           disabled={isSent}
           accessibilityRole="button"
           accessibilityLabel={isSent ? '친구 요청 보냄' : `${item.nickname}님께 친구 요청 보내기`}
+          // 버튼 시각 높이 ~36pt → 44pt 터치 타깃 위해 hitSlop 보정 (W3-3, §12.1)
+          hitSlop={{ top: 6, bottom: 6, left: 8, right: 8 }}
           style={({ pressed }) => [
             styles.requestButton,
             {
@@ -128,10 +150,7 @@ export default function FriendsSearchScreen() {
           ]}
           testID="send-request-button"
         >
-          <Body
-            variant="sm-bold"
-            color={isSent ? colors.text.disabled : colors.brand[500]}
-          >
+          <Body variant="sm-bold" color={isSent ? colors.text.disabled : colors.brand[500]}>
             {isSent ? '요청 보냄' : '친구 요청'}
           </Body>
         </Pressable>
@@ -165,12 +184,38 @@ export default function FriendsSearchScreen() {
       >
         닉네임을 다시 확인하거나{'\n'}카톡 친구를 초대해보세요.
       </Body>
+      {/* W2-10 — 막다른 빈 상태 탈출구: §11.2 3요소 완성용 CTA */}
+      <Pressable
+        onPress={handleInvite}
+        accessibilityRole="button"
+        accessibilityLabel="카카오톡으로 친구 초대"
+        testID="search-empty-invite"
+        style={({ pressed }) => ({
+          marginTop: space[4],
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: pressed ? colors.surface[3] : colors.surface[2],
+          borderColor: colors.border.subtle,
+          borderWidth: 1,
+          borderRadius: radius.md,
+          paddingHorizontal: space[4],
+          paddingVertical: space[3],
+        })}
+      >
+        <Icon name="카톡 공유" color={colors.text.secondary} size={18} />
+        <Body variant="sm-bold" color={colors.text.primary} style={{ marginLeft: space[2] }}>
+          카톡으로 초대
+        </Body>
+      </Pressable>
     </View>
   );
 
   // 검색어 없을 때 — 친구 초대 entry point 제공 (피드백 P1 7)
   const renderInitialEmptyState = () => (
-    <View style={[styles.initialEmpty, { paddingHorizontal: space[4] }]} testID="search-initial-state">
+    <View
+      style={[styles.initialEmpty, { paddingHorizontal: space[4] }]}
+      testID="search-initial-state"
+    >
       <Caption
         variant="micro"
         color={colors.text.tertiary}
@@ -179,13 +224,11 @@ export default function FriendsSearchScreen() {
         친구를 더 빠르게 찾는 방법
       </Caption>
       <Pressable
-        onPress={() => {
-          /* TODO S07-카톡 초대 — 카카오 공유 SDK 연동 */
-        }}
+        onPress={handleInvite}
         accessibilityRole="button"
         accessibilityLabel="카카오톡으로 친구 초대"
         style={({ pressed }) => ({
-          backgroundColor: colors.surface[2],
+          backgroundColor: rowPressBg(pressed, colors, colors.surface[2]),
           borderColor: colors.border.subtle,
           borderWidth: 1,
           borderRadius: radius.lg,
@@ -193,7 +236,6 @@ export default function FriendsSearchScreen() {
           paddingVertical: space[4],
           flexDirection: 'row',
           alignItems: 'center',
-          opacity: pressed ? 0.7 : 1,
         })}
         testID="kakao-invite-card"
       >
@@ -214,7 +256,11 @@ export default function FriendsSearchScreen() {
           <Body variant="bold" color={colors.text.primary}>
             카톡으로 친구 초대
           </Body>
-          <Caption variant="default" color={colors.text.tertiary} style={{ marginTop: 2 }}>
+          <Caption
+            variant="default"
+            color={colors.text.tertiary}
+            style={{ marginTop: space['0.5'] }}
+          >
             카카오톡 친구에게 초대 링크를 보내요.
           </Caption>
         </View>
@@ -233,57 +279,27 @@ export default function FriendsSearchScreen() {
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.surface[0] }]}>
-      {/* Top Header */}
-      <View style={[styles.header, { paddingHorizontal: space[4], paddingVertical: space[3] }]}>
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          accessibilityRole="button"
-          accessibilityLabel="이전 화면으로 돌아가기"
-          style={styles.backButton}
-          testID="search-back-button"
-        >
-          <Icon name="뒤로" color={colors.text.primary} size={24} />
-        </Pressable>
-        <Title level="h2" color={colors.text.primary} style={styles.headerTitle}>
-          친구 검색
-        </Title>
-        <View style={styles.backButtonPlaceholder} />
-      </View>
+      <ScreenHeader title="친구 검색" onBack={() => router.back()} />
 
       {/* Input Section */}
-      <View style={[styles.inputContainer, { paddingHorizontal: space[4], paddingBottom: space[3] }]}>
-        <View
-          style={[
-            styles.inputWrapper,
-            {
-              backgroundColor: colors.surface[2],
-              borderRadius: radius.md,
-              borderColor: colors.border.strong,
-            },
-          ]}
-        >
-          <View style={[styles.searchIconWrapper, { marginLeft: space[3] }]}>
-            <Icon name="검색" color={colors.text.secondary} size={20} />
-          </View>
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="친구 닉네임을 입력해요"
-            placeholderTextColor={colors.text.disabled}
-            autoCapitalize="none"
-            autoCorrect={false}
-            style={[styles.input, { color: colors.text.primary, paddingRight: space[3] }]}
-            accessibilityLabel="친구 닉네임 검색 입력창"
-            testID="search-input-field"
-          />
-        </View>
+      <View
+        style={[styles.inputContainer, { paddingHorizontal: space[4], paddingBottom: space[3] }]}
+      >
+        <SearchField
+          value={query}
+          onChangeText={setQuery}
+          placeholder="친구 닉네임을 입력해요"
+          accessibilityLabel="친구 닉네임 검색 입력창"
+          testID="search-input-field"
+        />
       </View>
 
-      {/* Results Section */}
+      {/* Results Section — 로딩=Skeleton(§11.1 스피너 스펙 준수) */}
       {loading ? (
-        <View style={styles.loadingContainer} testID="search-loading-indicator">
-          <ActivityIndicator color={colors.brand[500]} size="large" />
+        <View testID="search-loading" style={{ paddingHorizontal: space[4], paddingTop: space[2] }}>
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} height={72} style={{ marginBottom: space[3] }} />
+          ))}
         </View>
       ) : debouncedQuery.trim() ? (
         <FlatList
@@ -298,6 +314,14 @@ export default function FriendsSearchScreen() {
               flexGrow: 1,
             },
           ]}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.brand[500]}
+              colors={[colors.brand[500]]}
+            />
+          }
           ListEmptyComponent={renderNoResults}
           testID="search-results-list"
         />
@@ -311,24 +335,6 @@ export default function FriendsSearchScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    flex: 1,
-    textAlign: 'center',
-  },
-  backButtonPlaceholder: {
-    width: 44,
   },
   inputContainer: {
     width: '100%',
@@ -347,11 +353,6 @@ const styles = StyleSheet.create({
     height: '100%',
     fontSize: 16,
     fontFamily: 'PretendardVariable',
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   listContent: {
     paddingBottom: 24,

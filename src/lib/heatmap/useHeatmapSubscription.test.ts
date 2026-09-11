@@ -241,6 +241,153 @@ describe('useHeatmapSubscription — D11 Realtime broadcast hook', () => {
     expect(mockSupabase.channel).toHaveBeenCalledWith('group:g2');
   });
 
+  describe('초기 스냅샷 (C1 — 진입 시 타인 투표 즉시 표시)', () => {
+    test('SUBSCRIBED 시 requestSnapshot 1회 호출 + 응답 payload를 cells에 적용', async () => {
+      const requestSnapshot = jest.fn().mockResolvedValue({
+        slots: [{ day_index: 1, start_minute: 555, count: 3 }],
+        updated_at: '2026-07-25T12:00:00+09:00',
+      });
+      const { result } = renderHook(() =>
+        useHeatmapSubscription({
+          groupId: 'g1',
+          selfMarks: new Set(),
+          maxCount: 7,
+          requestSnapshot,
+        }),
+      );
+      const ch = channelRegistry['group:g1'];
+
+      await act(async () => {
+        ch?.emitStatus('SUBSCRIBED');
+      });
+
+      expect(requestSnapshot).toHaveBeenCalledTimes(1);
+      // row = (555-540)/15 = 1, col = 1 — broadcast 없이도 진입 즉시 타인 투표 표시
+      expect(result.current.cells[1]?.[1]).toEqual({ state: 'heat-2', count: 3 });
+    });
+
+    test('재연결(두 번째 SUBSCRIBED) 시에도 스냅샷 재요청 (단절 중 변경 복구)', async () => {
+      const requestSnapshot = jest.fn().mockResolvedValue(null);
+      renderHook(() =>
+        useHeatmapSubscription({
+          groupId: 'g1',
+          selfMarks: new Set(),
+          maxCount: 7,
+          requestSnapshot,
+        }),
+      );
+      const ch = channelRegistry['group:g1'];
+
+      await act(async () => {
+        ch?.emitStatus('SUBSCRIBED');
+      });
+      await act(async () => {
+        ch?.emitStatus('CHANNEL_ERROR');
+      });
+      await act(async () => {
+        ch?.emitStatus('SUBSCRIBED');
+      });
+
+      expect(requestSnapshot).toHaveBeenCalledTimes(2);
+    });
+
+    test('requestSnapshot 실패는 무해 (broadcast 경로로 계속 동작)', async () => {
+      const requestSnapshot = jest.fn().mockRejectedValue(new Error('edge 미배포'));
+      const { result } = renderHook(() =>
+        useHeatmapSubscription({
+          groupId: 'g1',
+          selfMarks: new Set(),
+          maxCount: 7,
+          requestSnapshot,
+        }),
+      );
+      const ch = channelRegistry['group:g1'];
+
+      await act(async () => {
+        ch?.emitStatus('SUBSCRIBED');
+      });
+      act(() => {
+        ch?.emit({
+          slots: [{ day_index: 0, start_minute: 540, count: 2 }],
+          updated_at: '2026-07-25T12:00:00+09:00',
+        });
+      });
+      expect(result.current.cells[0]?.[0]).toEqual({ state: 'heat-2', count: 2 });
+    });
+  });
+
+  describe('polling 실 fetch (C2 — 단절 후 히트맵 동결 방지)', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    test('polling 진입 시 즉시 + 주기적으로 requestSnapshot 호출·적용', async () => {
+      const requestSnapshot = jest.fn().mockResolvedValue({
+        slots: [{ day_index: 0, start_minute: 540, count: 5 }],
+        updated_at: '2026-07-25T12:00:00+09:00',
+      });
+      const { result } = renderHook(() =>
+        useHeatmapSubscription({
+          groupId: 'g1',
+          selfMarks: new Set(),
+          maxCount: 7,
+          disconnectTimeoutMs: 5000,
+          pollIntervalMs: 10000,
+          requestSnapshot,
+        }),
+      );
+      const ch = channelRegistry['group:g1'];
+
+      act(() => {
+        ch?.emitStatus('CHANNEL_ERROR');
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(5000); // → polling 진입 + 즉시 1회
+      });
+      expect(requestSnapshot).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        jest.advanceTimersByTime(10000); // 주기 fetch
+      });
+      expect(requestSnapshot).toHaveBeenCalledTimes(2);
+      expect(result.current.cells[0]?.[0]).toEqual({ state: 'heat-3', count: 5 });
+    });
+
+    test('polling 중 SUBSCRIBED 복구 → 주기 fetch 중단', async () => {
+      const requestSnapshot = jest.fn().mockResolvedValue(null);
+      renderHook(() =>
+        useHeatmapSubscription({
+          groupId: 'g1',
+          selfMarks: new Set(),
+          maxCount: 7,
+          disconnectTimeoutMs: 5000,
+          pollIntervalMs: 10000,
+          requestSnapshot,
+        }),
+      );
+      const ch = channelRegistry['group:g1'];
+
+      act(() => {
+        ch?.emitStatus('CHANNEL_ERROR');
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(5000);
+      });
+      const callsInPolling = requestSnapshot.mock.calls.length;
+
+      await act(async () => {
+        ch?.emitStatus('SUBSCRIBED'); // 복구 (스냅샷 1회 동반)
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(30000); // 주기 fetch는 더 이상 없어야 함
+      });
+      expect(requestSnapshot.mock.calls.length).toBe(callsInPolling + 1);
+    });
+  });
+
   describe('30s polling state machine (DESIGN §11.4)', () => {
     beforeEach(() => {
       jest.useFakeTimers();

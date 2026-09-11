@@ -1,0 +1,63 @@
+# Maestro E2E — 장소 확정 + "예약하기" Click-through.
+# **Gate #2 (Phase 3 commit 단일 게이트) 측정의 단일 source of truth E2E.**
+# 흐름: 시간 확정된 모임 → "장소 정하기" → 검색·선택 → 확정 → "예약하기" 탭 → click_events 1회 INSERT.
+# 사전 조건: groups.confirmed_at NOT NULL (시간 확정 완료) + 호스트 계정.
+# 검증: G2 ([D17] mirror — 더블 탭 idempotent로 click_events.event_id PK ON CONFLICT 통과).
+
+appId: com.denda.app
+---
+- launchApp
+
+# 1. 홈 → 모임 진입 (시간 확정된 모임)
+- assertVisible:
+    text: "다가오는 모임"
+    timeout: 8000
+- tapOn:
+    id: "my-group-.*"
+
+# 2. 그리드 화면 — 확정 시간 카드 노출 + "장소 정하기" 버튼 (호스트)
+- assertVisible:
+    id: "confirmed-time-card"
+    timeout: 8000
+- assertVisible:
+    id: "place-pick-button"
+- tapOn:
+    id: "place-pick-button"
+
+# 3. place-search 화면 진입 + 검색
+- assertVisible:
+    text: "장소 검색"
+    timeout: 5000
+
+# 검색어 입력 (place-search.tsx의 검색 input testID — 화면 본체 변경 시 조정)
+- tapOn:
+    id: "place-search-input"
+- inputText: "강남역 술집"
+
+# 결과 첫 항목 탭
+- tapOn:
+    id: "map-result-card"
+
+# Alert 확인 단계 "○○으로 정할까요?" → "확정"
+- tapOn: "확정"
+
+# 4. place.tsx 진입 — PlaceActionSheet 등장
+- assertVisible:
+    id: "place-action-sheet"
+    timeout: 8000
+- assertVisible:
+    id: "phase12-notice"
+
+# 5. "예약하기" 탭 → click_log idempotent (Gate #2 측정 이벤트)
+- tapOn:
+    id: "reservation-cta"
+
+# 더블 탭 idempotency 검증 (event_id PK + UI inflight busy)
+- tapOn:
+    id: "reservation-cta"
+
+# 5-1. (옵션) "장소만 정하기" 탭 → 카톡 share sheet (S08-ui kakaoShare)
+# - tapOn:
+#     id: "share-cta"
+
+# 6. 진입 후 Supabase에서 click_events SELECT로 단일 row 검증 (별도 dashboard / SQL)

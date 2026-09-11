@@ -8,11 +8,11 @@
 
 ## 진행 현황 요약
 
-- **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** (queue-foundation + worker-integration + google-oauth + migration-0011 + apple-expo-calendar + worker-google-integration + worker-apple-trigger + setup + applesync-hook + ui-first-time-modal + ui-reauth-modal + applesync-wireup) DONE 2026-05-26 + **S14-e2e-residual** + **S14-cross-day-sweep** sub-task (DONE 2026-05-26) + **Q-B22** + **D34** + **D35** 신규
-- **DONE**: 7 (S00, S01, S03, S04, S06, S07, S14) + S05 acceptance 7/7 (S05e 운영 task)
-- **IN_PROGRESS**: 1 (S05 — S05e 60fps 부하 실기기 잔여)
-- **TODO**: 8
-- **BLOCKED**: 1 (S10 — D1 지도 부분 답변 대기)
+- **총 17 태스크** (S00 ~ S16) + **S05-screen-confirm** + **S06 sub-task 12/12** + **S14 sub-task 다수** + **fail-cleanup** (2026-05-26) + **S15-deeplink-schema** (2026-05-26) + **S12-backend-f1-f4 + S12-publishers-f4 + S12-client** (2026-05-26) + **S08-backend** (2026-05-26) + **S08-ui** (2026-05-27 — S08 정식 DONE) + **S15-deeplink 잔여 5 sub-task** (2026-05-27 — edge + web + rn-fallback + rn-conversion + deeplink. S15-deeplink 정식 DONE) + **Q-B22** + **D34** + **D35** 신규
+- **DONE**: 12 + **Lane E S18·S19·S20·S21·S22·S23·S24** (S00, S01, S03, S04, S06, S07, S08, S11, S12, S14, S15-deeplink, **S18·S19·S20·S21·S22·S23·S24 2026-05-28** = 여정 척추 7/7 완성) + S05 acceptance 7/7 (S05e 운영 task)
+- **IN_PROGRESS**: 5 (S05 — S05e 60fps 부하 실기기 잔여 / S16 — map 검색 provider 레이어 완성 PARTIAL, AppleAuthProvider Phase 3 deferred / S13 — EAS skeleton 완성[설정·계측·manifest·runbook], 인증서·실기기 측정 운영 트랙 / S10 — 데이터·로직 레이어 완성[coords·cache·filter·clustering·hook·scaffold 2026-05-28], native Naver Maps SDK 렌더·마커 PNG는 EAS 운영 트랙 / **S15-mapmode — 데이터·로직 레이어 완성[scheduleMapPoint·polyline·timeRangeFilter·groupScheduleQueries·MapViewMode 2026-05-28], 캘린더 토글·native MapView mode 분기 렌더·폴리라인 native 그리기는 EAS 운영 트랙**)
+- **TODO**: 1 (S17. **Lane E** **S18·S19·S20·S21·S22·S23·S24 모두 DONE 2026-05-28** = 여정 척추 7/7 완성. 트랙 1(생성→리스트→장소 확정+Gate #1·#2 측정) + 트랙 2(친구 실DB→인앱 초대/합류→F1/F2/F3 publisher) + 트랙 3(부차 dead-end 정리). S10 native 없이 게이트 성립)
+- **BLOCKED**: 0 (S10·S16 D1 no-answer 액션 발동[D36]으로 정책 블록 해소)
 
 상세 burn-down은 [PROGRESS.md](PROGRESS.md) 참조.
 
@@ -158,6 +158,7 @@
   - ⏸️ 운영팀 카톡 채널 자동 통지 — [D32](DECISIONS.md#d32--베타-신고--reports-db-only-운영-통지-채널-deferred) deferred (Sprint 0 #11 prereq). 베타는 founder weekly manual review (Supabase dashboard SELECT reports)
 - **Files**: `src/screens/friends/`, `app/(tabs)/friends/`, `src/lib/reports/`, `src/lib/blocks/`, `supabase/functions/_lib/blocking.ts`, `supabase/migrations/0005_group_invitations_blocking.sql`, `supabase/migrations/0007_d16_propagation_audit.sql`, `supabase/migrations/0008_block_user_rpc.sql`
 - **Worktree 분기**: 가능 (S07-backend PR #2 머지 완료 2026-05-26 commit 569940a, S07-d16-audit/S07-report/S07-block-supabase는 main 위 격리 진행 완료)
+- **Notes**: 친구 클라 API(`src/lib/friends/api.ts`)는 본 S07 turn에서 mock array UI 데모로 close → **S21(2026-05-28)에서 supabase 전면 교체** (accept_friend_request RPC 0019 포함). S07 acceptance는 그대로 DONE 유지, S21으로 자연 self-close
 
 ---
 
@@ -165,47 +166,87 @@
 
 ### S10 — 지도 + 카카오 Local API
 
-- **Status**: BLOCKED (Q-A2) | **Owner**: Mobile + Backend | **Sprint**: 2 | **Lane**: B
-- **Depends**: S00 (places, partnerships), D1 W1 deadline, D18 (좌표 정규화), D26 (debounce + cache)
+- **Status**: IN_PROGRESS (2026-05-28 데이터·로직 레이어 ✅ — coords/normalize D18 + viewportCache D26 + filter + clustering + useMapSearch + map.tsx scaffold. native Naver Maps SDK 렌더·제휴 마커 PNG·실기기 검증은 EAS Build 운영 트랙 deferred) | **Owner**: Mobile + Backend | **Sprint**: 2 | **Lane**: B
+- **Depends**: S00 (places, partnerships), ~~D1 W1 deadline~~ (D36으로 해소), D18 (좌표 정규화), D26 (debounce + cache), **S16 NaverSearchProvider ✅** (장소 검색 데이터 소스 ready — `src/lib/places/NaverSearchProvider.ts` + Edge `naver_local_search`), S13 (Naver Maps SDK native 모듈은 EAS Build)
 - **Acceptance**:
-  - `@mj-studio/react-native-naver-map` 통합
-  - 카카오 Local API client (`coords/normalize.ts` 통과, WGS84 명시)
-  - 카테고리 필터 + 반경 조절
-  - Viewport 이동 300-500ms debounce + 5분 격자 캐싱
-  - 클러스터링 (네이버 SDK API 검증 → 없으면 `react-native-supercluster`)
-  - 제휴 마커 강조 (PNG 1.5x/2x/3x — Q-B13)
-  - Rate limit fallback ("잠시 후 다시")
-  - `PlaceSearchProvider` interface 추상화 (S16 fallback 대비)
-- **Files**: `src/screens/map/`, `src/lib/places/KakaoLocalProvider.ts`, `src/lib/places/PlaceSearchProvider.ts`, `src/lib/coords/normalize.ts`
+  - ⏸️ `@mj-studio/react-native-naver-map` 통합 — **EAS Build 운영 트랙** (native 모듈)
+  - ✅ 좌표 정규화 client (`coords/normalize.ts` WGS84 단일 진입점 + `toKakaoXY` x=lng/y=lat — 카카오 unblock 대비. 현재 검색은 네이버 fallback D36)
+  - ✅ 카테고리 필터 + 반경 조절 — `placeFilter.ts` (substring 카테고리 + haversine 반경)
+  - ✅ Viewport 이동 300-500ms debounce + 5분 격자 캐싱 — `viewportCache.ts`(D26) + `useMapSearch.ts`(debounce 400ms)
+  - ✅ 클러스터링 (순수 Layer 1 `clustering.ts` — 네이버 SDK 클러스터 API 유무는 EAS 후 확인, 없으면 본 격자 클러스터 사용)
+  - ⏸️ 제휴 마커 강조 (PNG 1.5x/2x/3x — Q-B13) — **EAS Build 운영 트랙** (네이티브 마커 + 디자인 자산)
+  - ✅ Rate limit fallback ("잠시 후 다시") — Edge `naver_local_search` 429 + `useMapSearch` error 전파 + map.tsx error state (데이터 경로 ready)
+  - ✅ `PlaceSearchProvider` interface 추상화 (S16 fallback 대비) — S16에서 완성
+- **Files**: ✅ `src/lib/coords/normalize.ts`, ✅ `src/lib/coords/distance.ts`, ✅ `src/lib/places/{viewportCache,placeFilter,clustering,useMapSearch}.ts`, ✅ `src/lib/places/PlaceSearchProvider.ts`(S16), ✅ `app/(tabs)/map.tsx` / ⏸️ native MapView 렌더 + `KakaoLocalProvider.ts`(카카오 unblock 시)
 - **Worktree 분기**: 가능 (Lane A와 독립)
+- **Notes**: 네이티브 트랙 unblock 시 — `<NaverMapView>` 렌더(map.tsx 리스트 자리 교체) + 결과를 `clusterByGrid`로 마커 + 제휴 마커 PNG + `isNightModeEnabled`(S11) + 마커 onPress → `/group/[id]/place`(S08 1줄 wire) + viewport onChange → useMapSearch
 
 ### S08 — "예약하기" Click-through 측정
 
-- **Status**: TODO | **Owner**: Mobile + Backend | **Sprint**: 3 | **Lane**: B
-- **Depends**: S10 (마커 인터랙션), Q-A4 (baseline 측정 design)
-- **Acceptance**:
-  - 마커 탭 → 바텀시트 (DESIGN §10.3)
-  - "예약하기" 버튼: click event 로깅 (idempotent — 더블 탭 1 event)
-  - "장소만 정하기" 버튼: 카톡 공유
-  - "Phase 1+2: 준비 중" 안내 또는 silent (founder 선택)
-  - Click 이벤트 schema: `event_id`, `user_id`, `group_id`, `place_id`, `partnership_id`, `clicked_at`, `segment_label` (P1/P2)
-  - **Gate #2 측정의 단일 source of truth** (G2 참조)
-- **Files**: `src/screens/group/[id]/place.tsx`, `src/lib/analytics/click_through.ts`, `supabase/functions/click_log/`
+- **Status**: DONE (2026-05-27, sub-task 2/2 누적: S08-backend ✅ 2026-05-26 + S08-ui ✅ 2026-05-27. 마커 trigger는 S10 unblock 후 wire-up only) | **Owner**: Mobile + Backend | **Sprint**: 3 | **Lane**: B
+- **Depends**: S00 ✅ (places·groups·partnerships schema), [G2](DECISIONS.md#g2--gate-2-장소-확정--예약하기-click-through--가장-critical), Q-A4 (baseline 측정 design — segment_label nullable로 schema 확보, Q-A4 closure 시 채움), DESIGN §10.3, §17
+- **Acceptance** (6/6 close):
+  - ✅ 마커 탭 → 바텀시트 (DESIGN §10.3) — `src/components/place/PlaceActionSheet.tsx` standalone component (마커 onPress → router.push로 trigger. S10 unblock 후 wire-up 1줄)
+  - ✅ "예약하기" 버튼 click event 로깅 (idempotent — 더블 탭 1 event): `logReservationClick` + Edge `click_log` event_id PK + ON CONFLICT DO NOTHING + UI inflight busy state (2-layer 방어)
+  - ✅ "장소만 정하기" 버튼: 카톡 공유 — `src/lib/share/kakaoShare.ts` `sharePlaceToKakao` + RN core Share API (시스템 share sheet → 카톡 선택)
+  - ✅ "Phase 1+2: 준비 중" 안내 — info chip "예약 기능은 준비 중이에요. 지금은 식당 정보만 공유할 수 있어요." (auto mode 자체 결정, Q-B12 founder review 시 1줄 fix)
+  - ✅ Click 이벤트 schema: `event_id`, `user_id`, `group_id`, `place_id`, `partnership_id`, `clicked_at`, `segment_label` (P1/P2) — migration 0017_click_events.sql
+  - ✅ **Gate #2 측정의 단일 source of truth** (G2 참조) — click_events table + 6 indexes + RLS
+- **Files**: `supabase/migrations/0017_click_events.sql` ✅, `supabase/functions/click_log/{index,_test}.ts` ✅, `src/lib/analytics/click_through.{ts,test.ts}` ✅, `src/lib/share/kakaoShare.{ts,test.ts}` ✅, `src/lib/places/queries.{ts,test.ts}` ✅, `src/components/place/PlaceActionSheet.{tsx,test.tsx}` ✅, `app/group/[id]/place.tsx` ✅, `tests/screens/group/place.test.tsx` ✅
+- **Sub-task 분해**:
+  - ✅ S08-backend (2026-05-26): migration 0017 + Edge Function click_log + RN analytics lib
+  - ✅ S08-ui (2026-05-27): kakaoShare lib + PlaceActionSheet (DESIGN §10.3, info chip "예약 준비 중") + places.queries + app/group/[id]/place.tsx route
+- **Notes**: 마커 trigger는 S10 unblock 시점 `<Marker onPress={() => router.push(`/group/${groupId}/place?placeId=${placeId}`)} />` 1줄 wire-up만 필요. 본 acceptance "마커 탭 → 바텀시트"는 sheet+screen 모두 standalone ready로 close. URL 직접 진입(dev/QA)도 동작
 
 ### S15 — "지도로 내 일정 보기" 모드
 
-- **Status**: TODO | **Owner**: Mobile | **Sprint**: 4 | **Lane**: B
-- **Depends**: S10 (지도 + 마커), S00 (schedules, groups)
+- **Status**: IN_PROGRESS (2026-05-28 데이터·로직 + 캘린더 UI 토글 ✅ — scheduleMapPoint + polyline DESIGN §10.5 + timeRangeFilter D13 KST + groupScheduleQueries + MapViewMode 타입 + `app/schedule/map.tsx` 캘린더 진입 화면[리스트/지도 토글, 시간 범위 chip, SDK 의존 0]. native MapView mode 분기 렌더·폴리라인 native 그리기는 EAS Build 운영 트랙 deferred — Naver Maps Client ID 발급 prereq) | **Owner**: Mobile | **Sprint**: 4 | **Lane**: B
+- **Depends**: S10 (지도 + 마커, IN_PROGRESS 동일 — 데이터·로직 ✅ / native EAS), S00 ✅ (schedules, groups, places), DESIGN §10.5 (폴리라인 spec)
 - **Acceptance**:
-  - 캘린더에서 토글 진입
-  - `<MapView mode="search" | "schedule">` 분기 (mode 전환 시 마커 set 교체 + 폴리라인 toggle)
-  - 모임 일정 좌표 표시 (Google·Apple 일정 좌표 차기 — Q-C6)
-  - 시간순 ①②③ 숫자 배지 (DESIGN §10.5)
-  - 보라 #7C3AED 점선 폴리라인
-  - 5+ 마커 자동 숨김 (가장 가까운 두 점만)
-  - 시간 범위 선택
-- **Files**: `src/screens/map/schedule_mode.tsx`
-- **Notes**: D2에서 founder가 keep. P5 (B standalone 외부 확장) 검증 가치
+  - ✅ 캘린더에서 토글 진입 — 홈 "다가오는 모임" 헤더 "지도로 보기" 버튼 → `app/schedule/map.tsx`(리스트/지도 토글)
+  - ✅ `<MapView mode="search" | "schedule">` 분기 (mode 전환 시 마커 set 교체 + 폴리라인 toggle) — viewMode state 분기 close(`app/schedule/map.tsx`), 타입 alias `src/lib/places/MapViewMode.ts`. native MapView 렌더 자체는 EAS Build 운영 트랙(placeholder 자리)
+  - ✅ 모임 일정 좌표 표시 — `groupScheduleQueries.fetchConfirmedGroupSchedules` (groups + places JOIN, confirmed_at·start_at·place_id NOT NULL 필터, RLS 자연 차단)
+  - ✅ 시간순 ①②③ 숫자 배지 (DESIGN §10.5) — `scheduleMapPoint.toScheduleMapPoints` stable sort + 1-based `order` index. native 32pt brand-500 fill 배지 렌더는 EAS 운영 트랙
+  - ⏸️ 보라 점선 폴리라인 (DESIGN §10.5: brand-500 2pt dashed) — segment 좌표 array 산출 ✅(`polyline.buildPolylineSegments`), stroke·dashed·색은 native 렌더러(EAS) 책임
+  - ✅ 5+ 마커 자동 숨김 (DESIGN §10.5: "마커 5개 초과 시 폴리라인 자동 숨김 — 가장 가까운 두 점만") — `polyline.buildPolylineSegments(points, hideThreshold=5)` haversine 최소 pair 1 segment
+  - ✅ 시간 범위 선택 — `timeRangeFilter.filterByKstDateRange(points, fromKstDate, toKstDate)` D13 luxon `Asia/Seoul` 양 끝 inclusive + `app/schedule/map.tsx` chip UI(이번 주/이번 달/전체) close
+- **Files**: ✅ `src/lib/schedules/{scheduleMapPoint,polyline,timeRangeFilter,groupScheduleQueries}.ts`, ✅ `src/lib/places/MapViewMode.ts`, ✅ `app/schedule/map.tsx`(리스트/지도 토글 + 시간 범위 picker), ✅ `app/(tabs)/index.tsx`(홈 진입 버튼) / ⏸️ native `<MapView mode>` 렌더 — EAS 운영 트랙
+- **Notes**: D2에서 founder가 keep. P5 (B standalone 외부 확장) 검증 가치. S10과 같은 PARTIAL 패턴 — 데이터·로직 레이어 closure → native UI는 EAS Build 운영 트랙. native 합류 시 `app/(tabs)/map.tsx`(또는 새 calendar route)에서 `<MapView mode={mode}>` props로 `useMapSearch` 결과 / `fetchConfirmedGroupSchedules + toScheduleMapPoints + buildPolylineSegments + filterByKstDateRange` 결과 분기만 하면 됨
+
+### S-MAP — 지도 렌더 활성화 (MapHost seam) + 4대 확장
+
+- **Status**: **DONE** (M0+①·M2·M3·M4 전부 2026-06-09 — 코딩 트랙 종착, 운영 트랙[키·EAS·에셋]만 잔여) | **Owner**: Mobile | **Lane**: B
+- **Depends**: [D38](DECISIONS.md#d38--지도-렌더-seam--maphost-단일-경계--mapscene-계약--ismapavailable-env-게이트), S10·S15(데이터 레이어 ✅), D18, D25, Q-B23, Q-B13
+- **설계**: [docs/superpowers/specs/2026-06-08-map-feature-activation-design.md](superpowers/specs/2026-06-08-map-feature-activation-design.md)
+- **Acceptance (M0+① ✅)**:
+  - ✅ `MapScene` 계약 + `toScheduleScene` selector + `isMapAvailable` env 게이트 + `MapHost`/`MapPlaceholder`/`MapLoading`/`NaverMapScene` (+테스트 14)
+  - ✅ `@mj-studio/react-native-naver-map@2.9.0` 설치 + `app.config.ts` 조건부 플러그인(Kakao 패턴, `client_id`) + `.env` `EXPO_PUBLIC_MAP_ENABLED`
+  - ✅ `app/schedule/map.tsx` placeholder→MapHost (① 동선·일정 데이터 연결, 기존 testID 유지)
+  - ✅ jest 933 / typecheck 0 / lint 0 errors
+  - ⏸️ 네이티브 실렌더·60fps·마커/폴리라인 visual — EAS 운영 트랙(네이버 Client ID 발급 + 빌드)
+- **Acceptance (M2 ✅ 2026-06-09)**:
+  - ✅ `usePlaceConfirmAction` 훅(단일 확정 액션 + useRef 동기 lock) + `findResultByActionId` — 같은 tick 더블탭 → persist·setConfirmedPlace·navigate 정확히 1회 (Gate #1·#2 click 정확도)
+  - ✅ `toSearchScene(results)` selector — ③ actionId=providerPlaceId 계약 (폴리라인 0, ②제휴=Phase 3라 emphasized 미설정)
+  - ✅ `PlaceActionSheet` "예약하기"(Gate #2 실측 클릭) idempotency 강화 — useRef 가드 + Pressable `disabled`(네이티브 게이팅). red서 동기 더블탭 2회 호출 확인 → 1회
+  - ✅ `NaverMapScene`/`MapHost` `onMarkerPress(actionId)` wire + `place-search.tsx` MapHost(searchScene) — 리스트 탭·마커 onPress 동일 confirm 수렴 (점등 시 staging)
+  - ✅ jest 948 / typecheck 0 / eslint 0. 키 없이 mock 검증(isMapAvailable=false)
+- **Acceptance (M3 ✅ 2026-06-09)**:
+  - ✅ `midpoint.ts` — `computeMidpoint`(산술 중심·빈 배열 throw·normalizeWgs84 통과) + `maxDistanceMeters`·`sortByDistanceTo`(haversine 재사용) + `toMidpointScene`(member/midpoint 마커, mode='midpoint', 폴리라인 0)
+  - ✅ `recentOrigins.ts` + `recentOriginsStorage.ts` — 출발지 온디바이스 로컬 저장(서버 미전송, MRU 상위 2개, SecureStore 어댑터·native 격리). Q-B23 충실
+  - ✅ `OriginInput.tsx` — 자동완성(useMapSearch 재사용) + 최근 2개 칩
+  - ✅ `app/group/[id]/midpoint.tsx` — 출발지 2곳+ → 중간점 → 근처 추천(거리순) → usePlaceConfirmAction(M2 재사용) 확정. MapHost 마커↔리스트 통일 + group 진입 버튼(secondary)
+  - ✅ PIPA: privacy.tsx §1 "기기 내 보관(서버 미전송)" 1줄
+  - ✅ jest 978 / typecheck 0 / eslint 0. design-guard CRITICAL 4 CLEAR
+  - ⏸️ 네이티브 핀(중간점·출발지) 렌더 — EAS 운영 트랙(키 없이 MapHost fallback로 검증)
+- **Acceptance (M4 ✅ 2026-06-09)**:
+  - ✅ `markerStyle.ts` — 순수 `markerVisual(marker, {selected})` → `{emphasized, sizeScale(§10.2 제휴 1.4×·selected 1.15×), innerStroke, accessibilityLabel}`. 색은 렌더러 토큰 책임(데이터에 색 없음, §12.6 3중 신호 중 크기·stroke·a11y)
+  - ✅ `partnership.ts` — `isResultPartner(result)` **stub(항상 false)** = ② 제휴 데이터 seam. 🔒 실 partnership 데이터 연동·스키마는 Phase 3(D3) 경계 → 미작성. Phase 3에서 이 함수만 교체 → 코드 변경 0 점등
+  - ✅ `PartnerBadge.tsx` — "제휴" pill(brand-50 tint + BadgeCheck 아이콘 + 라벨 = §12.6 3중 신호, accessibilityLabel="제휴 식당"). 리스트/카드 재사용
+  - ✅ `toSearchScene(results, {isPartner})` — 제휴 강조 capability 주입(제휴 시 kind='partner'+emphasized). 기본(opts 없음) 무강조 = 기존 계약(actionId=providerPlaceId, 폴리라인 0)·테스트 호환
+  - ✅ wire — NaverMapScene(markerVisual: 1.4× width/height + brand-500) + PlaceActionSheet(isPartnership→배지 카드) + place-search(리스트 행 배지 + searchScene isPartner 동일 seam) + Icon('제휴'→BadgeCheck lucide 2px)
+  - ✅ jest 995 / typecheck 0 / eslint 0. design-guard CRITICAL 4 CLEAR. @reviewer CLEARED(Phase 3 경계 PASS)
+  - ⏸️ 네이티브 제휴 마커 PNG inner stroke(Q-B13 에셋) + 실데이터(Phase 3, Gate #2 ≥25% 후) — 점등 운영 트랙
+- **Notes**: 활성화 = env 키 + EAS 빌드로 **코드 변경 0 점등**. 별도 feat 브랜치 커밋(이전 세션 미ship 더미와 분리). 4대 확장(①동선·일정 / ③검색→확정 / ④중간지점 / ②제휴) 코딩 트랙 전부 종착.
 
 ---
 
@@ -236,21 +277,40 @@
 
 ### S15 — 자체 deferred deep link (게스트→회원 전환) — D28
 
-- **Status**: TODO | **Owner**: Backend + Mobile + Web | **Sprint**: 4 | **Lane**: C → A 합류
-- **Depends**: S01 (auth complete), S14 (guest page complete + Vercel hosting), Q-A6 (자체 구축 정확도 PoC), [D28](DECISIONS.md#d28--자체-deferred-deep-link-구축-attribution-saas-회피-도메인-구매-회피)
+- **Status**: DONE (2026-05-27 — 6/6 sub-task 완료. EAS Build + TestFlight 운영 prereq는 별도 트랙) | **Owner**: Backend + Mobile + Web | **Sprint**: 4 | **Lane**: C → A 합류
+- **Depends**: S01 (auth complete) ✅, S14 (guest page complete + Vercel hosting) ✅, Q-A6 (자체 구축 정확도 PoC — fallback 의무 활성 가정으로 진행), [D28](DECISIONS.md#d28--자체-deferred-deep-link-구축-attribution-saas-회피-도메인-구매-회피)
 - **Acceptance**:
-  - 단축 URL host = `denda.vercel.app/g/<short_token>` (Vercel default subdomain)
-  - **iOS Universal Links**: app.json `associatedDomains: ["applinks:denda.vercel.app"]` + AASA 파일 Vercel hosting (`public/.well-known/apple-app-site-association`)
-  - **Android App Links**: app.json intent filters (scheme=https, host=denda.vercel.app, pathPattern=/g/.*) + assetlinks.json Vercel hosting (`public/.well-known/assetlinks.json`)
-  - **Fingerprint 매칭 Edge Function**: 단축 URL 클릭 시 ip_hash + ua_hash + clicked_at 기록 → 앱 첫 실행 시 매칭 query
-  - **4자리 invite_code fallback**: groups에 invite_code (CHAR(4) numeric) 추가. 모든 게스트 카톡 메시지에 표시. 앱 첫 화면 "초대받은 모임 코드 입력" 모달 강제 (Universal Link + fingerprint 둘 다 miss 시)
-  - **ATT 모달** (iOS 14+) + 한국 PIPA 처리방침 명시
-  - **`branch_attributions` 확장**: ip_hash, ua_hash, clicked_at 컬럼 추가 (table 이름 유지 — schema 변경 cost ↓)
-  - `group_guests.converted_user_id` 설정 (또는 group_members 마이그레이션)
-  - 모임 자동 합류 + 모임 list에 표시
-  - Q-A6 PoC 결과 정확도 측정 — <70% 시 fallback 의무 활성 default ON
-- **Files**: `src/lib/attribution/`, `supabase/functions/attribution_match/`, `web-guest/pages/g/[token].tsx`, `web-guest/public/.well-known/apple-app-site-association`, `web-guest/public/.well-known/assetlinks.json`
-- **Notes**: ARCHITECTURE.md §3.5 자체 구축 spec 참조. Sprint 4 일정 1-2주 추가 가능성 — S05 (회사 운명 60fps) critical path 보호 priority. table·column "branch_" prefix는 의미적으로 generic. Phase 3 광고 launch 시 SKAdNetwork 미지원으로 SaaS 추가 도입 필요 (D28 명시 risk)
+  - ✅ 단축 URL host = `denda.vercel.app/g/<short_token>` (S14에서 이미 web-guest /g/[token] route 호스팅. S15-deeplink-web에서 click_log 통합)
+  - ✅ **iOS Universal Links**: `app.config.ts::ios.associatedDomains=['applinks:denda.vercel.app']` + AASA 파일 `web-guest/public/.well-known/apple-app-site-association` (TEAMID placeholder + /g/* paths) + `next.config.ts` headers (application/json + no-cache). **TestFlight 실기기 검증 + Apple 캐시 24-48h은 EAS Build 운영 prereq**
+  - ✅ **Android App Links**: `app.config.ts::android.intentFilters` (scheme=https, host=denda.vercel.app, pathPattern=/g/.*, autoVerify=true) + assetlinks.json (`com.denda.app` + sha256 placeholder). **sha256 fingerprint keystore 추출 + `adb shell pm verify-app-links`는 EAS Build 운영 prereq**
+  - ✅ **Fingerprint 매칭 Edge Function**: `_lib/fingerprint.ts` (extractClientIp + extractUserAgent + computeFingerprintHashes via HMAC-SHA256) + `attribution_click_log` (web 호출 UPSERT) + `attribution_resolve` (RN 호출 fingerprint 모드). 매칭 window 24h, server 측 ip/ua 추출 — client 위변조 불가
+  - ✅ **4자리 invite_code fallback**: schema(S15-deeplink-schema)에 이미 0016 ship됨. `InviteCodeModal.tsx` (4자리 numeric TextInput + sanitize + 확인/건너뛰기 Alert + DESIGN §17 anti-AI-feel + brand-500 CTA + tabular-nums) + `attribution_resolve` mode='invite_code' 분기로 매칭 완료
+  - ⏸️ **ATT 모달** (iOS 14+) + 한국 PIPA 처리방침 명시 — 본 task 범위 외 (expo-tracking-transparency 미설치 + EAS Build prereq). D28 risk #1로 명시
+  - ✅ **`branch_attributions` 확장**: ip_hash, ua_hash, clicked_at 컬럼 추가 + 2 partial indexes (0016)
+  - ✅ `group_guests.converted_user_id` 설정 (`attribution_resolve` 내부에서 fingerprint mode일 때 UPDATE)
+  - ✅ 모임 자동 합류 (`attribution_resolve`가 group_members upsert + onMatched Alert로 안내). 모임 list refresh + navigation은 후속 sub-task (별도 backlog)
+  - Q-A6 PoC 결과 정확도 측정 — production 후 수집(별도 운영 트랙). 본 구현은 fallback 의무 활성 가정
+- **TS helper (ship됨)**: `src/lib/branch/inviteCode.ts(.test).ts` (formatInviteCode + parseInviteCode + isValidInviteCode 4자리 numeric — Jest 21), `src/lib/branch/attributionApi.ts(.test).ts` (resolveAttribution wrapper — Jest 7), `src/lib/branch/AttributionRoot.tsx(.test).tsx` (전역 wire-up — Jest 6)
+- **UI 컴포넌트**: `src/components/attribution/InviteCodeModal.tsx(.test).tsx` (Jest 11)
+- **Edge Function**: `supabase/functions/_lib/fingerprint.ts(_test).ts` (Deno 15), `supabase/functions/_lib/attribution.ts(_test).ts` (Deno 18), `supabase/functions/attribution_click_log/index.ts`, `supabase/functions/attribution_resolve/index.ts`
+- **web-guest**: `web-guest/lib/attribution.ts(.test).ts` (Jest 6), `web-guest/app/g/[token]/ClientPage.tsx` (click_log 통합), `web-guest/app/g/[token]/page.tsx` (token prop), `web-guest/next.config.ts` (AASA headers), `web-guest/public/.well-known/{apple-app-site-association, assetlinks.json}`
+- **Native config**: `app.config.ts` (ios.associatedDomains + android.intentFilters), `app/_layout.tsx::AttributionRootConnected` mount
+- **Sub-task 분해**:
+  - ✅ S15-deeplink-schema (2026-05-26): migration 0016 + inviteCode TS helper
+  - ✅ S15-deeplink-edge (2026-05-27): fingerprint + attribution helpers (Deno 33 tests) + attribution_click_log + attribution_resolve Edge
+  - ✅ S15-deeplink-web (2026-05-27): web-guest attribution.ts + ClientPage 통합
+  - ✅ S15-deeplink-rn-fallback (2026-05-27): InviteCodeModal + attributionApi wrapper
+  - ✅ S15-deeplink-rn-conversion (2026-05-27): AttributionRoot + _layout.tsx wire-up
+  - ✅ S15-deeplink-deeplink (2026-05-27): app.config.ts + AASA + assetlinks.json + next.config.ts headers
+- **EAS Build / 운영 prereq (별도 트랙)**:
+  - AASA의 TEAMID placeholder를 Apple Developer Team ID로 교체
+  - assetlinks.json sha256_cert_fingerprint placeholder를 keystore 실제 SHA256으로 교체
+  - TestFlight 빌드 + 실기기 Universal Links 검증 (Apple 캐시 24-48h 대기)
+  - Android `adb shell pm verify-app-links com.denda.app` 검증
+  - ATT(App Tracking Transparency) 모달 — expo-tracking-transparency 설치 + 첫 launch wire
+  - 한국 PIPA 개인정보처리방침 명시 ("IP 해시 + User-Agent 해시 수집 — 모임 자동 합류 목적")
+  - Q-A6 PoC — production 후 한국 NAT 환경 정확도 측정 (<70% 시 4자리 코드 default ON)
+- **Notes**: ARCHITECTURE.md §3.5 자체 구축 spec 참조. table·column "branch_" prefix는 의미적으로 generic. Phase 3 광고 launch 시 SKAdNetwork 미지원으로 SaaS 추가 도입 필요 (D28 명시 risk). bare `new Date()` 사용 차단(design-guard.sh D13). Edge에서 `DateTime.utc().toISO()` 사용
 
 ---
 
@@ -278,70 +338,240 @@
 
 ### S11 — 다크모드 토큰 셋업 + 디자인 시스템
 
-- **Status**: TODO | **Owner**: Mobile + Design | **Sprint**: 1 | **Lane**: D
+- **Status**: DONE (2026-05-26, fail-cleanup turn에서 정식 마킹) | **Owner**: Mobile + Design | **Sprint**: 1 | **Lane**: D
 - **Depends**: DESIGN.md, D6 (시스템 자동, 독립 디자인)
 - **Acceptance**:
-  - `src/design/tokens.ts` (라이트/다크 두 세트, DESIGN §13 스켈레톤)
-  - `src/design/theme.ts` (Context Provider, `useColorScheme` 통합)
-  - `src/design/typography.tsx` (Title/Body/Caption 변형)
-  - Pretendard Variable 셀프호스팅 (`expo-font` + WOFF2 — D7)
-  - Lucide 아이콘 설치 + 작명 매핑 (DESIGN §9.1)
-  - 시스템 자동 ON만 — 수동 토글 X (D6)
-  - **다크 디테일 검증 deferred (D2)**: 토큰 정의만, 마커·차트 검증은 Phase 3
+  - ✅ `src/design/tokens.ts` (라이트/다크 두 세트, DESIGN §13)
+  - ✅ `src/design/theme.ts` (Context Provider, `useColorScheme` 통합)
+  - ✅ `src/design/typography.tsx` (Title/Body/Caption 변형 + Pretendard Variable + tabular-nums)
+  - ✅ Pretendard Variable 셀프호스팅 (`assets/fonts/PretendardVariable.woff2` — D7)
+  - ✅ Lucide 아이콘 설치 (`lucide-react-native` ^1.16.0)
+  - ✅ 시스템 자동 ON만 — 수동 토글 X (D6)
+  - ⏸️ **다크 디테일 검증 deferred (D2)**: 토큰 정의만, 마커·차트 검증은 Phase 3
 - **Files**: `src/design/tokens.ts`, `src/design/theme.ts`, `src/design/typography.tsx`, `assets/fonts/PretendardVariable.woff2`
 
-### S12 — Push Notification F1-F3
+### S12 — Push Notification F1-F4
 
-- **Status**: TODO | **Owner**: Backend + Mobile | **Sprint**: 4 | **Lane**: D
-- **Depends**: S00 (push_tokens), S07 (friends)
+- **Status**: DONE (2026-05-26 정식) | **Owner**: Backend + Mobile | **Sprint**: 4 | **Lane**: D
+- **Depends**: S00 (push_tokens), S07 (friends) ✅, [D17](DECISIONS.md#d17--push-f4-idempotency-groupsf4_sent_at-column), [D33](DECISIONS.md#d33--모임-확정-fan-out--단일-dispatcher-q-b5-close)
 - **Acceptance**:
-  - Expo push token 등록 (`expo-notifications`)
-  - `supabase/functions/notify_f1` (친구 요청)
-  - `supabase/functions/notify_f2` (친구 수락)
-  - `supabase/functions/notify_f3` (모임 초대)
-  - 마이크로카피 (Q-B12 closure 후)
-  - F4 idempotency (D17 `f4_sent_at`)
-  - F5는 S04에서 (모임 확정 trigger)
-  - 단일 dispatcher (Q-B5 결정 후)
-- **Files**: `src/lib/push/`, `supabase/functions/notify_*`
+  - ✅ Expo push token 등록 (`expo-notifications`) — S12-client 2026-05-26 (`src/lib/push/expoNotifications.ts` registerForPushNotifications + DI + dynamicRequire 어댑터)
+  - ✅ `supabase/functions/notify_f1` (친구 요청) — S12-backend-f1-f4 2026-05-26
+  - ✅ `supabase/functions/notify_f2` (친구 수락) — S12-backend-f1-f4 2026-05-26
+  - ✅ `supabase/functions/notify_f3` (모임 초대) — S12-backend-f1-f4 2026-05-26
+  - ✅ `supabase/functions/notify_f4` (전원 투표 완료, D17 idempotent) — S12-backend-f1-f4 2026-05-26
+  - ⚠️ 마이크로카피 (Q-B12 미작성 — 본 turn auto mode 자체 결정, founder review 대기. formatF*Title/Body 함수 시그너처 유지로 교체 안전)
+  - ✅ F4 idempotency (D17 `f4_sent_at`) — notify_f4
+  - ✅ F5는 S04에서 (모임 확정 trigger) ✅ DONE
+  - ✅ 단일 dispatcher (D33 close)
+  - Publishers:
+    - ✅ `votes_aggregate` 전원 vote 완료 detect → `dispatch({type:'votes_all_in'})` + notify_f4 handler register — S12-publishers-f4 2026-05-26
+    - ⏸️ `src/lib/friends/api.ts` 친구 요청/수락 → dispatch — **prereq: friends API supabase 실 backend 전환 (현재 mock array). S07 후속 sub-task**
+    - ⏸️ `src/lib/groups/invitations.ts` 모임 초대 → dispatch — **prereq: invitations API 신규 작성 (현재 미존재). S07 후속**
+  - ✅ **RN `app/_layout.tsx` push 등록 mount** — `PushRegistrationRoot` + `PushRegistrationConnected` (CalendarSyncRoot pattern mirror). setNotificationHandler 1회 + userId 변경 시 register + register throw silent
+- **Files**:
+  - 완성: `supabase/functions/_lib/expo_push.ts(_test.ts)`, `supabase/functions/notify_f{1,2,3,4}/index.ts(_test.ts)`, `supabase/functions/notify_f5/index.ts` (refactor), `supabase/functions/votes_aggregate/index.ts` (F4 publisher + dispatcher register), `src/lib/push/expoNotifications.ts(.test.ts)`
+  - 잔여: `src/lib/friends/` supabase 전환 + `src/lib/groups/invitations.ts` 신규 (F1/F2/F3 publisher prereq) / `app/_layout.tsx` push 등록 mount
 
 ### S13 — EAS Build + 인증서 + TestFlight
 
-- **Status**: TODO | **Owner**: Founder + Mobile | **Sprint**: 1 + W3 | **Lane**: D
-- **Depends**: Apple Developer + Google Play Console 가입 (Q-B20)
+- **Status**: IN_PROGRESS (2026-05-27 — 설정·계측·manifest·runbook 스켈레톤 완성. 인증서·keystore·TestFlight/Play track·실기기 cold-start 실측은 운영 트랙, founder 인터랙티브 eas CLI) | **Owner**: Founder + Mobile | **Sprint**: 1 + W3 | **Lane**: D
+- **Depends**: ~~Apple Developer + Google Play Console 가입 (Q-B20)~~ **부분 해소** — Apple Developer ✅ 보유 / Google Play Console은 베타엔 불필요(APK 사이드로드), Play 배포 시점에만
 - **Acceptance**:
-  - EAS config (`eas.json`)
-  - iOS 인증서 + provisioning profile
-  - Android keystore
-  - TestFlight + Google Play Internal Testing 트랙
-  - EAS secret 관리 (Supabase URL, Kakao key, Naver key, Branch.io key 등)
-  - Production binary cold start < 2초 측정 (D25)
-- **Files**: `eas.json`, `app.json`, `.env.eas`
+  - ✅ EAS config (`eas.json`) — environment 바인딩(dev/preview/production) + resourceClass + APK(preview)/AAB(production) split + submit.production.android track=internal
+  - ⏸️ iOS 인증서 + provisioning profile — Apple Developer ✅ 보유, `eas credentials` (founder 인터랙티브). runbook §1.2
+  - ⏸️ Android keystore — 첫 `eas build`에서 EAS 자동 생성 (Play Console 불필요). runbook §1.2
+  - ⏸️ TestFlight + Google Play Internal Testing 트랙 — TestFlight=`eas submit -p ios`(Apple ✅), Play track=Play Console 가입 후. runbook §3
+  - ✅ EAS secret 관리 (Supabase URL, Kakao key, Naver key 등) — `.env.eas.example` manifest (A) EAS env + (B) Supabase Edge secret + (C) 자격증명. `.env.example` 보강(EAS_PROJECT_ID·NAVER 검색). 실제 `eas env:create`는 founder (runbook §1.1)
+  - ✅/⏸️ Production binary cold start < 2초 측정 (D25) — **Android 측정 ✅**: preview release APK 실기기(Galaxy A10) JS-TTI **237ms** (<2000ms). 단 측정범위=JS 번들 eval→interactive(네이티브 prefix 미포함, runbook §4) → 전체 아이콘탭~사용가능 권위 숫자(`adb shell am start -W` TotalTime)는 deferred. iOS 측정도 잔여
+- **Files**: `eas.json` ✅, `app.config.ts`(기존 — app.json 대체), `.env.eas.example` ✅, `.env.example` ✅, `src/lib/perf/coldStart.ts(.test.ts)` ✅, `app/_layout.tsx` ✅, `docs/EAS_BUILD_RUNBOOK.md` ✅
+- **운영 트랙 (founder, runbook 따라)**: eas login → env:create → credentials(iOS) → build -p android --profile preview(APK) → 실기기 cold-start 측정 → assetlinks SHA256 + AASA TEAMID 교체(S15) → (Play 배포 시) Play Console 가입 + submit
 
 ### S16 — Backup Providers (D1 조건부 lazy)
 
-- **Status**: BLOCKED (D1 답변 대기) | **Owner**: Backend + Mobile | **Sprint**: 2 (interface) + 3 (impl) | **Lane**: D
-- **Depends**: D1 W1 deadline review
+- **Status**: IN_PROGRESS (2026-05-27 — map 검색 fallback 완성: `PlaceSearchProvider` 인터페이스[Phase a] + `NaverSearchProvider` + Edge `naver_local_search`[D36]. AppleAuthProvider[auth Phase b]는 Apple 심사 Phase 3 deferred) | **Owner**: Backend + Mobile | **Sprint**: 2 (interface) + 3 (impl) | **Lane**: D
+- **Depends**: ~~D1 W1 deadline review~~ (no-answer 액션 발동 D36)
 - **Acceptance — Phase a (interface, 항상)**:
-  - `AuthProvider` interface (`KakaoSyntheticAuthProvider` + `AppleAuthProvider` 두 구현 plug-in 가능)
-  - `PlaceSearchProvider` interface (`KakaoLocalProvider` + `NaverSearchProvider` 두 구현 plug-in 가능)
-- **Acceptance — Phase b (impl, D1 답변 미수신 시만)**:
-  - `AppleAuthProvider`: Apple ID OAuth + email 입력 + 약관 모달
-  - `NaverSearchProvider`: 네이버 검색 API + 카테고리 데이터 한계 수용
-  - W1 deadline 결과에 따라 split lane 가능 (auth만 fallback, map은 keep 등)
-- **Files**: `src/lib/auth/AppleAuthProvider.ts`, `src/lib/places/NaverSearchProvider.ts`
+  - `AuthProvider` interface (`KakaoSyntheticAuthProvider` + `AppleAuthProvider` 두 구현 plug-in 가능) — S01에서 추상화
+  - ✅ `PlaceSearchProvider` interface (`KakaoLocalProvider` + `NaverSearchProvider` 두 구현 plug-in 가능) — `src/lib/places/PlaceSearchProvider.ts` (2026-05-27)
+- **Acceptance — Phase b (impl)**:
+  - ⏸️ `AppleAuthProvider`: Apple ID OAuth + email 입력 + 약관 모달 — Apple App Store 심사(Phase 3 guideline 4.8) 대비, Phase 3 deferred (D29 Kakao OIDC로 auth 정책 block 해소)
+  - ✅ `NaverSearchProvider`: 네이버 지역검색 API(Edge proxy) + 카테고리 데이터 한계 수용 — `src/lib/places/NaverSearchProvider.ts` + Edge `naver_local_search` (2026-05-27, D36 no-answer 활성). 좌표 WGS84×10^7 정규화 + bbox 안전망
+  - Split lane 결과: **auth는 keep(D29) + map은 Naver fallback eager(D36)**
+- **Files**: ✅ `src/lib/places/PlaceSearchProvider.ts`, ✅ `src/lib/places/NaverSearchProvider.ts(.test.ts)`, ✅ `supabase/functions/_lib/naver_local.ts(_test.ts)`, ✅ `supabase/functions/naver_local_search/{index,_test}.ts` / ⏸️ `src/lib/auth/AppleAuthProvider.ts` (Phase 3)
 
 ### S17 — QA + Regression Test Set
 
-- **Status**: TODO | **Owner**: QA (founder) | **Sprint**: 4 + W3.5 | **Lane**: D
-- **Depends**: 모든 step (mature 후)
+- **Status**: IN_PROGRESS (2026-05-28 코딩 트랙 ✅ PARTIAL — CP4/CP5 갭 보강 39 신규 Jest + Maestro 4 스켈레톤. 운영 트랙 잔여) | **Owner**: QA (founder) | **Sprint**: 4 + W3.5 | **Lane**: D
+- **Depends**: 모든 step (mature 후) — Lane A~D 코딩 부분 모두 mature ✅
 - **Acceptance**:
-  - Test framework (Jest + Maestro + Playwright + Deno) — D24
-  - 50+ path test 구현 (TEST_PLAN.md 참조: 32 unit/integration + 15 E2E + 1 regression + OCR eval)
-  - Prior MVP 시간 그리드 동작 영상 → 새 코드 side-by-side regression
-  - 안암 invite-only 베타 (카톡 viral funnel)
-  - TestFlight + Internal Testing 라운드
-- **Files**: `tests/`, `e2e/`, `playwright/`, `supabase/functions/_tests/`
+  - ✅ **Test framework (Jest + Playwright + Deno) — D24** — Jest 91 + Playwright 18 + Deno 300 모두 동작. Maestro yaml 스켈레톤 4개 ✅ (CLI 설치는 운영)
+  - ✅ **50+ path test 구현** — 현재 Jest 863 + Playwright 18 + Deno 300 + web-guest Jest 90 = **1,271+ tests, target 훨씬 초과**. CP4(약관·온보딩) + CP5(권한 거부) 갭은 본 turn 보강
+  - ⏸️ Prior MVP 시간 그리드 동작 영상 → 새 코드 side-by-side regression — **founder asset (영상 필요)**
+  - ⏸️ 안암 invite-only 베타 (카톡 viral funnel) — **운영 트랙**
+  - ⏸️ TestFlight + Internal Testing 라운드 — **EAS Build 운영 트랙**
+- **Files**: `tests/screens/(auth)/{login,terms,onboarding}.test.tsx` ✅, `tests/screens/schedule/everytime.test.tsx` ✅, `src/lib/ocr/imagePicker.{ts,test.ts}` ✅(DI loader 추가), `maestro/{kakao_oauth,host_create_group,member_vote,place_select_click_through}.yaml` + `README.md` ✅
+- **Notes**: S17 본체는 코드+운영 혼합 task. 코딩 트랙은 close, 운영 트랙(EAS·실기기·안암 베타·prior MVP 영상)이 별도. IN_PROGRESS 유지 → 운영 QA 완료 시 self-close 또는 별도 ship
+
+---
+
+## Lane E — Journey/Glue (여정 척추)
+
+> 기능 Lane(A~D)을 *걸을 수 있는 유저 여정*으로 잇는 연결 작업. 기존 Lane의 능력 기반 DONE 카운트를 정직하게 유지하기 위해 분리.
+> 출처: [spec](superpowers/specs/2026-05-28-journey-spine-roadmap-design.md) (갭 인벤토리 A~D + 게이트 최단 순서 + S10 무충돌)
+> 순서: 임계경로 **S18 → S19 → S20**(게이트 측정 최단, S10 디커플) / 트랙2 S21→S22→S23(병행 가능) / 트랙3 S24(최하)
+
+### S18 — 모임 생성 flow
+
+- **Status**: DONE (2026-05-28) | **Owner**: Mobile + Backend | **Sprint**: post-MVP | **Lane**: E
+- **Depends**: S00 (groups/group_members/dates + invite_code 트리거 0016), S05 (생성 후 진입 대상 그리드), D13 (KST)
+- **Acceptance**:
+  - ✅ `create_group` RPC (0018, 원자적 groups + 호스트 group_members INSERT, SECURITY INVOKER) + `createGroup` 클라 wrapper
+  - ✅ `app/group/new.tsx` (모임 이름 + 후보 날짜 다중선택 최대 7일 KST + brand-500 CTA 1개 §17)
+  - ✅ 홈 CTA(`app/(tabs)/index.tsx` TODO stub) + 친구탭 `handleMakeGroup`(Alert stub) → `router.push('/group/new')` 실연결
+  - ✅ 생성 성공 → `router.replace('/group/[id]')` (그리드 진입)
+- **Files**: `supabase/migrations/0018_create_group_rpc.sql`, `src/lib/groups/{create,dateOptions}.ts(.test)`, `app/group/new.tsx`, `tests/screens/group/new.test.tsx`, `app/(tabs)/index.tsx`(CTA 1줄), `app/(tabs)/friends/index.tsx`(handleMakeGroup 1줄)
+- **Worktree 분기**: 가능 (S10·친구 mock 무접촉. 신규 파일 + 홈/친구탭 stub 본문만)
+- **Notes**: 구현 단계별 가이드 = [plan](superpowers/plans/2026-05-28-journey-spine-s18-s19.md). `/start-task S18`로 시작, `/ship-task`로 DONE 마킹
+
+### S19 — 내 모임 리스트
+
+- **Status**: DONE (2026-05-28) | **Owner**: Mobile | **Sprint**: post-MVP | **Lane**: E
+- **Depends**: S00 (groups RLS = host_id ∨ group_members), S18, D13
+- **Acceptance**:
+  - ✅ `fetchMyGroups()` — RLS 자연 필터(host 또는 멤버), 미확정 먼저 정렬 (`src/lib/groups/list.ts`)
+  - ✅ 홈 "다가오는 모임" 실데이터 (`upcomingCount=0` 하드코딩 제거) + 카드 탭 → `router.push('/group/[id]')` (#3 그리드 도달 경로 확보)
+  - ✅ 빈 상태 §11.2 유지 (`else` 분기)
+- **Files**: `src/lib/groups/list.ts(.test)`, `app/(tabs)/index.tsx`(섹션 교체), `tests/screens/home.test.tsx`
+- **Worktree 분기**: 가능
+- **Notes**: 구현 가이드 = [plan](superpowers/plans/2026-05-28-journey-spine-s18-s19.md) (S18과 묶음). **S18·S19 완료 = 첫 walkable 경로(생성→리스트→그리드) + 모임 확정 이벤트 발생**
+
+### S20 — 지도 없는 장소 검색·선택 (★게이트, S10 디커플)
+
+- **Status**: DONE (2026-05-28) | **Owner**: Mobile + Backend | **Sprint**: post-MVP | **Lane**: E
+- **Depends**: S16 ✅ (NaverSearchProvider + Edge `naver_local_search`), S08 ✅ (PlaceActionSheet + place.tsx + click_log), S04/S05, [G1](DECISIONS.md), [G2](DECISIONS.md#g2--gate-2-장소-확정--예약하기-click-through--가장-critical)
+- **Acceptance**:
+  - `app/group/[id]/place-search.tsx` (신규 라우트) — 텍스트 검색 → NaverSearchProvider → 결과 리스트 → 선택
+  - 선택 시 장소 영속화 + `groups.confirmed_place_id` UPDATE (**= 장소 확정 = Gate #1 이벤트**) → S08 `place.tsx`로 navigate
+  - 확정 화면에 호스트 "장소 정하기" 버튼
+  - PlaceActionSheet "예약하기" → `logReservationClick` (**Gate #2**, S08 기존)
+- **Files**: `app/group/[id]/place-search.tsx`, `src/lib/places/persist.ts(.test)`, `src/lib/groups/setConfirmedPlace.ts(.test)`, `app/group/[id]/index.tsx`(버튼), 가능 시 `supabase/migrations/00XX_places_provider.sql` (kakao_place_id nullable + provider_place_id 보강)
+- **Worktree 분기**: 가능 (신규 라우트 — S10 지도탭·`places/*` 무접촉. S10 랜딩 시 마커→place는 두 번째 경로로 공존)
+- **Notes**: 게이트 측정을 S10 네이티브 맵에서 디커플하는 임계경로 종착. 별도 spec/plan 사이클. places 영속화 스키마는 진입 시 결정
+
+### S21 — 친구 시스템 실DB 전환
+
+- **Status**: DONE (2026-05-28) | **Owner**: Mobile + Backend | **Sprint**: post-MVP | **Lane**: E
+- **Depends**: S00 ✅ (friendships, friend_requests, blocks), D16 ✅ (is_blocked helper + 0007 propagation), 0008 block_user RPC ✅
+- **Acceptance**:
+  - ✅ `src/lib/friends/api.ts` mock(in-memory array) → supabase 전면 교체 (list/search/sendRequest/listIncoming/listOutgoing/accept/reject/cancel/remove/block)
+  - ✅ search·list는 RLS `is_blocked` 자연 통과 (0001/0002/0007). 시그너처 유지 → 친구탭/검색/요청 UI 무변경
+  - ✅ acceptRequest atomic = `accept_friend_request` RPC (0019, SECURITY DEFINER, 양방향 차단 직전 check + friendships 대칭 INSERT 권한 위임)
+  - ✅ S07 정직성: Notes에 "친구 클라 API는 S21에서 supabase 전환" 1줄 cross-ref 추가(history 일관성 — PARTIAL 재마킹보다 self-close가 가독성 우월)
+- **Files**: `supabase/migrations/0019_accept_friend_request_rpc.sql` ✅(+59), `src/lib/friends/api.ts` ✅(+290/-127), `src/lib/friends/api.test.ts` ✅(+459, 29 Jest), `tests/screens/friends/{index,requests,search}.test.tsx` ✅(spy fixture 패턴 마이그레이션)
+- **Worktree 분기**: 가능 (`friends/api.ts`만 — S18/S19·S10과 충돌 0). **S18/S19 병렬 후보로 최적**
+- **Notes**: S12 잔여 ⏸️ F1/F2 publisher prereq(친구 sendRequest/acceptRequest dispatch) 해소 — invitations 측은 S22 후 S23에서 wire-up. `__resetMocks` 시그너처 호환 no-op 유지로 screen test 비파괴성 보장. removeFriend는 RLS friendships_delete_self 양측 통과 활용해 sequential 두 row DELETE — atomic RPC 회피
+
+### S22 — 인앱 모임 초대 / 합류
+
+- **Status**: DONE (2026-05-28) | **Owner**: Mobile + Backend | **Sprint**: post-MVP | **Lane**: E
+- **Depends**: S21 ✅, S00 ✅ (group_invitations + group_members + RLS 0005), D16 ✅, [D31](DECISIONS.md#d31--차단-호스트-모임--부분-노출-groups-select-불변--클라이언트-호스트-mask) ✅
+- **Acceptance**:
+  - ✅ `src/lib/groups/invitations.ts` (createInvitation INSERT status=pending + listMyInvitations + acceptInvitation atomic·idempotent + rejectInvitation)
+  - ✅ acceptInvitation = `accept_group_invitation` RPC (0020, SECURITY INVOKER, FOR UPDATE lock + invitee=auth.uid() 검증 + 양방향 차단 차단 + status UPDATE + group_members INSERT ON CONFLICT DO NOTHING)
+  - ✅ 호스트 초대 UI: `app/group/[id]/invite.tsx` (친구 multi-select → batch createInvitation + 부분 실패 허용 Alert)
+  - ✅ 호스트 진입로: `app/group/[id]/index.tsx` 헤더 우측 "친구 초대" 버튼
+  - ✅ 초대함 진입 + 수락 → 합류 → `/group/[id]`: 친구 요청 inbox(`/friends/requests`)에 3번째 탭 "모임 초대" 통합 (헤더 "친구 요청" → "요청함")
+  - ✅ 차단 사용자 초대 hidden (D31) — 0005 `group_invitations_select_involving_self` NOT is_blocked로 자연 hide + 0002 INSERT NOT is_blocked + 0020 RPC 양방향 재check
+- **Files**: `supabase/migrations/0020_accept_invitation_rpc.sql` ✅, `src/lib/groups/invitations.ts(.test).ts` ✅, `app/group/[id]/invite.tsx` ✅ + `tests/screens/group/invite.test.tsx` ✅, `app/group/[id]/index.tsx`(헤더 버튼) ✅, `app/(tabs)/friends/requests.tsx`(3번째 탭) ✅, test 갱신
+- **Worktree 분기**: 가능
+- **Notes**: `group_members` INSERT 경로가 인앱(0020 RPC) + deeplink(attribution_resolve) 두 경로 공존. S12 ⏸️ F1/F2/F3 publisher prereq 두 측(friends·invitations API 실 DB) 모두 해소 → S23에서 dispatch wire-up 가능
+
+### S23 — 푸시 F1/F2/F3 publisher wire-up
+
+- **Status**: DONE (2026-05-28) | **Owner**: Backend + Mobile | **Sprint**: post-MVP | **Lane**: E
+- **Depends**: S21 ✅, S22 ✅, S12 ✅ (notify_f1/f2/f3 handler + dispatcher), [D33](DECISIONS.md#d33--모임-확정-fan-out--단일-dispatcher-q-b5-close). 모두 충족.
+- **Acceptance**:
+  - ✅ friends sendRequest→`dispatch(friend_requested)` (F1), acceptRequest→`dispatch(friend_accepted)` (F2). UI(requests.tsx)에서 sender_id 전달
+  - ✅ invitations createInvitation→`dispatch(group_invited)` (F3)
+  - ✅ 각 notify_f{1,2,3} handler register — `supabase/functions/notify_publish/` 단일 publisher Edge(votes_aggregate→notify_f4 mirror), module load 시 idempotent register, HTTP POST type별 dispatch.dispatch
+  - ✅ client thin wrapper `src/lib/push/dispatch.ts` — silent best-effort(`supabase.functions.invoke('notify_publish')` try/catch swallow). push 실패가 UX 차단 X
+- **Files**: `supabase/functions/notify_publish/{index,_test}.ts` ✅, `src/lib/push/dispatch.ts(.test).ts` ✅, `src/lib/friends/api.ts` ✅(dispatch 추가 + acceptRequest 시그너처 `(id, fromUserId?)` 확장), `src/lib/groups/invitations.ts` ✅(dispatch 추가), `app/(tabs)/friends/requests.tsx` ✅(handleAccept에 sender_id 전달), 4 test 파일 갱신
+- **Worktree 분기**: 가능 (notify_publish 신규 + friends/invitations api dispatch 1줄 추가)
+- **Notes**: S12 line 333-334 ⏸️ 잔여 항목 close. D33 단일 dispatcher pattern 충실 — 1:1 매핑이지만 publisher Edge + dispatcher routing 통과로 미래 확장 보호 + Promise.allSettled 격리
+
+### S24 — 부차적 dead-end 정리
+
+- **Status**: DONE (2026-05-28) | **Owner**: Mobile | **Sprint**: post-MVP | **Lane**: E
+- **Depends**: 없음 (독립)
+- **Acceptance**:
+  - ✅ 친구탭 카톡초대 실연결 — `src/lib/share/inviteShare.ts` + RN core Share API (S08 `sharePlaceToKakao` 패턴 mirror). 가짜 Alert 제거
+  - ✅ 프로필 설정행 3개(알림 설정·신고·차단 관리·화면 모드) onPress 안내 Alert — 화면 모드는 D6 시스템 자동 안내, 나머지 2개는 "준비 중" + 신고·차단은 친구 카드 대체 path 명시
+  - ✅ 홈 알림 버튼 onPress 안내 Alert — "준비 중"
+- **Files**: `src/lib/share/inviteShare.{ts,test.ts}` ✅(신규), `tests/screens/tabs/profile.test.tsx` ✅(신규), `app/(tabs)/profile.tsx` ✅, `app/(tabs)/index.tsx` ✅, `app/(tabs)/friends/{index.tsx,index.test.tsx}` ✅, `tests/screens/home.test.tsx` ✅
+- **Worktree 분기**: 가능
+- **Notes**: 최하 우선. 게이트 KPI 무관. 사용자 결정 — 혼합안(실연결 1 + 베타 비활성 안내 4). 정식 출시 시 알림함·신고차단관리는 정식 화면 신설(P1 차기), 화면 모드는 메뉴 자체 제거 vs `Linking.openSettings()` 딥링크 결정 필요
+
+### S25 — 홈 = 나만의 캘린더 (PRD §5.1 복귀)
+
+- **Status**: DONE (2026-07-28) | **Owner**: Mobile | **Sprint**: post-MVP | **Lane**: E
+- **Depends**: S19 ✅(fetchMyGroups), S03/S03b ✅(schedules + 에브리타임 OCR), [D42](DECISIONS.md#d42--홈--나만의-캘린더-prd-51-복귀--수동-개인-일정-활성), [D13](DECISIONS.md#d13--kst-강제-db는-timestamptz-utc), [D14](DECISIONS.md#d14--시간-슬롯-단위-15분--db-check)
+- **Acceptance**:
+  - ✅ 홈 진입 = 월간 캘린더 + 선택일 일정 목록 + 다가오는 모임(최대 3) — 인사말·보라 CTA 카드·이번 달 스탯 제거
+  - ✅ 캘린더 = 모임(확정/투표 중) + 에브리타임 수업 + 수동 개인 일정. 마커는 모임·개인만(수업 제외, DESIGN §10.6b)
+  - ✅ 수동 일정 추가/수정/삭제 (`source='manual'`) — 15분 단위 시간 입력, 삭제는 ConfirmSheet 경유(Alert 0)
+  - ✅ 주간 RRULE 전개 — UNTIL·expires_at·start_at 경계 + UTC→KST 날짜 경계
+  - ✅ fetch 실패를 빈 상태로 위장하지 않음(W1-7) — '다가오는 모임' 섹션째 숨김
+  - ✅ 시간표 미등록 사용자에게 "시간표 불러오기" 힌트 → OCR 진입
+- **Files**: `src/lib/calendar/{recurrence,agenda}.ts(.test)` (신규), `src/components/calendar/{MonthCalendar,DayAgenda,PersonalScheduleSheet}.tsx(.test)` (신규), `src/lib/schedules/personal.ts(.test)` (신규), `src/lib/groups/list.ts(.test)` (select 확장), `app/(tabs)/index.tsx` (재작성), `tests/screens/home.test.tsx` (재작성), `src/lib/groups/stats.ts(.test)` (삭제 — dead code)
+- **Worktree 분기**: 불가 (홈 화면 전면 교체)
+- **Notes**: 마이그레이션 0 · Edge Function 0 · 신규 패키지 0 (테이블·enum·RLS 모두 기존 자산). 설계 SSoT = [spec](superpowers/specs/2026-07-28-home-calendar-design.md). **잔여**: 로그인 세션이 필요해 에뮬레이터 시각 검증 미완 — 실기 확인 시 라이트/다크 렌더 + 수동 일정 추가→수정→삭제 라운드트립 확인 필요
+
+---
+
+## Lane F — UI Polish (출시 전 완성도, Wave 0~2)
+
+> SSoT: [docs/superpowers/specs/2026-07-08-ui-polish-design.md](superpowers/specs/2026-07-08-ui-polish-design.md) (✅ 승인 2026-07-08, 스코프 Wave 0~2) + [감사 findings](superpowers/specs/2026-07-08-ui-polish-audit-findings.md). 계통 원인 C1(프리미티브 부재)·C2(상태=시스템 기본값)·C3(모션 0) 근본 해결. 불가침: D12 worklet diff 0, Phase 3 코드 0, DESIGN 토큰 외 시각 결정 0.
+
+### UI-W0 — 디자인 시스템 프리미티브 (기반)
+
+- **Status**: ✅ **DONE (2026-07-08)** | **Owner**: Mobile | **Lane**: F | **커밋 단위**: 1커밋 (프리미티브 전체)
+- **Depends**: DESIGN §6·§10·§11·§12·§17 (기준선, ✅), 없음(선행 태스크 무)
+- **Acceptance** (전부 TDD, 위치 `src/components/`):
+  - [x] W0-1 `Button.tsx` — 5 variant, 56/48pt, disabled=surface-2+text-tertiary(§17.5), loading=인라인 Spinner, pressed=색 전환(§9.1) + `buttonPalette` export
+  - [x] W0-2 `Toast.tsx`+`ToastProvider`(_layout 루트)+`useToast` — e3, short+enter/exit, default/success/error(아이콘+스트라이프 §12.6), 액션, announceForAccessibility
+  - [x] W0-3 `ConfirmSheet.tsx` — §10.3 골격 + overlay.scrim backdrop + accessibilityViewIsModal + loading dismiss 차단
+  - [x] W0-4 `EmptyState.tsx` — §11.2 3요소(72pt surface-2 아이콘원 D5) + error variant(재시도)
+  - [x] W0-5 `ScreenHeader.tsx` — 좌 뒤로(chevron-left)·중앙 title-3·우 액션 슬롯
+  - [x] W0-6 `Spinner.tsx` — LoaderCircle 24/16pt, 1s linear, reduce-motion 정적, decorative prop
+  - [x] W0-7 `src/lib/motion/useReducedMotion.ts`(AccessibilityInfo, §6.4) + Skeleton 마감(duration.long·정적) + `easing.ts`(bezier 토큰 함수)
+  - [x] W0-8 `tokens.ts` `overlay.scrim`(light 0.4/dark 0.6) + DESIGN §13/§16 로그
+  - [x] W0-9 `src/lib/i18n/messages.ts` — §17.6 톤 + `mapError`(raw 비노출)
+- **게이트**: ✅ Jest 1067 pass / tsc 0 / eslint 0 / design-guard CRITICAL 4 CLEAR. 다중 에이전트(23) adversarial 리뷰 19제기→11확정→전부 수정.
+- **Files**: `src/components/{Button,Toast,ConfirmSheet,EmptyState,ScreenHeader,Spinner}.tsx`(+.test), `src/lib/motion/{useReducedMotion,easing}.ts`(+.test), `src/design/tokens.ts`, `src/lib/i18n/messages.ts`(+.test), `src/components/Icon.tsx`, `app/_layout.tsx`, `docs/DESIGN.md`
+
+### UI-W1 — P0 출시 차단급 (Alert 철거 + 여정 3모먼트 + 상태 디자인)
+
+- **Status**: TODO | **Owner**: Mobile(+Backend W1-14) | **Lane**: F | **커밋 단위**: 화면군 단위
+- **Depends**: UI-W0 (프리미티브)
+- **Acceptance**: 설계 §4 전체 —
+  - [ ] W1-1~3 여정 3모먼트(모임 확정·장소 확정·"예약하기") Alert 제거 → ConfirmedTimeCard 등장 모먼트 + ConfirmSheet + success Toast. **Gate #1·#2 로깅 1회성 불변**
+  - [ ] W1-4~6 Alert.alert 15파일→0 (성공=Toast, 확인=ConfirmSheet, 폼경고=인라인, raw e.message→messages.ts 매핑). 시스템 경계 예외
+  - [ ] W1-7~10 상태 디자인(홈·친구·지도·상세·초대·place) 에러 위장 해제 + EmptyState error variant + Skeleton + useFocusEffect/RefreshControl
+  - [ ] W1-11~13 스플래시 다크 flash·privacy 뒤로 화살표·약관 전문 화면
+  - [ ] **W1-14 회원 탈퇴 풀 구현** — 프론트 2단 ConfirmSheet + Supabase 삭제 RPC/Edge (RLS·cascade, @reviewer 강화). 스토어 요건
+  - [ ] W1-15 검색 '카톡 초대' no-op → `useKakaoInvite` 연결
+- **게이트**: UI-W0과 동일 + Alert.alert 프로덕션 0 · ActivityIndicator 0 검증
+
+### UI-W2 — P1 완성도 (셸·그리드 시각·화면 마감)
+
+- **Status**: TODO | **Owner**: Mobile | **Lane**: F | **커밋 단위**: 화면군 단위
+- **Depends**: UI-W0, UI-W1
+- **Acceptance**: 설계 §5 전체 —
+  - [ ] W2-1~4 셸(탭바 safe area·다크 네비 배경·**중앙 FAB=Lucide calendar-days+plus 합성**·ScreenHeader 10화면 적용)
+  - [ ] W2-5~7 시간 그리드 시각 레이어(요일 헤더·히트맵 색전환+heat-4 축하·셀 a11y·RefreshControl·ConfirmedTimeCard 위계). **D12 worklet 무접촉**
+  - [ ] W2-8~15 화면 마감(pressed 색전환·홈 실데이터+**벨 제거**·친구 잠금/pull-refresh·캘린더 row·new KeyboardAvoiding·SearchField·카피 톤 통일·PlaceActionSheet/ConfirmSlotSheet §10.3 이관)
+- **게이트**: UI-W0과 동일
 
 ---
 
@@ -349,7 +579,7 @@
 
 이 12개는 Sprint 1 시작 전 완료. **태스크 코드 부여 X (인프라 셋업)**.
 
-- [ ] **Kakao Local API 정책 답변 1건** (Q-A2 — D1 W1 deadline) **CRITICAL BLOCKER**. Q-A1 (auth)는 [D29](DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede) closed.
+- [x] **Kakao Local API 정책 답변 1건** (Q-A2) ✅ "허용" 답변 수신 (2026-06-01, [D37](DECISIONS.md#d37--q-a2-카카오-local-api-약관-허용-답변-수신--kakaolocalprovider-평가-트랙)) → KakaoLocalProvider 평가 트랙(S16 Phase b). Q-A1 (auth)는 [D29](DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede) closed.
 - [ ] **Kakao OIDC + Supabase Auth provider 활성화** ([D29](DECISIONS.md#d29--kakao-oidc-oauth-via-supabase-signinwithidtoken-d21-supersede)) — 카카오 portal: 앱 설정 → 카카오 로그인 → OpenID Connect 활성화 ON + `profile_nickname` 동의항목 필수. Supabase dashboard: Authentication → Providers → Kakao Enable + REST API key. 스모크 테스트로 1회 로그인 → `auth.users` 행 생성 확인
 - [x] 새 Supabase project 생성 + RLS skeleton (S00 prep) — schema·RLS·scaffolding 코드 완료 (deploy는 사용자)
 - [ ] Naver Map SDK key 발급
@@ -372,7 +602,8 @@ Worktree 분기 시 conflict flag (ENG_REVIEW §9.4):
 - **S06 (Calendar) ↔ S12 (Push)** — 둘 다 모임 확정 trigger. 단일 dispatcher pattern (Q-B5)
 - **S10 (지도) ↔ S11 (다크 토큰)** — 네이버 SDK `isNightModeEnabled` 통합 시점 명확히. S11이 토큰만, S10에서 적용
 - **S03 (OCR) ↔ S06 (Calendar)** — `source = 'everytime'` enum 격리로 충돌 없음. OCR 일정의 외부 캘린더 push 안 함 (D2 + ENG_REVIEW §9.4)
-- **S10 (지도 search mode) ↔ S15 (지도 schedule mode)** — `<MapView mode="search"|"schedule">` 분기. S15는 S10 완료 후
+- **S10 (지도 search mode) ↔ S15 (지도 schedule mode)** — `<MapView mode="search"|"schedule">` 분기. S15(mapmode)는 S10 완료 후 (네이티브 MapView가 EAS로 랜딩한 뒤). S10 진행 중 병렬 금지
+- **Lane E (S18~S24) ↔ S10** — 척추는 지도탭·`places/*` 무접촉으로 S10과 충돌 0. S20만 신규 라우트 `place-search`로 장소 진입 *두 번째 경로* 추가(공존). S18/S19 병렬 후보 = S21(`friends/api.ts`만, 충돌 0)
 
 ---
 
