@@ -1,0 +1,1 @@
+{"name":"denda-security-tests","private":true,"type":"module","scripts":{"test":"node security.mjs","reproduce":"node security.mjs --baseline"},"devDependencies":{"@electric-sql/pglite":"0.5.8"}}

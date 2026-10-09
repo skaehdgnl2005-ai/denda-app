@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '../lib/supabase';
+import { getGuestSession, registerGuest } from '../lib/guestApi';
 
 interface NicknameFormProps {
   groupId: string;
@@ -33,18 +33,18 @@ export default function NicknameForm({ groupId, onComplete }: NicknameFormProps)
       const storedToken = localStorage.getItem(`denda_guest_token_${groupId}`);
       if (storedToken) {
         try {
-          const { data, error } = await supabase
-            .from('group_guests')
-            .select('nickname')
-            .eq('guest_token', storedToken)
-            .single();
-
-          if (data && !error) {
+          const data = await getGuestSession(groupId, storedToken);
+          if (data) {
             onCompleteRef.current(storedToken, data.nickname);
             return;
           }
         } catch (e) {
           console.error(e);
+          // 통신 장애는 자격증명 무효가 아니다. 재시도 시 기존 투표를 복원한다.
+          setError('연결하지 못했어요. 새로고침해 다시 시도해 주세요.');
+          setIsOpen(true);
+          setLoading(true);
+          return;
         }
         // Clear invalid token
         localStorage.removeItem(`denda_guest_token_${groupId}`);
@@ -75,18 +75,7 @@ export default function NicknameForm({ groupId, onComplete }: NicknameFormProps)
     }
 
     try {
-      const { data, error: insertError } = await supabase
-        .from('group_guests')
-        .insert({
-          group_id: groupId,
-          nickname: nickname.trim(),
-        })
-        .select('guest_token')
-        .single();
-
-      if (insertError) {
-        throw insertError;
-      }
+      const data = await registerGuest(groupId, nickname.trim());
 
       if (data) {
         const token = data.guest_token;

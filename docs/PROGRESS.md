@@ -1,5 +1,9 @@
 # Progress — Phase 1+2
 
+> 2026-10-09 보안 작업: SEC-1/SEC-2 재현·수정 브랜치·회귀 검증 완료, 운영 적용 전.
+> 과거 토큰 처리·스테이징/E2E·운영 승인 잔여: [검증 보고서](SECURITY_REVIEW_2026-10-09.md).
+
+
 > Phase 1+2 빌드·출시 burn-down + Gate 측정 추적.
 > `/ship-task` 시 카운트 자동 +1. Gate 측정 시작 후 weekly update.
 

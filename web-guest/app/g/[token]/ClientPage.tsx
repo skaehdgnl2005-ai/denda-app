@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { supabase } from '../../../lib/supabase';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { getGuestGroupView, type GuestVote, type HeatmapSlot } from '../../../lib/guestApi';
 import { logAttributionClick } from '../../../lib/attribution';
 import NicknameForm from '../../../components/NicknameForm';
 import GuestTimeGrid from '../../../components/GuestTimeGrid';
@@ -12,14 +12,6 @@ interface ClientPageProps {
   dates: string[];
   hostNickname: string;
   token: string;
-}
-
-interface Vote {
-  day: string;
-  start_minute: number;
-  end_minute: number;
-  guest_token?: string | null;
-  user_id?: string | null;
 }
 
 interface Participant {
@@ -37,94 +29,48 @@ export default function ClientPage({
 }: ClientPageProps) {
   const [guestToken, setGuestToken] = useState<string | null>(null);
   const [, setGuestNickname] = useState<string | null>(null);
-  const [votes, setVotes] = useState<Vote[]>([]);
+  const [votes, setVotes] = useState<GuestVote[]>([]);
+  const [heatmap, setHeatmap] = useState<HeatmapSlot[]>([]);
+  const fetchSequence = useRef(0);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadedToken, setLoadedToken] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
 
   // Fetch initial votes and members
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    const sequence = ++fetchSequence.current;
     // S14-e2e-setup: dummy supabase URL fetch hang 회피. supabase 호출 skip + 즉시 loading 해제.
     if (process.env.NEXT_PUBLIC_IS_E2E === 'true') {
+      setLoadedToken(guestToken);
       setVotes([]);
       setParticipants([]);
       setLoading(false);
       return;
     }
     try {
-      // 1. Fetch votes
-      const { data: votesData } = await supabase
-        .from('votes')
-        .select('day, start_minute, end_minute, guest_token, user_id')
-        .eq('group_id', groupId);
-
-      // 2. Fetch members
-      const { data: membersData } = await supabase
-        .from('group_members')
-        .select('joined_at, user:users(id, nickname)')
-        .eq('group_id', groupId);
-
-      // 3. Fetch guests
-      const { data: guestsData } = await supabase
-        .from('group_guests')
-        .select('guest_token, nickname')
-        .eq('group_id', groupId);
-
-      const fetchedVotes = votesData || [];
-      setVotes(fetchedVotes);
-
-      // Determine who has voted (has at least 1 vote row)
-      const voters = new Set<string>();
-      fetchedVotes.forEach((v) => {
-        if (v.user_id) voters.add(v.user_id);
-        if (v.guest_token) voters.add(v.guest_token);
-      });
-
-      // Build participant status list
-      const list: Participant[] = [];
-
-      // Add members. supabase의 `user:users(id, nickname)` join은 array/object를 보수적으로
-      // array로 추론 — 실제로는 one-to-one FK. 정확한 typing은 별도 supabase codegen sub-task.
-      if (membersData) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        membersData.forEach((m: any) => {
-          if (m.user) {
-            list.push({
-              name: m.user.nickname,
-              isMember: true,
-              hasVoted: voters.has(m.user.id),
-            });
-          }
-        });
-      }
-
-      // Add guests
-      if (guestsData) {
-        guestsData.forEach((g) => {
-          list.push({
-            name: g.nickname,
-            isMember: false,
-            hasVoted: voters.has(g.guest_token),
-          });
-        });
-      }
-
-      setParticipants(list);
+      const view = await getGuestGroupView(groupId, guestToken);
+      if (!view || sequence !== fetchSequence.current) return;
+      setLoadedToken(guestToken);
+      setVotes(view.votes);
+      setHeatmap(view.heatmap);
+      setParticipants(view.participants);
     } catch (err) {
       console.error('Error fetching grid data:', err);
     } finally {
-      setLoading(false);
+      if (sequence === fetchSequence.current) setLoading(false);
     }
-  };
+  }, [groupId, guestToken]);
 
   useEffect(() => {
     // S14-e2e-setup: fetchData()는 prop→state sync 패턴. setVotes/setParticipants/setLoading
     // 모두 effect 안. 별도 state-refactor로 격상 후보.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupId]);
+    const invalidate = () => { fetchSequence.current++; };
+    return invalidate;
+  }, [fetchData]);
 
   const handleNicknameComplete = (guestTokenValue: string, nickname: string) => {
     setGuestToken(guestTokenValue);
@@ -137,7 +83,7 @@ export default function ClientPage({
         guestToken: guestTokenValue,
       });
     }
-    fetchData(); // Refresh list to include self
+    // guestToken 변경 후 effect가 본인 슬롯까지 다시 조회한다.
   };
 
   const handleShare = async () => {
@@ -198,7 +144,7 @@ export default function ClientPage({
             <NicknameForm groupId={groupId} onComplete={handleNicknameComplete} />
 
             {/* Main Interactive Grid */}
-            {guestToken && (
+            {guestToken && loadedToken === guestToken && (
               <div className="mb-6 rounded-lg border border-border-subtle bg-surface-1 dark:bg-surface-1 p-4 shadow-xs">
                 <div className="text-xs font-semibold text-text-secondary mb-3 flex items-center gap-2">
                   <span className="w-1.5 h-1.5 bg-brand-500 rounded-full" />
@@ -209,6 +155,7 @@ export default function ClientPage({
                   guestToken={guestToken}
                   dates={dates}
                   votes={votes}
+                  heatmap={heatmap}
                   memberCount={participants.length}
                   onVoteStatusChange={setSaving}
                   onVotesUpdated={fetchData}
