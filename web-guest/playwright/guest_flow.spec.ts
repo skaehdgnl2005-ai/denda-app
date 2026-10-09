@@ -97,22 +97,22 @@ test.describe('web-guest base flow (supabase mock 없이 진행 가능한 분기
 //
 // GuestTimeGrid의 realtime useEffect가 E2E mode에서 노출하는
 // `window.__dendaE2E_triggerHeatmapBroadcast`를 호출해 핸들러를 흉내내고, page.route로
-// supabase /rest/v1/votes endpoint를 intercept해 refreshVotes 호출 여부를 검증한다.
+// supabase /rest/v1/rpc/get_guest_group_view endpoint를 intercept해 refreshVotes 호출 여부를 검증한다.
 //
 // 실제 broadcast payload spec(day_index 등)은 S05a votes_aggregate Edge Function의 책임이며
 // Q-B21 closed entry에서 확정. 본 spec은 클라이언트의 listen-and-refresh path만 검증한다.
 test.describe('Realtime broadcast listen path — heatmap_update → refreshVotes', () => {
-  test('broadcast 트리거 시 /rest/v1/votes REST refresh 호출', async ({ browser }) => {
+  test('broadcast 트리거 시 /rest/v1/rpc/get_guest_group_view REST refresh 호출', async ({ browser }) => {
     const context = await browser.newContext({ ...devices['iPhone 13'] });
     const page = await context.newPage();
 
     let votesFetchCount = 0;
-    await page.route('**/rest/v1/votes**', async (route) => {
+    await page.route('**/rest/v1/rpc/get_guest_group_view**', async (route) => {
       votesFetchCount++;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify([]),
+        body: JSON.stringify({ votes: [], heatmap: [], participants: [] }),
       });
     });
 
@@ -146,7 +146,7 @@ test.describe('Realtime broadcast listen path — heatmap_update → refreshVote
       w.__dendaE2E_triggerHeatmapBroadcast?.();
     });
 
-    // refreshVotes가 supabase /rest/v1/votes endpoint hit 검증
+    // refreshVotes가 supabase /rest/v1/rpc/get_guest_group_view endpoint hit 검증
     await expect.poll(() => votesFetchCount, { timeout: 5_000 }).toBeGreaterThan(beforeCount);
 
     await context.close();

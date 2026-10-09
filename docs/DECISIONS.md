@@ -1016,3 +1016,15 @@ const BranchAttribution = lazy(() => import('@/lib/branch/attribution'));
 ## 폐쇄된 게이트·결정
 
 (현재 없음 — 새로 닫히면 여기로 이동, ID는 유지)
+
+## D45 — 웹 게스트 공개 식별자와 투표 자격증명 분리 (SEC-1/SEC-2)
+
+- 날짜: 2026-10-09. 수정 브랜치 구현, 운영 반영 대기.
+- 근거: 0004의 공개 SELECT로 guest_token이 노출되어 타인 투표 수정이 실제 재현됨.
+- 결정: guest_id는 공개 식별자, guest_token은 기존 브라우저의 비밀 bearer credential.
+  모임 UUID 링크를 통한 제한된 조회/참여는 유지하되 테이블 공개 조회는 제거한다.
+  등록/재진입/제한된 모임 뷰는 고정 search_path 및 명시적 EXECUTE를 갖는 RPC만 사용한다.
+  웹 히트맵도 서버 집계를 사용한다(D11). authenticated 호출의 차단 규칙은 유지한다(D16).
+- 호환성: 기존 토큰/FK/투표를 보존하고 웹을 함께 전환한다. 과거 유출 토큰의 폐기와
+  재발급에 따른 재진입 영향은 운영 승인 대상으로 남긴다. 결정 상세와 검증 한계는
+  [SECURITY_REVIEW_2026-10-09.md](SECURITY_REVIEW_2026-10-09.md)를 참조한다.

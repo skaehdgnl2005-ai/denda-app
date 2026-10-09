@@ -29,7 +29,7 @@ describe('GuestTimeGrid', () => {
       day: string;
       start_minute: number;
       end_minute: number;
-      guest_token?: string | null;
+      is_own: boolean;
       user_id?: string | null;
     }[],
     memberCount: 2,
@@ -166,14 +166,14 @@ describe('GuestTimeGrid', () => {
           day: '2026-05-24',
           start_minute: 540,
           end_minute: 555,
-          guest_token: 'guest-token-123',
+          is_own: true,
           user_id: null,
         },
         {
           day: '2026-05-24',
           start_minute: 555,
           end_minute: 570,
-          guest_token: 'guest-token-123',
+          is_own: true,
           user_id: null,
         },
       ];
@@ -214,13 +214,13 @@ describe('GuestTimeGrid', () => {
       expect(cellB).not.toHaveClass('border-brand-500');
     });
 
-    test('다른 guest_token의 votes는 본인 선택으로 인식 안 함', () => {
+    test('본인 표시가 없는 슬롯은 선택으로 인식 안 함', () => {
       const initialVotes = [
         {
           day: '2026-05-24',
           start_minute: 540,
           end_minute: 555,
-          guest_token: 'other-guest',
+          is_own: false,
           user_id: null,
         },
       ];
@@ -243,16 +243,10 @@ describe('GuestTimeGrid', () => {
 
   describe('Heatmap 색 (D10 5-stop quartile, lib/heatmap.classifyHeat)', () => {
     // lib/heatmap.classifyHeat과 동일 quartile spec (q1=max/4, q2=max/2, q3=3·max/4).
-    // 같은 (day, minute)에 다른 게스트 N명 vote → heatmapData count=N. memberCount=max.
-    // 본인 토큰 vote가 아니므로 selectedSlots 미포함 → heat ramp 적용.
-    function makeOtherVotes(day: string, minute: number, n: number) {
-      return Array.from({ length: n }, (_, i) => ({
-        day,
-        start_minute: minute,
-        end_minute: minute + 15,
-        guest_token: `other-${i}`,
-        user_id: null,
-      }));
+    // 서버의 slot count=N. memberCount=max.
+    // 본인 슬롯이 아니므로 selectedSlots 미포함 → heat ramp 적용.
+    function makeHeatmap(day: string, minute: number, n: number) {
+      return [{ day, start_minute: minute, count: n }];
     }
 
     test('count=0 → heat-0 (bg-surface-3)', () => {
@@ -264,8 +258,8 @@ describe('GuestTimeGrid', () => {
     });
 
     test('count=maxCount → heat-4 (bg-brand-500)', () => {
-      const votes = makeOtherVotes('2026-05-24', 540, 8);
-      const { container } = render(<GuestTimeGrid {...baseProps} memberCount={8} votes={votes} />);
+      const heatmap = makeHeatmap('2026-05-24', 540, 8);
+      const { container } = render(<GuestTimeGrid {...baseProps} memberCount={8} heatmap={heatmap} />);
       const cell = container.querySelector(
         '[data-day="2026-05-24"][data-minute="540"]',
       ) as HTMLElement;
@@ -273,8 +267,8 @@ describe('GuestTimeGrid', () => {
     });
 
     test('quartile q1 경계 (max=8, count=2 ≤ q1=2) → heat-1 (bg-brand-100)', () => {
-      const votes = makeOtherVotes('2026-05-24', 540, 2);
-      const { container } = render(<GuestTimeGrid {...baseProps} memberCount={8} votes={votes} />);
+      const heatmap = makeHeatmap('2026-05-24', 540, 2);
+      const { container } = render(<GuestTimeGrid {...baseProps} memberCount={8} heatmap={heatmap} />);
       const cell = container.querySelector(
         '[data-day="2026-05-24"][data-minute="540"]',
       ) as HTMLElement;
@@ -282,8 +276,8 @@ describe('GuestTimeGrid', () => {
     });
 
     test('quartile q2 경계 (max=8, count=4 ≤ q2=4) → heat-2 (bg-brand-200)', () => {
-      const votes = makeOtherVotes('2026-05-24', 540, 4);
-      const { container } = render(<GuestTimeGrid {...baseProps} memberCount={8} votes={votes} />);
+      const heatmap = makeHeatmap('2026-05-24', 540, 4);
+      const { container } = render(<GuestTimeGrid {...baseProps} memberCount={8} heatmap={heatmap} />);
       const cell = container.querySelector(
         '[data-day="2026-05-24"][data-minute="540"]',
       ) as HTMLElement;
@@ -291,8 +285,8 @@ describe('GuestTimeGrid', () => {
     });
 
     test('quartile q3 경계 (max=8, count=6 ≤ q3=6) → heat-3 (bg-brand-400)', () => {
-      const votes = makeOtherVotes('2026-05-24', 540, 6);
-      const { container } = render(<GuestTimeGrid {...baseProps} memberCount={8} votes={votes} />);
+      const heatmap = makeHeatmap('2026-05-24', 540, 6);
+      const { container } = render(<GuestTimeGrid {...baseProps} memberCount={8} heatmap={heatmap} />);
       const cell = container.querySelector(
         '[data-day="2026-05-24"][data-minute="540"]',
       ) as HTMLElement;
@@ -300,8 +294,8 @@ describe('GuestTimeGrid', () => {
     });
 
     test('count > 3·max/4 (max=8, count=7) → heat-4 (bg-brand-500)', () => {
-      const votes = makeOtherVotes('2026-05-24', 540, 7);
-      const { container } = render(<GuestTimeGrid {...baseProps} memberCount={8} votes={votes} />);
+      const heatmap = makeHeatmap('2026-05-24', 540, 7);
+      const { container } = render(<GuestTimeGrid {...baseProps} memberCount={8} heatmap={heatmap} />);
       const cell = container.querySelector(
         '[data-day="2026-05-24"][data-minute="540"]',
       ) as HTMLElement;
@@ -309,18 +303,18 @@ describe('GuestTimeGrid', () => {
     });
 
     test('본인 슬롯은 heat ramp override — border-brand-500 + bg-brand-50', () => {
-      // 다른 게스트 7명 + 본인 1 vote on 같은 cell. 본인은 selectedSlots에 들어가서 override.
+      const heatmap = makeHeatmap('2026-05-24', 540, 8);
+      // 서버 집계와 본인 슬롯을 별도로 전달한다.
       const votes = [
-        ...makeOtherVotes('2026-05-24', 540, 7),
         {
           day: '2026-05-24',
           start_minute: 540,
           end_minute: 555,
-          guest_token: 'guest-token-123',
+          is_own: true,
           user_id: null,
         },
       ];
-      const { container } = render(<GuestTimeGrid {...baseProps} memberCount={8} votes={votes} />);
+      const { container } = render(<GuestTimeGrid {...baseProps} memberCount={8} heatmap={heatmap} votes={votes} />);
       const cell = container.querySelector(
         '[data-day="2026-05-24"][data-minute="540"]',
       ) as HTMLElement;
@@ -452,28 +446,28 @@ describe('GuestTimeGrid', () => {
           day: '2026-05-24',
           start_minute: 540,
           end_minute: 555,
-          guest_token: 'guest-token-123',
+          is_own: true,
           user_id: null,
         },
         {
           day: '2026-05-24',
           start_minute: 555,
           end_minute: 570,
-          guest_token: 'guest-token-123',
+          is_own: true,
           user_id: null,
         },
         {
           day: '2026-05-25',
           start_minute: 540,
           end_minute: 555,
-          guest_token: 'guest-token-123',
+          is_own: true,
           user_id: null,
         },
         {
           day: '2026-05-25',
           start_minute: 555,
           end_minute: 570,
-          guest_token: 'guest-token-123',
+          is_own: true,
           user_id: null,
         },
       ];

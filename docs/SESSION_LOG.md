@@ -25,6 +25,13 @@ STATUS는 다음 중 하나:
 
 ---
 
+## SEC-1/SEC-2 — 게스트 접근 권한 수정 (2026-10-09) — PARTIAL
+- Changes: 0025 마이그레이션, 웹 게스트 RPC 전환, 격리 PostgreSQL 재현/회귀 테스트. D45.
+- Tests: 기존 2건 재현, DB 21/21, 웹 99/99, tsc/lint/build 통과.
+- Next: 브라우저 E2E(Chromium 다운로드 실패), Supabase PG17/PostgREST 스테이징 검증,
+  과거 노출 가능 토큰 처리 결정 및 운영 변경 승인. 운영 DB 변경 없음.
+- Details: [SECURITY_REVIEW_2026-10-09.md](SECURITY_REVIEW_2026-10-09.md).
+
 ## S-DBG — 실기기 前 전면 디버깅 세션 (2026-07-25) — DONE
 - Depends: S-MAP M5, DEVICE_TEST_CHECKLIST(1d1df44). 백로그 태스크 아님 — 카운트 변경 없음.
 - 배경: 실기기 테스트 전 "기기 없이 잡을 수 있는 결함 전부 제거" 세션. 8-lens 멀티에이전트 버그 헌트(finder 42건) → adversarial 반증 검증 → 직렬 TDD fix. 전체 결과·백로그 SSoT: **[BUG_HUNT_2026-07-25.md](BUG_HUNT_2026-07-25.md)**.

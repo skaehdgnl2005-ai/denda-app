@@ -2,23 +2,17 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { getGuestGroupView, type GuestVote, type HeatmapSlot } from '../lib/guestApi';
 import { classifyHeat, type HeatLevel } from '../lib/heatmap';
 import { dayOfWeekKst, formatHeaderDate } from '../lib/time';
 import { voteKey, parseVoteKey } from '../lib/voteKey';
-
-interface Vote {
-  day: string;
-  start_minute: number;
-  end_minute: number;
-  guest_token?: string | null;
-  user_id?: string | null;
-}
 
 interface GuestTimeGridProps {
   groupId: string;
   guestToken: string;
   dates: string[];
-  votes: Vote[];
+  votes: GuestVote[];
+  heatmap?: HeatmapSlot[];
   memberCount: number;
   onVoteStatusChange?: (isSaving: boolean) => void;
   onVotesUpdated?: () => void;
@@ -34,11 +28,12 @@ export default function GuestTimeGrid({
   guestToken,
   dates,
   votes: initialVotes,
+  heatmap: initialHeatmap,
   memberCount,
   onVoteStatusChange,
   onVotesUpdated,
 }: GuestTimeGridProps) {
-  const [votes, setVotes] = useState<Vote[]>(initialVotes);
+  const [heatmap, setHeatmap] = useState<HeatmapSlot[]>(initialHeatmap ?? []);
   const [selectedSlots, setSelectedSlots] = useState<{ [key: string]: boolean }>({});
   const [isDragging, setIsDragging] = useState(false);
   const [dragMode, setDragMode] = useState<'select' | 'deselect' | null>(null);
@@ -52,49 +47,48 @@ export default function GuestTimeGrid({
   const sweepStartRef = useRef<{ day: string; minute: number } | null>(null);
 
   // Parse initial votes to populate guest's selection state.
-  // S14-violations-fix: `setVotes(initialVotes)`은 prop→state sync로 set-state-in-effect 회피가
+  // S14-violations-fix: `setHeatmap(initialHeatmap)`은 prop→state sync로 set-state-in-effect 회피가
   // 어려운 경우. selectedSlots reset과 함께 한 effect에서 처리. broadcast refresh는 별도
   // refreshVotes에서 동일 state 갱신. 별도 state-refactor 도입 시 props 직접 사용으로 격상 후보.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setVotes(initialVotes);
+    setHeatmap(initialHeatmap ?? []);
     const initialSelection: { [key: string]: boolean } = {};
     initialVotes.forEach((vote) => {
-      if (vote.guest_token === guestToken) {
+      if (vote.is_own) {
         const key = voteKey({ day: vote.day, start_minute: vote.start_minute });
         initialSelection[key] = true;
       }
     });
     setSelectedSlots(initialSelection);
-  }, [initialVotes, guestToken]);
+  }, [initialVotes, initialHeatmap, guestToken]);
 
-  // Aggregate heatmap data (count of voters per slot)
+  // 서버에서 집계한 슬롯별 count를 렌더 키로 변환
   const heatmapData = React.useMemo(() => {
     const counts: { [key: string]: number } = {};
-    votes.forEach((vote) => {
+    heatmap.forEach((vote) => {
       const key = voteKey({ day: vote.day, start_minute: vote.start_minute });
-      counts[key] = (counts[key] || 0) + 1;
+      counts[key] = vote.count;
     });
     return counts;
-  }, [votes]);
+  }, [heatmap]);
 
   // S14-violations-fix: const declaration hoisting 불가 → useCallback로 먼저 선언 +
   // useEffect deps에 포함 (refreshVotes accessed before declared error 해소).
   const refreshVotes = useCallback(async () => {
-    const { data } = await supabase
-      .from('votes')
-      .select('day, start_minute, end_minute, guest_token, user_id')
-      .eq('group_id', groupId);
-    if (data) {
-      setVotes(data);
+    try {
+      const view = await getGuestGroupView(groupId, guestToken);
+      if (view) setHeatmap(view.heatmap);
+    } catch (err) {
+      console.error('히트맵을 새로 불러오지 못했어요.', err);
     }
-  }, [groupId]);
+  }, [groupId, guestToken]);
 
   // Subscribe to real-time updates for heatmap updates
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_IS_E2E === 'true') {
       // dummy supabase URL websocket retry 회피 + Playwright spec이 핸들러 동작을 검증할 수
-      // 있도록 window-scoped trigger 노출. spec은 page.route로 /rest/v1/votes intercept 후
+      // 있도록 window-scoped trigger 노출. spec은 page.route로 /rest/v1/rpc/get_guest_group_view intercept 후
       // 트리거 호출 → refreshVotes 호출(REST hit) 검증.
       const trigger = () => {
         refreshVotes();

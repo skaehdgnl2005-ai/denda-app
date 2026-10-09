@@ -1,7 +1,7 @@
 import React from 'react';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { supabase } from '../../../lib/supabase';
+import { getGuestGroupView } from '../../../lib/guestApi';
 import ClientPage from './ClientPage';
 
 interface Props {
@@ -22,13 +22,8 @@ async function getGroup(groupId: string) {
   }
 
   try {
-    const { data: group, error } = await supabase
-      .from('groups')
-      .select('id, name, dates, host_id, users!groups_host_id_fkey(nickname)')
-      .eq('id', groupId)
-      .single();
-
-    if (error || !group) return null;
+    const group = await getGuestGroupView(groupId);
+    if (!group) return null;
     return group;
   } catch (err) {
     console.error('Error fetching group:', err);
